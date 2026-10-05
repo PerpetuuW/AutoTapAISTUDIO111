@@ -19,7 +19,7 @@
     <string name="btn_help">Help</string>
     <string name="btn_close">Close</string>
     <string name="app_title">AUTOTAP</string>
-    <string name="app_version_tag">v55.0 Precision</string>
+    <string name="app_version_tag">v34.9 Precision</string>
     <string name="btn_security">БЕЗОПАСНОСТЬ</string>
     <string name="main_switch_desc">Главный переключатель пульта</string>
     <string name="tap_to_launch_hint">Нажмите для запуска пульта</string>
