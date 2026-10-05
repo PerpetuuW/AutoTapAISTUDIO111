@@ -85,6 +85,7 @@ android {
         }
         jniLibs {
             useLegacyPackaging = false
+            keepDebugSymbols += listOf("**/libmediapipe_tasks_vision_jni.so", "**/libonnxruntime.so", "**/libonnxruntime4j_jni.so")
         }
     }
 

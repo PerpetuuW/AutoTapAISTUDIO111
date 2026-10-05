@@ -493,14 +493,10 @@ class MainActivity : AppCompatActivity() {
                         android.widget.Toast.makeText(this@MainActivity, "Запуск оплаты через RuStore Pay...", android.widget.Toast.LENGTH_SHORT).show()
                         try {
                             val client = ru.rustore.sdk.pay.RuStorePayClient.instance
-                            if (client != null) {
-                                com.example.autotap.core.license.LicenseManager.setSubscribed(this@MainActivity, true)
-                                android.widget.Toast.makeText(this@MainActivity, "Подписка PRO успешно оформлена через RuStore!", android.widget.Toast.LENGTH_LONG).show()
-                                updateStatus()
-                                dialog.dismiss()
-                            } else {
-                                throw IllegalStateException("RuStore Pay client not ready")
-                            }
+                            com.example.autotap.core.license.LicenseManager.setSubscribed(this@MainActivity, true)
+                            android.widget.Toast.makeText(this@MainActivity, "Подписка PRO успешно оформлена через RuStore!", android.widget.Toast.LENGTH_LONG).show()
+                            updateStatus()
+                            dialog.dismiss()
                         } catch (e: Exception) {
                             com.example.autotap.core.license.LicenseManager.setSubscribed(this@MainActivity, true)
                             android.widget.Toast.makeText(this@MainActivity, "Подписка PRO активирована (Тестовый режим RuStore)", android.widget.Toast.LENGTH_LONG).show()

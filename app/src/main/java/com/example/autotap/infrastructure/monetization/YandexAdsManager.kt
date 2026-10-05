@@ -125,11 +125,11 @@ object YandexAdsManager {
         var adStartTimestamp = 0L
 
         loader.setAdLoadListener(object : RewardedAdLoadListener {
-            override fun onAdLoaded(rewardedAd: RewardedAd) {
+            override fun onAdLoaded(rewarded: RewardedAd) {
                 AppLogger.log(null, "YANDEX_ADS", "Рекламный ролик успешно загружен: $adUnitId")
                 onStatusMessage("Реклама готова! Показ...")
 
-                rewardedAd.setAdEventListener(object : RewardedAdEventListener {
+                rewarded.setAdEventListener(object : RewardedAdEventListener {
                     override fun onAdShown() {
                         adStartTimestamp = System.currentTimeMillis()
                         isAdShowing.set(true)
@@ -185,7 +185,7 @@ object YandexAdsManager {
                     }
                 })
 
-                rewardedAd.show(activity)
+                rewarded.show(activity)
             }
 
             override fun onAdFailedToLoad(error: AdRequestError) {

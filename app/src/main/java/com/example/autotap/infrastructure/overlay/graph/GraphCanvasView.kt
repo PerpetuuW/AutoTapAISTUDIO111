@@ -158,7 +158,7 @@ class GraphCanvasView(context: Context) : View(context) {
         levels[entryId] = 0
 
         while (queue.isNotEmpty()) {
-            val (currentId, level) = queue.poll()
+            val (currentId, level) = queue.poll() ?: break
             val outEdges = sc.edges.filter { it.fromNodeId == currentId }
             for (edge in outEdges) {
                 if (edge.toNodeId !in visited && edge.toNodeId in sc.nodes) {

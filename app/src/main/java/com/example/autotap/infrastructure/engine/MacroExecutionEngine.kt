@@ -395,7 +395,7 @@ class MacroExecutionEngine(
                                                         .build()
                                                     nm.notify(1000 + action.id, notif)
                                                 }
-                                                val vib = srv.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+                                                val vib = androidx.core.content.ContextCompat.getSystemService(srv, android.os.Vibrator::class.java)
                                                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                                                     vib?.vibrate(android.os.VibrationEffect.createOneShot(150L, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
                                                 } else {
