@@ -1,0 +1,1527 @@
+{
+  "file": "app/src/main/java/com/example/autotap/MyAutoClickService.kt",
+  "total_lines": 6602,
+  "symbols_count": 152,
+  "symbols": [
+    {
+      "kind": "ENUM",
+      "name": "ActionType",
+      "start_line": 67,
+      "end_line": 67,
+      "depth": 0,
+      "signature": "enum class ActionType { CLICK, LONG_PRESS, SWIPE, TRIGGER, PATH, OCR }",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "ENUM",
+      "name": "TemplateType",
+      "start_line": 69,
+      "end_line": 71,
+      "depth": 0,
+      "signature": "enum class TemplateType {",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "CLASS",
+      "name": "MatchCandidate",
+      "start_line": 73,
+      "end_line": 82,
+      "depth": 0,
+      "signature": "data class MatchCandidate(",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "CLASS",
+      "name": "RefinedMaskResult",
+      "start_line": 84,
+      "end_line": 201,
+      "depth": 0,
+      "signature": "data class RefinedMaskResult(",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "CLASS",
+      "name": "ActionConfig",
+      "start_line": 92,
+      "end_line": 201,
+      "depth": 0,
+      "signature": "class ActionConfig(",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "CLASS",
+      "name": "ClickPulseView",
+      "start_line": 121,
+      "end_line": 201,
+      "depth": 0,
+      "signature": "class ClickPulseView @JvmOverloads constructor(",
+      "category": "Gestures & Input Simulation",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onAttachedToWindow",
+      "start_line": 150,
+      "end_line": 158,
+      "depth": 1,
+      "signature": "override fun onAttachedToWindow() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onDraw",
+      "start_line": 160,
+      "end_line": 200,
+      "depth": 1,
+      "signature": "override fun onDraw(canvas: android.graphics.Canvas) {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "CLASS",
+      "name": "GraphOverlayView",
+      "start_line": 203,
+      "end_line": 311,
+      "depth": 0,
+      "signature": "class GraphOverlayView @JvmOverloads constructor(",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onDraw",
+      "start_line": 237,
+      "end_line": 270,
+      "depth": 1,
+      "signature": "override fun onDraw(canvas: android.graphics.Canvas) {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "drawCurvedArrow",
+      "start_line": 272,
+      "end_line": 310,
+      "depth": 1,
+      "signature": "private fun drawCurvedArrow(",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "CLASS",
+      "name": "MyAutoClickService",
+      "start_line": 328,
+      "end_line": 6602,
+      "depth": 0,
+      "signature": "class MyAutoClickService : AccessibilityService() {",
+      "category": "Gestures & Input Simulation",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "hideControlPanelTemporarily",
+      "start_line": 343,
+      "end_line": 357,
+      "depth": 1,
+      "signature": "fun hideControlPanelTemporarily(timeoutMs: Long = 30000L) {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "restoreControlPanelImmediately",
+      "start_line": 359,
+      "end_line": 372,
+      "depth": 1,
+      "signature": "fun restoreControlPanelImmediately() {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showClickVisualizer",
+      "start_line": 384,
+      "end_line": 407,
+      "depth": 1,
+      "signature": "private fun showClickVisualizer(x: Float, y: Float) {",
+      "category": "Gestures & Input Simulation",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "startActionScanningVisual",
+      "start_line": 409,
+      "end_line": 465,
+      "depth": 1,
+      "signature": "private fun startActionScanningVisual(action: ActionConfig) {",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "updateTargetAppearance",
+      "start_line": 467,
+      "end_line": 483,
+      "depth": 1,
+      "signature": "fun updateTargetAppearance(config: ActionConfig) {",
+      "category": "Gestures & Input Simulation",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "dismissJoystick",
+      "start_line": 485,
+      "end_line": 492,
+      "depth": 1,
+      "signature": "fun dismissJoystick() {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "stopActionScanningVisual",
+      "start_line": 494,
+      "end_line": 516,
+      "depth": 1,
+      "signature": "private fun stopActionScanningVisual() {",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "exportLogsToTxtFile",
+      "start_line": 518,
+      "end_line": 540,
+      "depth": 1,
+      "signature": "fun exportLogsToTxtFile(context: Context) {",
+      "category": "Storage & Script Engine",
+      "parent": null
+    },
+    {
+      "kind": "COMPANION",
+      "name": "companion object",
+      "start_line": 542,
+      "end_line": 591,
+      "depth": 1,
+      "signature": "companion object {",
+      "category": "Core / Static Singleton",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "logError",
+      "start_line": 554,
+      "end_line": 571,
+      "depth": 2,
+      "signature": "fun logError(context: Context, e: Throwable) {",
+      "category": "System, Diagnostics & Lifecycle",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "logAppEvent",
+      "start_line": 574,
+      "end_line": 590,
+      "depth": 2,
+      "signature": "fun logAppEvent(context: Context, tag: String, message: String) {",
+      "category": "System, Diagnostics & Lifecycle",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "getTemplateMetadataFile",
+      "start_line": 645,
+      "end_line": 650,
+      "depth": 1,
+      "signature": "private fun getTemplateMetadataFile(maskPath: String): File {",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "loadTemplateMetadata",
+      "start_line": 652,
+      "end_line": 662,
+      "depth": 1,
+      "signature": "fun loadTemplateMetadata(maskPath: String): JSONObject? {",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "vibrateFeedback",
+      "start_line": 664,
+      "end_line": 682,
+      "depth": 1,
+      "signature": "fun vibrateFeedback(durationMs: Long = 25L) {",
+      "category": "System, Diagnostics & Lifecycle",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "setOverlaysVisibleForCapture",
+      "start_line": 684,
+      "end_line": 702,
+      "depth": 1,
+      "signature": "private fun setOverlaysVisibleForCapture(visible: Boolean) {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "getActionsListSnapshot",
+      "start_line": 704,
+      "end_line": 708,
+      "depth": 1,
+      "signature": "fun getActionsListSnapshot(): List<ActionConfig> = actionsList.toList()",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "requestGraphRedraw",
+      "start_line": 706,
+      "end_line": 708,
+      "depth": 1,
+      "signature": "fun requestGraphRedraw() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "setTargetsTouchable",
+      "start_line": 710,
+      "end_line": 732,
+      "depth": 1,
+      "signature": "private fun setTargetsTouchable(touchable: Boolean) {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showJoystickManipulator",
+      "start_line": 734,
+      "end_line": 1060,
+      "depth": 1,
+      "signature": "fun showJoystickManipulator() {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onTouch",
+      "start_line": 800,
+      "end_line": 815,
+      "depth": 4,
+      "signature": "override fun onTouch(v: View, event: MotionEvent): Boolean {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onTouch",
+      "start_line": 848,
+      "end_line": 881,
+      "depth": 3,
+      "signature": "override fun onTouch(v: View, event: MotionEvent): Boolean {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onTouch",
+      "start_line": 888,
+      "end_line": 1012,
+      "depth": 3,
+      "signature": "override fun onTouch(v: View, event: MotionEvent): Boolean {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "run",
+      "start_line": 921,
+      "end_line": 939,
+      "depth": 7,
+      "signature": "override fun run() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showGlobalSettingsDialog",
+      "start_line": 1062,
+      "end_line": 1099,
+      "depth": 1,
+      "signature": "fun showGlobalSettingsDialog() {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showEditDialog",
+      "start_line": 1101,
+      "end_line": 1503,
+      "depth": 1,
+      "signature": "private fun showEditDialog(config: ActionConfig) {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "nudgeTarget",
+      "start_line": 1149,
+      "end_line": 1156,
+      "depth": 2,
+      "signature": "fun nudgeTarget(dxPx: Int, dyPx: Int) {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "refreshMultiTemplatesGrid",
+      "start_line": 1183,
+      "end_line": 1294,
+      "depth": 2,
+      "signature": "fun refreshMultiTemplatesGrid() {",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "updateUI",
+      "start_line": 1319,
+      "end_line": 1370,
+      "depth": 2,
+      "signature": "fun updateUI() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "saveCurrentStepData",
+      "start_line": 1379,
+      "end_line": 1407,
+      "depth": 2,
+      "signature": "fun saveCurrentStepData() {",
+      "category": "Storage & Script Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showScriptsDialog",
+      "start_line": 1505,
+      "end_line": 1586,
+      "depth": 1,
+      "signature": "fun showScriptsDialog() {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "refreshScriptsList",
+      "start_line": 1525,
+      "end_line": 1571,
+      "depth": 2,
+      "signature": "fun refreshScriptsList() {",
+      "category": "Storage & Script Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "addNewActionAtPosition",
+      "start_line": 1588,
+      "end_line": 1694,
+      "depth": 1,
+      "signature": "private fun addNewActionAtPosition(",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onTouch",
+      "start_line": 1642,
+      "end_line": 1685,
+      "depth": 3,
+      "signature": "override fun onTouch(v: View, event: MotionEvent): Boolean {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showTargetQuickRing",
+      "start_line": 1696,
+      "end_line": 1837,
+      "depth": 1,
+      "signature": "private fun showTargetQuickRing(config: ActionConfig) {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showMethodHelpDialog",
+      "start_line": 1839,
+      "end_line": 1906,
+      "depth": 1,
+      "signature": "private fun showMethodHelpDialog() {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "acquireWakeLock",
+      "start_line": 1912,
+      "end_line": 1922,
+      "depth": 1,
+      "signature": "private fun acquireWakeLock() {",
+      "category": "System, Diagnostics & Lifecycle",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "releaseWakeLock",
+      "start_line": 1924,
+      "end_line": 1930,
+      "depth": 1,
+      "signature": "private fun releaseWakeLock() {",
+      "category": "System, Diagnostics & Lifecycle",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showCustomSearchAreaSelector",
+      "start_line": 1934,
+      "end_line": 2045,
+      "depth": 1,
+      "signature": "fun showCustomSearchAreaSelector(targetConfig: ActionConfig?, onAreaSelected: (Rect?) -> Unit) {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "updateAreaPositions",
+      "start_line": 1955,
+      "end_line": 1968,
+      "depth": 2,
+      "signature": "fun updateAreaPositions() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onTouch",
+      "start_line": 1973,
+      "end_line": 1987,
+      "depth": 3,
+      "signature": "override fun onTouch(v: View, event: MotionEvent): Boolean {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onTouch",
+      "start_line": 1996,
+      "end_line": 2010,
+      "depth": 3,
+      "signature": "override fun onTouch(v: View, event: MotionEvent): Boolean {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showScreenLockOverlay",
+      "start_line": 2047,
+      "end_line": 2167,
+      "depth": 1,
+      "signature": "fun showScreenLockOverlay() {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "run",
+      "start_line": 2128,
+      "end_line": 2140,
+      "depth": 6,
+      "signature": "override fun run() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "spawnEndTargetAtPosition",
+      "start_line": 2169,
+      "end_line": 2234,
+      "depth": 1,
+      "signature": "private fun spawnEndTargetAtPosition(config: ActionConfig, posX: Float, posY: Float) {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onTouch",
+      "start_line": 2192,
+      "end_line": 2225,
+      "depth": 3,
+      "signature": "override fun onTouch(v: View, event: MotionEvent): Boolean {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "startPulseAnimation",
+      "start_line": 2241,
+      "end_line": 2255,
+      "depth": 1,
+      "signature": "private fun startPulseAnimation(view: View?) {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "stopPulseAnimation",
+      "start_line": 2257,
+      "end_line": 2262,
+      "depth": 1,
+      "signature": "private fun stopPulseAnimation(view: View?) {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "hideTutorial",
+      "start_line": 2264,
+      "end_line": 2276,
+      "depth": 1,
+      "signature": "private fun hideTutorial() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "computeGaussianOffset",
+      "start_line": 2280,
+      "end_line": 2289,
+      "depth": 1,
+      "signature": "private fun computeGaussianOffset(radius: Int): Pair<Float, Float> {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showRunningBadge",
+      "start_line": 2291,
+      "end_line": 2378,
+      "depth": 1,
+      "signature": "private fun showRunningBadge() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onTouch",
+      "start_line": 2336,
+      "end_line": 2373,
+      "depth": 3,
+      "signature": "override fun onTouch(v: View, event: MotionEvent): Boolean {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "hideRunningBadge",
+      "start_line": 2380,
+      "end_line": 2383,
+      "depth": 1,
+      "signature": "private fun hideRunningBadge() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "startExecutionLoop",
+      "start_line": 2385,
+      "end_line": 2593,
+      "depth": 1,
+      "signature": "private fun startExecutionLoop() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onCompleted",
+      "start_line": 2527,
+      "end_line": 2529,
+      "depth": 9,
+      "signature": "override fun onCompleted(gestureDescription: GestureDescription?) {",
+      "category": "Gestures & Input Simulation",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onCancelled",
+      "start_line": 2530,
+      "end_line": 2532,
+      "depth": 9,
+      "signature": "override fun onCancelled(gestureDescription: GestureDescription?) {",
+      "category": "Gestures & Input Simulation",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showDebuggerToolbar",
+      "start_line": 2597,
+      "end_line": 2669,
+      "depth": 1,
+      "signature": "private fun showDebuggerToolbar() {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "hideDebuggerToolbar",
+      "start_line": 2671,
+      "end_line": 2675,
+      "depth": 1,
+      "signature": "private fun hideDebuggerToolbar() {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "stopExecutionLoop",
+      "start_line": 2677,
+      "end_line": 2690,
+      "depth": 1,
+      "signature": "private fun stopExecutionLoop() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showControlPanel",
+      "start_line": 2692,
+      "end_line": 2983,
+      "depth": 1,
+      "signature": "fun showControlPanel() {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "applyPanelCycleState",
+      "start_line": 2723,
+      "end_line": 2756,
+      "depth": 2,
+      "signature": "fun applyPanelCycleState(mode: Int) {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onTouch",
+      "start_line": 2764,
+      "end_line": 2794,
+      "depth": 3,
+      "signature": "override fun onTouch(v: View, event: MotionEvent): Boolean {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onTouch",
+      "start_line": 2811,
+      "end_line": 2850,
+      "depth": 3,
+      "signature": "override fun onTouch(v: View, event: MotionEvent): Boolean {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "safeUpdateViewLayout",
+      "start_line": 2985,
+      "end_line": 2992,
+      "depth": 1,
+      "signature": "private fun safeUpdateViewLayout(view: View?, params: WindowManager.LayoutParams) {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "safeRemoveView",
+      "start_line": 2994,
+      "end_line": 3002,
+      "depth": 1,
+      "signature": "private fun safeRemoveView(view: View?) {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "safeAddView",
+      "start_line": 3004,
+      "end_line": 3013,
+      "depth": 1,
+      "signature": "private fun safeAddView(view: View?, params: WindowManager.LayoutParams) {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "dpToPx",
+      "start_line": 3015,
+      "end_line": 3017,
+      "depth": 1,
+      "signature": "private fun dpToPx(dp: Int): Int {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "dpToPx",
+      "start_line": 3019,
+      "end_line": 3021,
+      "depth": 1,
+      "signature": "private fun dpToPx(dp: Float): Int {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "getOverlayType",
+      "start_line": 3023,
+      "end_line": 3029,
+      "depth": 1,
+      "signature": "private fun getOverlayType(): Int {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onCreate",
+      "start_line": 3031,
+      "end_line": 3033,
+      "depth": 1,
+      "signature": "override fun onCreate() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onServiceConnected",
+      "start_line": 3035,
+      "end_line": 3045,
+      "depth": 1,
+      "signature": "override fun onServiceConnected() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onUnbind",
+      "start_line": 3047,
+      "end_line": 3050,
+      "depth": 1,
+      "signature": "override fun onUnbind(intent: Intent?): Boolean {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onDestroy",
+      "start_line": 3052,
+      "end_line": 3058,
+      "depth": 1,
+      "signature": "override fun onDestroy() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onAccessibilityEvent",
+      "start_line": 3060,
+      "end_line": 3060,
+      "depth": 1,
+      "signature": "override fun onAccessibilityEvent(event: AccessibilityEvent?) {}",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onInterrupt",
+      "start_line": 3062,
+      "end_line": 3062,
+      "depth": 1,
+      "signature": "override fun onInterrupt() {}",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onKeyEvent",
+      "start_line": 3064,
+      "end_line": 3099,
+      "depth": 1,
+      "signature": "override fun onKeyEvent(event: android.view.KeyEvent?): Boolean {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "performClick",
+      "start_line": 3101,
+      "end_line": 3103,
+      "depth": 1,
+      "signature": "fun performClick(x: Float, y: Float, duration: Long = globalClickDurationMs) {",
+      "category": "Gestures & Input Simulation",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "performClickWithCallback",
+      "start_line": 3105,
+      "end_line": 3140,
+      "depth": 1,
+      "signature": "fun performClickWithCallback(",
+      "category": "Gestures & Input Simulation",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "finish",
+      "start_line": 3120,
+      "end_line": 3125,
+      "depth": 2,
+      "signature": "fun finish(success: Boolean) {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onCompleted",
+      "start_line": 3130,
+      "end_line": 3132,
+      "depth": 3,
+      "signature": "override fun onCompleted(gestureDescription: GestureDescription?) {",
+      "category": "Gestures & Input Simulation",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onCancelled",
+      "start_line": 3134,
+      "end_line": 3136,
+      "depth": 3,
+      "signature": "override fun onCancelled(gestureDescription: GestureDescription?) {",
+      "category": "Gestures & Input Simulation",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "performSwipe",
+      "start_line": 3142,
+      "end_line": 3150,
+      "depth": 1,
+      "signature": "fun performSwipe(",
+      "category": "Gestures & Input Simulation",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "performSwipeWithCallback",
+      "start_line": 3152,
+      "end_line": 3197,
+      "depth": 1,
+      "signature": "fun performSwipeWithCallback(",
+      "category": "Gestures & Input Simulation",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "finish",
+      "start_line": 3177,
+      "end_line": 3182,
+      "depth": 2,
+      "signature": "fun finish(success: Boolean) {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onCompleted",
+      "start_line": 3187,
+      "end_line": 3189,
+      "depth": 3,
+      "signature": "override fun onCompleted(gestureDescription: GestureDescription?) {",
+      "category": "Gestures & Input Simulation",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onCancelled",
+      "start_line": 3191,
+      "end_line": 3193,
+      "depth": 3,
+      "signature": "override fun onCancelled(gestureDescription: GestureDescription?) {",
+      "category": "Gestures & Input Simulation",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "exportScriptWithTemplates",
+      "start_line": 3199,
+      "end_line": 3256,
+      "depth": 1,
+      "signature": "fun exportScriptWithTemplates(context: Context, scriptName: String) {",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "saveScriptByName",
+      "start_line": 3258,
+      "end_line": 3324,
+      "depth": 1,
+      "signature": "fun saveScriptByName(name: String) {",
+      "category": "Storage & Script Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "loadScriptByName",
+      "start_line": 3326,
+      "end_line": 3444,
+      "depth": 1,
+      "signature": "fun loadScriptByName(name: String) {",
+      "category": "Storage & Script Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "loadAllTemplatesFromDisk",
+      "start_line": 3446,
+      "end_line": 3483,
+      "depth": 1,
+      "signature": "fun loadAllTemplatesFromDisk() {",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "hideControlPanel",
+      "start_line": 3485,
+      "end_line": 3508,
+      "depth": 1,
+      "signature": "fun hideControlPanel(openMainApp: Boolean = true) {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "purgeOldTrashTemplates",
+      "start_line": 3510,
+      "end_line": 3525,
+      "depth": 1,
+      "signature": "private fun purgeOldTrashTemplates() {",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "moveTemplateToTrash",
+      "start_line": 3527,
+      "end_line": 3564,
+      "depth": 1,
+      "signature": "fun moveTemplateToTrash(index: Int) {",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "startOverlayRecording",
+      "start_line": 3566,
+      "end_line": 3659,
+      "depth": 1,
+      "signature": "fun startOverlayRecording() {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "stopOverlayRecording",
+      "start_line": 3661,
+      "end_line": 3678,
+      "depth": 1,
+      "signature": "fun stopOverlayRecording() {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showAddActionMenu",
+      "start_line": 3680,
+      "end_line": 3720,
+      "depth": 1,
+      "signature": "private fun showAddActionMenu() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showSaveRecordingDialog",
+      "start_line": 3722,
+      "end_line": 3744,
+      "depth": 1,
+      "signature": "private fun showSaveRecordingDialog() {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showRecordBar",
+      "start_line": 3746,
+      "end_line": 3791,
+      "depth": 1,
+      "signature": "private fun showRecordBar() {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "removeHighlightOverlay",
+      "start_line": 3793,
+      "end_line": 3799,
+      "depth": 1,
+      "signature": "fun removeHighlightOverlay() {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "hideOverlaysAndWait",
+      "start_line": 3801,
+      "end_line": 3809,
+      "depth": 1,
+      "signature": "private fun hideOverlaysAndWait() {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "computeFastScreenHash",
+      "start_line": 3816,
+      "end_line": 3830,
+      "depth": 1,
+      "signature": "private fun computeFastScreenHash(pixels: IntArray, width: Int, height: Int): Long {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "executeOcrSearchSequence",
+      "start_line": 3832,
+      "end_line": 3898,
+      "depth": 1,
+      "signature": "private fun executeOcrSearchSequence(action: ActionConfig, isTestRun: Boolean = false): Boolean {",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onSuccess",
+      "start_line": 3841,
+      "end_line": 3888,
+      "depth": 3,
+      "signature": "override fun onSuccess(screenshotResult: ScreenshotResult) {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onFailure",
+      "start_line": 3890,
+      "end_line": 3893,
+      "depth": 3,
+      "signature": "override fun onFailure(errorCode: Int) {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "evaluateLogicCondition",
+      "start_line": 3905,
+      "end_line": 3949,
+      "depth": 1,
+      "signature": "fun evaluateLogicCondition(expression: String): Boolean {",
+      "category": "System, Diagnostics & Lifecycle",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "executeCompositeAiCondition",
+      "start_line": 3956,
+      "end_line": 3980,
+      "depth": 1,
+      "signature": "private fun executeCompositeAiCondition(action: ActionConfig): Boolean {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "executeAiTriggerSequence",
+      "start_line": 3982,
+      "end_line": 4144,
+      "depth": 1,
+      "signature": "private fun executeAiTriggerSequence(action: ActionConfig, isTestRun: Boolean = false): Boolean {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onSuccess",
+      "start_line": 4019,
+      "end_line": 4091,
+      "depth": 4,
+      "signature": "override fun onSuccess(screenshotResult: ScreenshotResult) {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onFailure",
+      "start_line": 4093,
+      "end_line": 4097,
+      "depth": 4,
+      "signature": "override fun onFailure(errorCode: Int) {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "executeWaitUntilDisappearSequence",
+      "start_line": 4150,
+      "end_line": 4170,
+      "depth": 1,
+      "signature": "private fun executeWaitUntilDisappearSequence(action: ActionConfig, timeoutSeconds: Int = 30): Boolean {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showHighlightBox",
+      "start_line": 4174,
+      "end_line": 4222,
+      "depth": 1,
+      "signature": "private fun showHighlightBox(rect: Rect) {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "getDeviceSpecsJson",
+      "start_line": 4224,
+      "end_line": 4234,
+      "depth": 1,
+      "signature": "private fun getDeviceSpecsJson(): JSONObject {",
+      "category": "Storage & Script Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "saveTemplateMetadata",
+      "start_line": 4236,
+      "end_line": 4275,
+      "depth": 1,
+      "signature": "fun saveTemplateMetadata(",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "findCandidatesForCreation",
+      "start_line": 4277,
+      "end_line": 4307,
+      "depth": 1,
+      "signature": "private fun findCandidatesForCreation(",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "highlightButton",
+      "start_line": 4309,
+      "end_line": 4322,
+      "depth": 1,
+      "signature": "private fun highlightButton(button: View?) {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "clearButtonHighlights",
+      "start_line": 4324,
+      "end_line": 4348,
+      "depth": 1,
+      "signature": "private fun clearButtonHighlights() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "positionTutorialCardSide",
+      "start_line": 4350,
+      "end_line": 4398,
+      "depth": 1,
+      "signature": "private fun positionTutorialCardSide() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "updateTutorialContent",
+      "start_line": 4400,
+      "end_line": 4502,
+      "depth": 1,
+      "signature": "private fun updateTutorialContent() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showTutorialCard",
+      "start_line": 4504,
+      "end_line": 4553,
+      "depth": 1,
+      "signature": "private fun showTutorialCard() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showCaptureFrame",
+      "start_line": 4555,
+      "end_line": 4889,
+      "depth": 1,
+      "signature": "private fun showCaptureFrame() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "updateFramePositions",
+      "start_line": 4599,
+      "end_line": 4641,
+      "depth": 3,
+      "signature": "fun updateFramePositions() {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onTouch",
+      "start_line": 4661,
+      "end_line": 4694,
+      "depth": 4,
+      "signature": "override fun onTouch(v: View, event: MotionEvent): Boolean {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onTouch",
+      "start_line": 4705,
+      "end_line": 4720,
+      "depth": 4,
+      "signature": "override fun onTouch(v: View, event: MotionEvent): Boolean {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onSuccess",
+      "start_line": 4756,
+      "end_line": 4861,
+      "depth": 9,
+      "signature": "override fun onSuccess(screenshotResult: ScreenshotResult) {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onFailure",
+      "start_line": 4863,
+      "end_line": 4867,
+      "depth": 9,
+      "signature": "override fun onFailure(errorCode: Int) {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "analyzeTemplate",
+      "start_line": 4891,
+      "end_line": 4930,
+      "depth": 1,
+      "signature": "private fun analyzeTemplate(template: Bitmap): JSONObject {",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "findTemplateFastCascade",
+      "start_line": 4932,
+      "end_line": 4940,
+      "depth": 1,
+      "signature": "private fun findTemplateFastCascade(",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "saveBitmapToPng",
+      "start_line": 5328,
+      "end_line": 5342,
+      "depth": 1,
+      "signature": "private fun saveBitmapToPng(bitmap: Bitmap, file: File) {",
+      "category": "Storage & Script Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "generateConfidenceHeatmap",
+      "start_line": 5344,
+      "end_line": 5408,
+      "depth": 1,
+      "signature": "fun generateConfidenceHeatmap(",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "refineAndTrimSmartMask",
+      "start_line": 5410,
+      "end_line": 5473,
+      "depth": 1,
+      "signature": "private fun refineAndTrimSmartMask(",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "generateSmartMask",
+      "start_line": 5475,
+      "end_line": 5573,
+      "depth": 1,
+      "signature": "private fun generateSmartMask(src: Bitmap, isCircle: Boolean = false, bgTolerance: Int = 25, isRawMode: Boolean = false): Bitmap {",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "push",
+      "start_line": 5510,
+      "end_line": 5518,
+      "depth": 2,
+      "signature": "fun push(x: Int, y: Int) {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "showCandidatesSelectionOverlay",
+      "start_line": 5575,
+      "end_line": 6437,
+      "depth": 1,
+      "signature": "private fun showCandidatesSelectionOverlay(",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onProgressChanged",
+      "start_line": 5765,
+      "end_line": 5774,
+      "depth": 4,
+      "signature": "override fun onProgressChanged(",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onStartTrackingTouch",
+      "start_line": 5776,
+      "end_line": 5776,
+      "depth": 4,
+      "signature": "override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onStopTrackingTouch",
+      "start_line": 5777,
+      "end_line": 5777,
+      "depth": 4,
+      "signature": "override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onTouch",
+      "start_line": 6005,
+      "end_line": 6030,
+      "depth": 3,
+      "signature": "override fun onTouch(v: View, event: MotionEvent): Boolean {",
+      "category": "UI Overlays & Interaction",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "startTemplateCalibration",
+      "start_line": 6439,
+      "end_line": 6557,
+      "depth": 1,
+      "signature": "private fun startTemplateCalibration(config: ActionConfig) {",
+      "category": "Computer Vision & AI",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onSuccess",
+      "start_line": 6493,
+      "end_line": 6542,
+      "depth": 5,
+      "signature": "override fun onSuccess(screenshotResult: ScreenshotResult) {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "onFailure",
+      "start_line": 6544,
+      "end_line": 6552,
+      "depth": 5,
+      "signature": "override fun onFailure(errorCode: Int) {",
+      "category": "Core / Service Engine",
+      "parent": null
+    },
+    {
+      "kind": "FUNCTION",
+      "name": "runSmartCalibration",
+      "start_line": 6559,
+      "end_line": 6601,
+      "depth": 1,
+      "signature": "private fun runSmartCalibration(",
+      "category": "Core / Service Engine",
+      "parent": null
+    }
+  ]
+}

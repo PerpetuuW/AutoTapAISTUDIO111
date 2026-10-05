@@ -1,0 +1,27 @@
+{
+  "default_hardware_serial": "",
+  "devices": {
+    "vwobfqlrsc8tbyuo": {
+      "alias": "Xiaomi 2312FPCA6G",
+      "hardware_serial": "vwobfqlrsc8tbyuo",
+      "current_adb_id": "adb-vwobfqlrsc8tbyuo-lzrUDA._adb-tls-connect._tcp",
+      "model": "2312FPCA6G",
+      "brand": "Xiaomi",
+      "android_version": "16",
+      "status": "online",
+      "registered_at": "2026-09-18 10:22:49",
+      "last_seen": "2026-09-28 10:37:48"
+    },
+    "adb-vwobfqlrsc8tbyuo-lzrUDA._adb-tls-connect._tcp": {
+      "alias": "Device 2312FPCA6G",
+      "hardware_serial": "adb-vwobfqlrsc8tbyuo-lzrUDA._adb-tls-connect._tcp",
+      "current_adb_id": "adb-vwobfqlrsc8tbyuo-lzrUDA._adb-tls-connect._tcp",
+      "model": "2312FPCA6G",
+      "brand": "Device",
+      "android_version": "?",
+      "status": "offline",
+      "registered_at": "2026-09-18 10:23:51",
+      "last_seen": "2026-09-18 10:23:51"
+    }
+  }
+}

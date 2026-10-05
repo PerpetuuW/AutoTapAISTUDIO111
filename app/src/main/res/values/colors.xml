@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="purple_bg_dark">#0B0813</color>
+    <color name="purple_bg_surface">#140F24</color>
+    <color name="purple_bg_card">#1B1430</color>
+    <color name="purple_card_border">#2E2250</color>
+    <color name="purple_primary">#8B5CF6</color>
+    <color name="purple_glow">#A78BFA</color>
+    <color name="purple_deep">#5B21B6</color>
+    <color name="purple_ring_outer">#1A1230</color>
+    <color name="purple_ring_mid">#261948</color>
+    <color name="purple_text_white">#FFFFFF</color>
+    <color name="purple_text_muted">#9E95B8</color>
+    <color name="purple_badge_green">#10B981</color>
+    <color name="purple_badge_green_bg">#1A3528</color>
+    <color name="purple_badge_coral">#F43F5E</color>
+    <color name="purple_badge_coral_bg">#3D1724</color>
+</resources>

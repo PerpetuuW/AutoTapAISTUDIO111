@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="#F20D1117"
+    android:padding="12dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <Button
+            android:id="@+id/btnPrevStep"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/symbol_prev" android:contentDescription="@string/desc_prev" />
+
+        <TextView
+            android:id="@+id/tvDialogTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:textColor="#58A6FF"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnNextStep"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/symbol_next" android:contentDescription="@string/desc_next" />
+
+        <Button
+            android:id="@+id/btnSaveHeader"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="" android:contentDescription="@string/desc_save" />
+
+        <ImageButton
+            android:id="@+id/btnCloseHeader"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"  android:importantForAccessibility="no" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <Button android:id="@+id/btnTypeClick" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/action_tap_short" />
+        <Button android:id="@+id/btnTypeHold" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/action_hold" />
+        <Button android:id="@+id/btnTypeSwipe" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/action_swipe_short" />
+        <Button android:id="@+id/btnTypeTrigger" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/action_ai" />
+        <Button android:id="@+id/btnTypeOcr" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/action_ocr" />
+    </LinearLayout>
+
+    <EditText
+        android:id="@+id/etDelay"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Пауза (сек)"
+        android:inputType="numberDecimal" />
+
+    <EditText
+        android:id="@+id/etRepeatCount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Повторы"
+        android:inputType="number" />
+
+    <TextView
+        android:id="@+id/tvHoldTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/label_duration_ms" />
+
+    <EditText
+        android:id="@+id/etHoldDuration"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="number" />
+
+    <LinearLayout
+        android:id="@+id/layoutAiParametersBlock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvAiTimeoutTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/label_ai_timeout" />
+
+        <EditText
+            android:id="@+id/etAiTimeout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="number" />
+
+        <TextView
+            android:id="@+id/tvMultiListCount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#8B949E" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <Button android:id="@+id/btnSelectAllMulti" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/btn_all" />
+            <Button android:id="@+id/btnClearAllMulti" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/btn_reset" />
+        </LinearLayout>
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <LinearLayout
+                android:id="@+id/layoutMultiTemplatesGrid"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
+
+        <Button
+            android:id="@+id/btnCalibrateMatchesOnScreen"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_calibrate_mask" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/layoutOcrBlock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <EditText
+            android:id="@+id/etOcrQuery"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/hint_text_or_hex" android:inputType="text" android:importantForAutofill="no" />
+
+        <EditText
+            android:id="@+id/etJumpOnMatch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Прыжок при успехе (шаг №)"
+            android:inputType="number" />
+
+        <EditText
+            android:id="@+id/etJumpOnTimeout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Прыжок при таймауте (шаг №)"
+            android:inputType="number" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <Button android:id="@+id/btnCloneAction" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/btn_clone" />
+        <Button android:id="@+id/btnDeleteAction" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/btn_delete" />
+        <Button android:id="@+id/btnCancel" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/btn_cancel" />
+        <Button android:id="@+id/btnSave" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/btn_ok" />
+    </LinearLayout>
+</LinearLayout>

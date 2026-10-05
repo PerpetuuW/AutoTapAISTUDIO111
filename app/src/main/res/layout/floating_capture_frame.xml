@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <View
+        android:id="@+id/captureSquare"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@drawable/border_capture"  android:importantForAccessibility="no"/>
+
+    <LinearLayout
+        android:id="@+id/layoutTopBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="#DD0D1117"
+        android:padding="4dp">
+
+        <TextView
+            android:id="@+id/handleMoveFrame"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_move_frame"
+            android:textColor="#58A6FF"
+            android:textSize="11sp"
+            android:padding="6dp" />
+
+        <Button
+            android:id="@+id/btnToggleCaptureShape"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🔘"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/handleResize"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_resize_frame"
+            android:textColor="#38BDF8"
+            android:textSize="11sp"
+            android:padding="6dp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/layoutBottomBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="#DD0D1117"
+        android:padding="4dp">
+
+        <ImageButton
+            android:id="@+id/btnCancelCapture"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"  android:importantForAccessibility="no" />
+
+        <ImageButton
+            android:id="@+id/btnDoCapture"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:src="@android:drawable/ic_menu_camera"  android:importantForAccessibility="no" />
+    </LinearLayout>
+</FrameLayout>

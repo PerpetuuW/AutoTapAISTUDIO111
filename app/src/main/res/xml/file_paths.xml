@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Внутреннее хранилище файлов приложения (error_log.txt, scripts, templates) -->
+    <files-path name="internal_files" path="." />
+    <!-- Внутренний кэш (temp_import.zip) -->
+    <cache-path name="internal_cache" path="." />
+    <!-- Внешний кэш для экспортируемых сценариев (script_export.zip) -->
+    <external-cache-path name="external_cache" path="." />
+    <!-- Внешнее хранилище файлов приложения -->
+    <external-files-path name="external_files" path="." />
+</paths>

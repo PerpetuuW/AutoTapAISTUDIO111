@@ -1,0 +1,925 @@
+{
+    "defects": [
+        {
+            "id": "DEFECT_KOTLIN_WHEN_EXHAUSTIVE",
+            "description": "'when' expression must be exhaustive. Add GLOBAL_BACK, GLOBAL_HOME, DELAY branches.",
+            "target_file": "app/src/main/java/com/example/autotap/infrastructure/engine/MacroExecutionEngine.kt",
+            "checker_module": "check_action_factory_dispatch.py",
+            "status": "FIXED",
+            "created_at": "2026-09-17 13:58:20",
+            "updated_at": "2026-09-17 13:58:20",
+            "checker_file": "check_action_factory_dispatch.py",
+            "checker": "check_action_factory_dispatch.py"
+        },
+        {
+            "id": "DEFECT_GRAPH_HITBOX_MISMATCH",
+            "description": "Рассинхрон ширины узла 180dp и отрисовки 220dp, приводивший к смещению хитбоксов кабелей",
+            "target_file": "app/src/main/java/com/example/autotap/infrastructure/overlay/graph/GraphCanvasView.kt",
+            "checker_module": "check_graph_layout_and_aspect.py",
+            "status": "FIXED",
+            "created_at": "2026-09-17 13:58:20",
+            "updated_at": "2026-09-17 13:58:20",
+            "checker_file": "check_graph_layout_and_aspect.py",
+            "checker": "check_graph_layout_and_aspect.py"
+        },
+        {
+            "id": "DEFECT_MULTITEMPLATE_LOCKED_DELETE",
+            "description": "Блокировка удаления последнего шаблона из шага 'Должен остаться хотя бы один шаблон'",
+            "target_file": "app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/EditActionDialog.kt",
+            "checker_module": "check_multitemplate_and_mask.py",
+            "status": "FIXED",
+            "created_at": "2026-09-17 13:58:20",
+            "updated_at": "2026-09-17 13:58:20",
+            "checker_file": "check_multitemplate_and_mask.py",
+            "checker": "check_multitemplate_and_mask.py"
+        },
+        {
+            "id": "DEFECT_EDIT_ACTION_DIALOG_NULL_SAFETY",
+            "description": "Nullable-списки multiTemplatePaths и вызовы репозитория без оператора безопасного вызова ?",
+            "target_file": "app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/EditActionDialog.kt",
+            "checker_module": "check_edit_action_dialog_safety.py",
+            "status": "FIXED",
+            "created_at": "2026-09-17 13:58:20",
+            "updated_at": "2026-09-17 13:58:20",
+            "checker_file": "check_edit_action_dialog_safety.py",
+            "checker": "check_edit_action_dialog_safety.py"
+        },
+        {
+            "id": "DEFECT_INVISIBLE_WALL_SCREEN_BOUNDS",
+            "description": "Искусственные барьеры 55dp сверху и 65dp снизу",
+            "target_file": "TargetOverlayManager.kt",
+            "checker_module": "check_target_screen_bounds.py",
+            "status": "FIXED",
+            "created_at": "2026-09-17 13:58:20",
+            "updated_at": "2026-09-17 14:14:44",
+            "checker_file": "check_target_screen_bounds.py",
+            "checker": "check_target_screen_bounds.py"
+        },
+        {
+            "id": "DEFECT_SMART_MASK_BEST_MASK",
+            "description": "Опечатка opt.generatedMask вместо opt.bestMask в конвейере умной записи",
+            "target_file": "app/src/main/java/com/example/autotap/infrastructure/overlay/record/GestureRecorderOverlay.kt",
+            "checker_module": "check_smart_recording_routing.py",
+            "status": "FIXED",
+            "created_at": "2026-09-17 13:58:20",
+            "updated_at": "2026-09-17 13:58:20",
+            "checker_file": "check_smart_recording_routing.py",
+            "checker": "check_smart_recording_routing.py"
+        },
+        {
+            "id": "DEFECT_KOTLIN_FILE_STRUCTURE",
+            "description": "Синтаксическая ошибка: import расположен выше package",
+            "target_file": "EditActionDialog.kt",
+            "checker_module": "check_kotlin_file_structure.py",
+            "status": "FIXED",
+            "created_at": "2026-09-17 14:14:44",
+            "updated_at": "2026-09-17 14:14:44",
+            "checker_file": "check_kotlin_file_structure.py",
+            "checker": "check_kotlin_file_structure.py"
+        },
+        {
+            "id": "DEFECT_TOOLING_API_BREAKAGE",
+            "description": "Сбой импортов (copy_to_clipboard, SmartPatcher) при переименовании утилит",
+            "target_file": "1AAutomation/*.py",
+            "checker_module": "check_tooling_contracts_preservation.py",
+            "status": "FIXED",
+            "created_at": "2026-09-17 14:14:44",
+            "updated_at": "2026-09-17 14:14:44",
+            "checker_file": "check_tooling_contracts_preservation.py",
+            "checker": "check_tooling_contracts_preservation.py"
+        },
+        {
+            "id": "DEFECT_GESTURE_RECORDER_UNRESOLVED_META",
+            "description": "Unresolved references finalSim, finalShapeExp, finalPadding в GestureRecorderOverlay.kt",
+            "target_file": "app/src/main/java/com/example/autotap/infrastructure/overlay/record/GestureRecorderOverlay.kt",
+            "checker_module": "check_gesture_recorder_meta.py",
+            "status": "FIXED",
+            "created_at": "2026-09-17 17:12:01",
+            "updated_at": "2026-09-17 17:12:01",
+            "checker_file": "check_gesture_recorder_meta.py",
+            "checker": "check_gesture_recorder_meta.py"
+        },
+        {
+            "id": "DEFECT_GIT_COMMIT_ON_SUCCESSFUL_BUILD",
+            "description": "Отсутствие верификации и автолечения Git-коммита при успешной компиляции",
+            "target_file": "1ABuild.py",
+            "checker_module": "check_git_commit_on_build.py",
+            "status": "FIXED",
+            "created_at": "2026-09-18 01:37:07",
+            "updated_at": "2026-09-18 01:37:07",
+            "checker_file": "check_git_commit_on_build.py",
+            "checker": "check_git_commit_on_build.py"
+        },
+        {
+            "id": "DEFECT_TEMPLATE_SCOPE_AND_METADATA_ISOLATION",
+            "description": "Передача глобального пула масок в шаг сценария и перетирание индивидуальных метаданных шаблонов",
+            "target_file": "MacroExecutionEngine.kt, TemplateMatchingEngine.kt",
+            "checker_module": "check_template_scope_isolation.py",
+            "status": "FIXED",
+            "created_at": "2026-09-18 09:29:40",
+            "updated_at": "2026-09-18 09:30:18",
+            "checker_file": "check_template_scope_isolation.py",
+            "checker": "check_template_scope_isolation.py"
+        },
+        {
+            "id": "DEFECT_MICRO_ICON_NYQUIST_SKIPPING",
+            "description": "Пропуск тонких штрихов крестиков и стрелок в TIER-2 Coarse Scan из-за жесткого шага coerceIn(10, 24)",
+            "checker_file": "check_micro_icon_sampling.py",
+            "fixed_at": "2026-09-21 15:45:22",
+            "checker": "check_micro_icon_sampling.py",
+            "checker_module": "check_micro_icon_sampling.py"
+        },
+        {
+            "id": "DEFECT_CALIBRATION_SINGLE_CANDIDATE_RESTRICTION",
+            "description": "Ограничение калибровки единственным локальным совпадением вместо каскадного поиска всех кандидатов сходимостью >= 60%",
+            "checker_file": "check_calibration_all_candidates.py",
+            "fixed_at": "2026-09-21 16:13:14",
+            "checker": "check_calibration_all_candidates.py",
+            "checker_module": "check_calibration_all_candidates.py"
+        },
+        {
+            "id": "DEFECT_SMART_RECORD_RAW_FALLBACK_AND_OFFCENTER",
+            "description": "Сырые непрозрачные картинки в умной записи вместо альфа-масок и смещение центра шаблона от объекта",
+            "checker_file": "check_smart_record_mask_and_centering.py",
+            "fixed_at": "2026-09-21 16:38:15",
+            "checker": "check_smart_record_mask_and_centering.py",
+            "checker_module": "check_smart_record_mask_and_centering.py"
+        },
+        {
+            "id": "DEFECT_STEP_EDITOR_COGNITIVE_OVERLOAD_ERGONOMICS",
+            "description": "Стена из 15 кнопок типов действий и перегруженный скролл заменены на 3-вкладочную архитектуру Material 3",
+            "checker_file": "check_step_editor_ergonomics.py",
+            "fixed_at": "2026-09-21 16:52:06",
+            "checker": "check_step_editor_ergonomics.py",
+            "checker_module": "check_step_editor_ergonomics.py"
+        },
+        {
+            "id": "DEFECT_DUPLICATE_ADDVIEW_AND_LOG_EXPORT_TYPE",
+            "description": "Краш ViewGroup.addView на строке 379, сбой прав экспорта логов FileProvider и замена ядовитых цветов кнопок на Material 3",
+            "checker_file": "check_ui_clean_palette_and_parent_safety.py",
+            "fixed_at": "2026-09-21 17:08:33",
+            "checker": "check_ui_clean_palette_and_parent_safety.py",
+            "checker_module": "check_ui_clean_palette_and_parent_safety.py"
+        },
+        {
+            "id": "DEFECT_STEP_EDITOR_M3_PALETTE_AND_ENGINE_NAMING",
+            "description": "Устранение дублирующей категоризации кнопок, замена путаного названия движка на OPENCV ⇄ AI НЕЙРОСЕТЬ и ликвидация кислотной палитры",
+            "checker_file": "check_step_editor_clean_m3.py",
+            "fixed_at": "2026-09-21 17:39:57",
+            "checker": "check_step_editor_clean_m3.py",
+            "checker_module": "check_step_editor_clean_m3.py"
+        },
+        {
+            "id": "DEFECT_API35_SEQUENCED_COLLECTION_AND_ZERO_ALLOC",
+            "description": "Защита API 35 через removeAt, вынос аллокаций из onDraw, устранение компиляторных варнингов и Package Visibility <queries>",
+            "checker_file": "check_api35_and_zero_alloc_drawing.py",
+            "fixed_at": "2026-09-21 17:57:00",
+            "checker": "check_api35_and_zero_alloc_drawing.py",
+            "checker_module": "check_api35_and_zero_alloc_drawing.py"
+        },
+        {
+            "id": "DEFECT_CV_PARAMS_IN_STEP_MENU_AND_CASCADE_EARLY_EXIT",
+            "description": "Удаление параметров CV из меню шагов (шаблон - единственный источник истины) и устранение раннего выхода в калибровке",
+            "checker_file": "check_template_source_of_truth_and_cascade.py",
+            "fixed_at": "2026-09-22 09:31:06",
+            "checker": "check_template_source_of_truth_and_cascade.py",
+            "checker_module": "check_template_source_of_truth_and_cascade.py"
+        },
+        {
+            "id": "DEFECT_TEMPLATE_FOLDER_MOVE_AND_RAW_RECALIB",
+            "description": "Замена кнопки ТОЛЬКО ЭТОТ на В ПАПКУ, перекалибровка по сырому кадру вместо студии, вывод параметров под шаблоном и исправление порога 35%",
+            "checker_file": "check_template_folder_and_recalib.py",
+            "fixed_at": "2026-09-22 10:30:35",
+            "checker": "check_template_folder_and_recalib.py",
+            "checker_module": "check_template_folder_and_recalib.py"
+        },
+        {
+            "id": "DEFECT_COMPILER_ORCH_INITIAL_CANDIDATES_AND_CAROUSEL_SCOPE",
+            "description": "Устранение ошибок компиляции: initialCandidates в CalibrationOverlay, инкапсуляция baseTemplatesDir и устранение коллизии isShape",
+            "checker_file": "check_compiler_integrity_and_m3_cards.py",
+            "fixed_at": "2026-09-22 10:52:46",
+            "checker": "check_compiler_integrity_and_m3_cards.py",
+            "checker_module": "check_compiler_integrity_and_m3_cards.py"
+        },
+        {
+            "id": "DEFECT_BRACKET_BALANCE_IN_MOVE_TO_FOLDER",
+            "description": "Устранение синтаксической ошибки баланса скобок в лямбде btnMoveToFolder и разблокировка компилятора",
+            "checker_file": "check_compiler_integrity_and_m3_cards.py",
+            "fixed_at": "2026-09-22 10:58:14",
+            "checker": "check_compiler_integrity_and_m3_cards.py",
+            "checker_module": "check_compiler_integrity_and_m3_cards.py"
+        },
+        {
+            "id": "DEFECT_UNRESOLVED_THRESHOLD_VAL_IN_CAROUSEL",
+            "description": "Замена неразрешенной переменной thresholdVal на metaSim в бейдже карусели EditActionDialog",
+            "checker_file": "check_threshold_val_resolved.py",
+            "fixed_at": "2026-09-22 11:13:28",
+            "checker": "check_threshold_val_resolved.py",
+            "checker_module": "check_threshold_val_resolved.py"
+        },
+        {
+            "id": "DEFECT_SCRIPTS_DIALOG_CRASH_AND_CRAMMED_ERGONOMICS",
+            "description": "Краш BadTokenException при привязке приложения, сжатие названий сценариев и внедрение подтверждения перезаписи",
+            "checker_file": "check_scripts_dialog_ergonomics_and_safety.py",
+            "fixed_at": "2026-09-22 11:35:59",
+            "checker": "check_scripts_dialog_ergonomics_and_safety.py",
+            "checker_module": "check_scripts_dialog_ergonomics_and_safety.py"
+        },
+        {
+            "id": "DEFECT_GAME_FOCUS_DETECTION_AND_OUTDATED_TUTORIALS",
+            "description": "Сбой детекции игры при автозапуске из-за захвата системных лаунчеров/UI и устаревшие тексты туториалов",
+            "checker_file": "check_game_focus_and_m3_tutorials.py",
+            "fixed_at": "2026-09-22 11:45:09",
+            "checker": "check_game_focus_and_m3_tutorials.py",
+            "checker_module": "check_game_focus_and_m3_tutorials.py"
+        },
+        {
+            "id": "DEFECT_FINAL_HARMONIZATION_AND_EMOJI_PURGE",
+            "description": "Устранение эмодзи из UI, гармонизация чекеров под Single Source of Truth и разрешение thresholdVal",
+            "checker_file": "check_no_emoji_in_ui.py",
+            "fixed_at": "2026-09-22 11:56:31",
+            "checker": "check_no_emoji_in_ui.py",
+            "checker_module": "check_no_emoji_in_ui.py"
+        },
+        {
+            "id": "DEFECT_ORCHESTRATOR_SYNTAX_AND_KEYBOARD_VISIBILITY",
+            "description": "Синтаксическая ошибка в startRecaptureForStep, устранение дефектной рамки над кликом и безотказное скрытие клавиатуры",
+            "checker_file": "check_orchestrator_and_keyboard_fix.py",
+            "fixed_at": "2026-09-22 14:30:31",
+            "checker": "check_orchestrator_and_keyboard_fix.py",
+            "checker_module": "check_orchestrator_and_keyboard_fix.py"
+        },
+        {
+            "id": "DEFECT_SEARCH_PIPELINE_AUTONOMOUS_HEALING",
+            "description": "Развертывание автономного чекера автолечения контура поиска и переход на Omni-Context пакетные срезы v18.0",
+            "checker_file": "check_search_pipeline_and_healing.py",
+            "fixed_at": "2026-09-22 14:30:46",
+            "checker": "check_search_pipeline_and_healing.py",
+            "checker_module": "check_search_pipeline_and_healing.py"
+        },
+        {
+            "id": "DEFECT_OVERLAY_ZIP_IMPORT_SCOPED_STORAGE",
+            "description": "Сбой импорта ZIP в ScriptsDialog из-за Scoped Storage, внедрение SAF-трамплина и очистка от неона",
+            "checker_file": "check_overlay_zip_import_contract.py",
+            "fixed_at": "2026-09-22 14:39:47",
+            "checker": "check_overlay_zip_import_contract.py",
+            "checker_module": "check_overlay_zip_import_contract.py"
+        },
+        {
+            "id": "DEFECT_EXPORT_EMPTY_GUARD_AND_OVERLAY_IMPORT",
+            "description": "Пустой экспорт ZIP при отсутствии данных и блокировка SAF проводника при импорте из оверлея",
+            "checker": "check_export_empty_guard_and_overlay_import.py",
+            "timestamp": 1790082653,
+            "checker_file": "check_export_empty_guard_and_overlay_import.py",
+            "checker_module": "check_export_empty_guard_and_overlay_import.py"
+        },
+        {
+            "id": "DEFECT_SEARCH_HOTPATH_ALLOCATION_AND_EARLY_REJECTION",
+            "description": "Аллокация временных массивов в горячем цикле сканирования и отсутствие раннего отсечения фона",
+            "checker": "check_search_pipeline_and_micro_icon_optimization.py",
+            "timestamp": 1790087615,
+            "checker_file": "check_search_pipeline_and_micro_icon_optimization.py",
+            "checker_module": "check_search_pipeline_and_micro_icon_optimization.py"
+        },
+        {
+            "id": "DEFECT_PARTIAL_SCREEN_RECORDING_AND_VIRTUAL_DISPLAY",
+            "description": "Ограничение записи одним приложением в Android 14 и обрезка VirtualDisplay по навигации",
+            "checker": "check_fullscreen_recording_and_projection.py",
+            "timestamp": 1790088503,
+            "checker_file": "check_fullscreen_recording_and_projection.py",
+            "checker_module": "check_fullscreen_recording_and_projection.py"
+        },
+        {
+            "id": "DEFECT_KOTLIN_SUSPICIOUS_INDENTATION_WARNINGS",
+            "description": "Предупреждения компилятора Suspicious indentation в TME, GCV, MEE и MPS",
+            "checker": "check_suspicious_indentation_hygiene.py",
+            "timestamp": 1790089070,
+            "checker_file": "check_suspicious_indentation_hygiene.py",
+            "checker_module": "check_suspicious_indentation_hygiene.py"
+        },
+        {
+            "id": "DEFECT_AI_HARDCODED_SCORE_AND_CALIB_INSET_DRIFT",
+            "description": "Захардкоженный скор 96% в AI, калибровка по кропу вместо экрана и смещение метки вверх",
+            "checker": "check_ai_engine_and_calibration_insets.py",
+            "timestamp": 1790116106,
+            "checker_file": "check_ai_engine_and_calibration_insets.py",
+            "checker_module": "check_ai_engine_and_calibration_insets.py"
+        },
+        {
+            "id": "DEFECT_AI_OCR_HARDCODE_AND_FALSE_POSITIVES",
+            "description": "Ложные 96% срабатывания OCR на случайные буквы вместо поиска визуальных иконок",
+            "checker": "check_neural_visual_engine.py",
+            "timestamp": 1790116757,
+            "checker_file": "check_neural_visual_engine.py",
+            "checker_module": "check_neural_visual_engine.py"
+        },
+        {
+            "id": "DEFECT_TOOLBAR_M3_GEOMETRIC_HARMONY",
+            "description": "Исключение овальной деформации кнопок тулбара в пользу Material 3 прямоугольников",
+            "checker_file": "check_close_help_oval.py",
+            "status": "FIXED",
+            "checker": "check_close_help_oval.py",
+            "checker_module": "check_close_help_oval.py"
+        },
+        {
+            "id": "DEFECT_UI_DIMENSIONS_DOUBLE_DENSITY",
+            "description": "Защита от Double Density Scaling и стандарт 38dp для кнопок тулбара",
+            "checker_file": "check_ui_dimensions.py",
+            "status": "FIXED",
+            "checker": "check_ui_dimensions.py",
+            "checker_module": "check_ui_dimensions.py"
+        },
+        {
+            "id": "DEFECT_TINT_CONTRACT_ANDROIDX",
+            "description": "Контракт app:tint во всех векторных XML макетах",
+            "checker_file": "check_tint_contract.py",
+            "status": "FIXED",
+            "checker": "check_tint_contract.py",
+            "checker_module": "check_tint_contract.py"
+        },
+        {
+            "id": "DEFECT_VECTOR_ICON_DRAW_UNBLOCKED",
+            "description": "Векторные пиктограммы подтверждения и отмены в onDraw",
+            "checker_file": "check_vector_icon_draw.py",
+            "status": "FIXED",
+            "checker": "check_vector_icon_draw.py",
+            "checker_module": "check_vector_icon_draw.py"
+        },
+        {
+            "id": "DEFECT_CALIBRATION_CO_VERIF_BAD_TOKEN_CRASH",
+            "description": "Краш BadTokenException при добавлении проверочного шаблона из оверлея",
+            "checker": "check_calibration_crash_and_ai_reactive.py",
+            "checker_file": "check_calibration_crash_and_ai_reactive.py",
+            "checker_module": "check_calibration_crash_and_ai_reactive.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_CALIBRATION_AI_NEURAL_REACTIVE_DEBOUNCE",
+            "description": "Фиктивное переключение AI ⇄ OPENCV в калибровке и зависание без реактивного дебаунса",
+            "checker": "check_calibration_crash_and_ai_reactive.py",
+            "checker_file": "check_calibration_crash_and_ai_reactive.py",
+            "checker_module": "check_calibration_crash_and_ai_reactive.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_LOG_EXPORT_UNSUPPORTED_FILE_INTENT_CONFLICT",
+            "description": "Ошибка 'Неподдерживаемый файл' при экспорте логов из-за конфликта EXTRA_TEXT и EXTRA_STREAM",
+            "checker": "check_unified_log_sharing.py",
+            "checker_file": "check_unified_log_sharing.py",
+            "checker_module": "check_unified_log_sharing.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_TUTORIAL_PHANTOM_JOYSTICK_STEP",
+            "description": "Фантомный шаг обучения 'ДЖОЙСТИК' при удаленном функционале виртуального стика",
+            "checker": "check_recent_features_harmonization.py",
+            "checker_file": "check_recent_features_harmonization.py",
+            "checker_module": "check_recent_features_harmonization.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_TARGET_SHAPE_SQUARE_AND_NEURAL_STREAMING",
+            "description": "Квадратные шаблоны в круглых мишенях и отсутствие роутинга AI при стриминге",
+            "checker": "check_target_shape_and_neural_routing.py",
+            "checker_file": "check_target_shape_and_neural_routing.py",
+            "checker_module": "check_target_shape_and_neural_routing.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_KOTLIN_ESCAPE_SEQUENCE_REGRESSION",
+            "description": "Синтаксический сбой escape-последовательностей при генерации Regex",
+            "checker": "check_patch_syntax_and_escapes.py",
+            "timestamp": "2026-09-25T20:32:22.264043",
+            "checker_file": "check_patch_syntax_and_escapes.py",
+            "checker_module": "check_patch_syntax_and_escapes.py"
+        },
+        {
+            "id": "DEFECT_VIEWGROUP_MULTIPLE_ADD_VIEW_CRASH",
+            "description": "Повторный вызов addView для одного экземпляра View вызывающий IllegalStateException",
+            "checker": "check_viewgroup_parent_collisions.py",
+            "timestamp": "2026-09-25T20:32:22.264043",
+            "checker_file": "check_viewgroup_parent_collisions.py",
+            "checker_module": "check_viewgroup_parent_collisions.py"
+        },
+        {
+            "id": "DEFECT_GARBAGE_BRACKETS_AND_DEAD_CODE_REMEDIATION",
+            "timestamp": "2026-09-26T02:19:11.676363",
+            "checker": "check_bracket_balance.py",
+            "description": "Полное иссечение зависшего блока v.invalidate(), мертвой реализации GradientDrawable для MINI_PLAY_BTN и закрывающих скобок между методами.",
+            "checker_file": "check_bracket_balance.py",
+            "checker_module": "check_bracket_balance.py"
+        },
+        {
+            "id": "DEFECT_GARBAGE_BRACKETS_AND_DEAD_CODE_REMEDIATION",
+            "timestamp": "2026-09-26T02:24:03.874105",
+            "checker": "check_bracket_balance.py",
+            "description": "Полное иссечение зависшего блока v.invalidate(), мертвой реализации GradientDrawable для MINI_PLAY_BTN и закрывающих скобок между методами.",
+            "checker_file": "check_bracket_balance.py",
+            "checker_module": "check_bracket_balance.py"
+        },
+        {
+            "id": "DEFECT_UX_HIDDEN_MINIMIZE_STATE_REMEDIATION",
+            "timestamp": "2026-09-26T12:02:12.753745",
+            "checker": "check_ui_minimize_button.py",
+            "description": "Пользователь не мог свернуть панель в 2 кнопки. Внедрена явная кнопка [-] btnMinimize, устранены мертвые Cast'ы в applyDisplayMode, шеврон теперь корректно обновляет состояние через invalidate().",
+            "checker_file": "check_ui_minimize_button.py",
+            "checker_module": "check_ui_minimize_button.py"
+        },
+        {
+            "id": "DEFECT_GRAPH_NODE_LAYOUT_AND_HITBOX_SYNC",
+            "timestamp": "2026-09-26T12:37:24.734853",
+            "checker": "check_graph_node_geometry.py",
+            "description": "Тексты узлов обрезались паразитным ellipsize в 130dp, превью шаблонов были мелкими (72dp), а хитбокс в onTouchEvent не совпадал с зоной отрисовки, что ломало туториалы.",
+            "checker_file": "check_graph_node_geometry.py",
+            "checker_module": "check_graph_node_geometry.py"
+        },
+        {
+            "id": "DEFECT_GRAPH_TUTORIAL_MISSING_REMEDIATION",
+            "timestamp": "2026-09-26T13:42:30.418670",
+            "checker": "check_tutorial_graph_mode.py",
+            "description": "Отсутствовала реализация TutorialMode.GRAPH в интерактивном туториале, из-за чего при вызове справки на графе происходил сбой или туториал не запускался.",
+            "checker_file": "check_tutorial_graph_mode.py",
+            "checker_module": "check_tutorial_graph_mode.py"
+        },
+        {
+            "id": "DEFECT_GRAPH_VISUALS_AND_CANVAS_TUTORIAL_BRIDGE",
+            "timestamp": "2026-09-26T13:49:50.336419",
+            "checker": "check_canvas_tutorial_bridge.py",
+            "description": "Туториал не находил UI-теги, так как узлы графа рисовались напрямую в Canvas. Внедрен мост координат. Также устранена плоская верстка: добавлены тени, сетка и выравнивание текстов портов по правому краю (Right-Aligned).",
+            "checker_file": "check_canvas_tutorial_bridge.py",
+            "checker_module": "check_canvas_tutorial_bridge.py"
+        },
+        {
+            "id": "DEFECT_ENGINE_ARRAY_FILTERING_AND_GRAPH_REMEDIATION",
+            "timestamp": "2026-09-26T13:58:18.459333",
+            "checker": "check_graph_node_geometry.py",
+            "description": "Сбой сигнатурного движка привел к падению скобочного баланса в GraphCanvasView. Внедрен алгоритм точной проекции строк (Non-Empty Projection), произведен откат и успешное наложение Blueprint-эргономики.",
+            "checker_file": "check_graph_node_geometry.py",
+            "checker_module": "check_graph_node_geometry.py"
+        },
+        {
+            "id": "DEFECT_KOTLIN_PAINT_DESCENT_SYNTAX_ERROR",
+            "timestamp": "2026-09-26T14:11:53.236744",
+            "checker": "check_paint_descent_syntax.py",
+            "description": "Сбой компиляции 'Function invocation descent() expected' из-за обращения к функции descent напрямую через объект Paint вместо свойства fontMetrics.descent.",
+            "checker_file": "check_paint_descent_syntax.py",
+            "checker_module": "check_paint_descent_syntax.py"
+        },
+        {
+            "id": "DEFECT_GRADLE_BUILD_PERFORMANCE_DEGRADATION",
+            "timestamp": "2026-09-26T14:25:59.793874",
+            "checker": "check_build_cache_and_heap_tuning.py",
+            "description": "Замедление компиляции из-за отключенного build cache, нехватки кучи JVM (2GB) и отсутствия отслеживания VFS.",
+            "checker_file": "check_build_cache_and_heap_tuning.py",
+            "checker_module": "check_build_cache_and_heap_tuning.py"
+        },
+        {
+            "id": "DEFECT_GRAPH_TOOLBAR_BTN_HEIGHT_DP36",
+            "timestamp": "2026-09-26T19:55:11.218715",
+            "checker": "check_graph_toolbar_dp36.py",
+            "description": "Сбой check_calib_and_graph_layout.py из-за отклонения высоты кнопок тулбара (было dp(32) вместо стандарта dp(36)).",
+            "checker_file": "check_graph_toolbar_dp36.py",
+            "checker_module": "check_graph_toolbar_dp36.py"
+        },
+        {
+            "id": "DEFECT_GRAPH_EDITOR_UNRESOLVED_TUTORIAL_IMPORT",
+            "timestamp": "2026-09-26T20:21:43.362632",
+            "checker": "check_graph_tutorial_import.py",
+            "description": "Сбой компиляции 'Unresolved reference InteractiveTutorialOverlay' из-за отсутствия директивы импорта в GraphEditorOverlay.kt.",
+            "checker_file": "check_graph_tutorial_import.py",
+            "checker_module": "check_graph_tutorial_import.py"
+        },
+        {
+            "id": "DEFECT_FINAL_EMOJI_AND_PICTOGRAPH_PURGE",
+            "timestamp": "2026-09-26T23:21:00.254793",
+            "checker": "check_no_emoji_in_ui.py",
+            "description": "Сбой check_no_emoji_in_ui.py: обнаружены остаточные Unicode-пиктограммы и эмодзи в MacroExecutionEngine, RunningBadgeOverlay, GraphEditorOverlay и ScreenLockOverlay.",
+            "checker_file": "check_no_emoji_in_ui.py",
+            "checker_module": "check_no_emoji_in_ui.py"
+        },
+        {
+            "id": "DEFECT_DEAD_CODE_AND_ZOMBIE_CLASSES_PURGE",
+            "timestamp": "2026-09-27T00:01:22.072982",
+            "checker": "check_dead_code_purged.py",
+            "description": "Ликвидация 1200+ строк мертвого кода и устаревших оверлеев: JoystickOverlay, MultiTemplateGraphPromptOverlay, RefinedMaskResult, ScreenshotBitmapPool.",
+            "checker_file": "check_dead_code_purged.py",
+            "checker_module": "check_dead_code_purged.py"
+        },
+        {
+            "id": "DEFECT_RECENT_SESSION_NOT_RESTORED_ON_STARTUP",
+            "timestamp": "2026-09-27T10:44:17.249090",
+            "checker": "check_recent_session_auto_restore.py",
+            "description": "Шаги последней сессии не восстанавливались по умолчанию из-за несоответствия имени сценария ('_last_active_session' вместо 'ActiveSession') и отсутствия авто-персистентности при закрытии оверлея.",
+            "checker_file": "check_recent_session_auto_restore.py",
+            "checker_module": "check_recent_session_auto_restore.py"
+        },
+        {
+            "id": "DEFECT_GRAPH_INSPECTOR_BOTTOM_BUTTONS_CLIPPING",
+            "timestamp": "2026-09-27T20:34:56.026724",
+            "checker": "check_graph_inspector_buttons.py",
+            "description": "Срезание текста кнопок УДАЛИТЬ и ЗАКРЫТЬ в карточке инспектора узла из-за низкой высоты dp(28) и внутренних отступов Material Button.",
+            "checker_file": "check_graph_inspector_buttons.py",
+            "checker_module": "check_graph_inspector_buttons.py"
+        },
+        {
+            "id": "DEFECT_MAINHANDLER_PRIVATE_AND_TOAST_CONSTANT_FIX",
+            "timestamp": "2026-09-28T12:15:34.017525",
+            "checker": "check_toast_and_handler_syntax.py",
+            "description": "Сбой компиляции: обращение к private mainHandler оркестратора из сервиса и ошибочное использование константы Toast.SHORT вместо Toast.LENGTH_SHORT.",
+            "checker_file": "check_toast_and_handler_syntax.py",
+            "checker_module": "check_toast_and_handler_syntax.py"
+        },
+        {
+            "id": "DEFECT_CALIBRATION_STUDIO_PARAMS_AND_TUTORIAL_IMPORT_FIX",
+            "timestamp": "2026-09-28T14:05:03.540750",
+            "checker": "check_calibration_studio_and_tutorial_contract.py",
+            "description": "Сбой компиляции: пропуск параметра initialMask и обращение к несуществующему rawSourceBitmap при вызове MagicWandEditorOverlay, а также отсутствие импорта InteractiveTutorialOverlay в CalibrationOverlay.kt.",
+            "checker_file": "check_calibration_studio_and_tutorial_contract.py",
+            "checker_module": "check_calibration_studio_and_tutorial_contract.py"
+        },
+        {
+            "id": "DEFECT_PATH_EMPTY_PARAMS_AND_RECORDER_LAG",
+            "description": "Пустой ActionType.PATH без координат endX/endY, задержка жеста до ACTION_UP и порядок кнопок пульта",
+            "checker": "check_path_and_live_gesture_recording.py",
+            "timestamp": "2026-09-29T09:52:37.101447",
+            "checker_file": "check_path_and_live_gesture_recording.py",
+            "checker_module": "check_path_and_live_gesture_recording.py"
+        },
+        {
+            "id": "DEFECT_MONETIZATION_AND_CANVAS_PALETTE_COHERENCE",
+            "description": "Игнорирование bgColor в CanvasIconButton и разнобой цветов подписки/рекламы",
+            "checker": "check_monetization_unified_m3_palette.py",
+            "timestamp": "2026-09-29T10:13:07.399635",
+            "checker_file": "check_monetization_unified_m3_palette.py",
+            "checker_module": "check_monetization_unified_m3_palette.py"
+        },
+        {
+            "id": "DEFECT_MAIN_ACTIVITY_UNRESOLVED_DP_AND_DUAL_OVERLAY_PATH",
+            "description": "Сбой компиляции dp/dpF в MainActivity и развертывание архитектуры двух оверлеев для путей движения",
+            "checker": "check_dual_overlay_path_and_palette_safety.py",
+            "timestamp": "2026-09-29T10:29:04.576032",
+            "checker_file": "check_dual_overlay_path_and_palette_safety.py",
+            "checker_module": "check_dual_overlay_path_and_palette_safety.py"
+        },
+        {
+            "id": "DEFECT_GESTURE_INSTANT_STREAMING_AND_CANVAS_BG",
+            "description": "Синхронизация контрактов мгновенной инжекции instantDuration, Live Motion Streaming и кастомного фона CanvasIconButton",
+            "checker": "check_path_trajectory_visualization.py",
+            "timestamp": "2026-09-29T11:28:57.872263",
+            "checker_file": "check_path_trajectory_visualization.py",
+            "checker_module": "check_path_trajectory_visualization.py"
+        },
+        {
+            "id": "DEFECT_OCR_HARDWARE_BITMAP_AND_PARAMETER_ERGONOMICS",
+            "description": "Сбой компиляции restoreTouchAfter, падение OCR на HardwareBitmap и скрытие базовых параметров клика",
+            "checker": "check_ocr_robustness_and_action_parameters.py",
+            "timestamp": "2026-09-29T11:38:11.485874",
+            "checker_file": "check_ocr_robustness_and_action_parameters.py",
+            "checker_module": "check_ocr_robustness_and_action_parameters.py"
+        },
+        {
+            "id": "DEFECT_CHECKER_SYNTAX_ERROR_QUOTES",
+            "description": "Синтаксическая ошибка вложенных кавычек в check_ocr_robustness_and_action_parameters.py",
+            "checker": "check_ocr_robustness_and_action_parameters.py",
+            "timestamp": "2026-09-29T11:41:24.689433",
+            "checker_file": "check_ocr_robustness_and_action_parameters.py",
+            "checker_module": "check_ocr_robustness_and_action_parameters.py"
+        },
+        {
+            "id": "DEFECT_GESTURE_RECORDER_CANVAS_PARAMS_SCOPE",
+            "description": "Устранение ошибки области видимости canvasParams в restoreTouchAfter выносом ссылки в поле класса",
+            "checker": "check_ocr_robustness_and_action_parameters.py",
+            "timestamp": "2026-09-29T11:55:11.069114",
+            "checker_file": "check_ocr_robustness_and_action_parameters.py",
+            "checker_module": "check_ocr_robustness_and_action_parameters.py"
+        },
+        {
+            "id": "DEFECT_ROI_SELECTOR_UNLINKED_AND_DISCOVERED_AREAS",
+            "description": "Изолированный обратный вызов onSelectRoi в EditActionDialog и отсутствие регистрации динамических областей поиска",
+            "checker": "check_roi_selector_and_discovered_locations.py",
+            "timestamp": "2026-09-29T14:31:57.902120",
+            "checker_file": "check_roi_selector_and_discovered_locations.py",
+            "checker_module": "check_roi_selector_and_discovered_locations.py"
+        },
+        {
+            "id": "DEFECT_TEMPLATE_STUDIO_BUTTON_NAMING_UPDATE",
+            "description": "Синхронизация наименования кнопки 'МАСКА' и чекера check_template_studio_and_roi_editor",
+            "checker": "check_template_studio_and_roi_editor.py",
+            "timestamp": "2026-09-29T14:59:20.671081",
+            "checker_file": "check_template_studio_and_roi_editor.py",
+            "checker_module": "check_template_studio_and_roi_editor.py"
+        },
+        {
+            "id": "DEFECT_AUTO_GRAPH_PROMPT_AND_HORIZONTAL_TOPOLOGY",
+            "description": "Отсутствие промпта авто-генерации графа, скрытие опции в настройках и горизонтальная раскладка вместо Top-to-Bottom",
+            "checker": "check_auto_graph_generation_and_topology.py",
+            "timestamp": "2026-09-29T15:22:57.799639",
+            "checker_file": "check_auto_graph_generation_and_topology.py",
+            "checker_module": "check_auto_graph_generation_and_topology.py"
+        },
+        {
+            "id": "DEFECT_GRAPH_PROMPT_UX_AND_CHECKER_SYNTAX",
+            "description": "Синтаксическая ошибка в check_auto_graph_generation_and_topology.py и неясный текст промпта",
+            "checker": "check_auto_graph_generation_and_topology.py",
+            "timestamp": "2026-09-29T15:59:30.601870",
+            "checker_file": "check_auto_graph_generation_and_topology.py",
+            "checker_module": "check_auto_graph_generation_and_topology.py"
+        },
+        {
+            "id": "DEFECT_ORCHESTRATOR_UNRESOLVED_DP_FUNCTIONS",
+            "description": "Сбой компиляции Unresolved reference dp/dpF в AutoTapOrchestrator.kt",
+            "checker": "check_auto_graph_generation_and_topology.py",
+            "timestamp": "2026-09-29T16:31:46.193518",
+            "checker_file": "check_auto_graph_generation_and_topology.py",
+            "checker_module": "check_auto_graph_generation_and_topology.py"
+        },
+        {
+            "id": "DEFECT_CAPTURE_CRASH_AND_DIALOG_OVERLAP",
+            "description": "Сбой парсинга пустого цвета в CaptureFrameOverlay и блокирующее перекрытие экрана калибровки диалогом шага",
+            "checker": "check_calib_score_and_scripts_button.py",
+            "timestamp": "2026-09-29T17:07:23.528528",
+            "checker_file": "check_calib_score_and_scripts_button.py",
+            "checker_module": "check_calib_score_and_scripts_button.py"
+        },
+        {
+            "id": "DEFECT_CAPTURE_COLOR_CRASH_AND_RECALIBRATION_CLEAN_SCREEN",
+            "description": "Сбой StringIndexOutOfBoundsException при парсинге пустого цвета в CaptureFrameOverlay, разделение кнопок 'ВЫБОР ОБЛАСТИ' (диалог шага) и 'МАСКА' (калибровка) и упреждающее скрытие интерфейсов для чистого экрана.",
+            "checker": "check_capture_color_crash_and_recalibration_clean_screen.py",
+            "timestamp": "2026-09-29 17:53:01",
+            "checker_file": "check_capture_color_crash_and_recalibration_clean_screen.py",
+            "checker_module": "check_capture_color_crash_and_recalibration_clean_screen.py"
+        },
+        {
+            "id": "DEFECT_GRAPH_PROMPT_HANG_AND_SEQUENTIAL_TOPOLOGY",
+            "description": "Зависание экрана из-за отсутствия removeViewSafe при закрытии диалога предложения графа и замена веерного мультипоиска на хронологическую цепочку сработавших шаблонов с паузами в порядке записи.",
+            "checker": "check_graph_prompt_dismissal_and_sequential_topology.py",
+            "timestamp": "2026-09-29 22:16:14",
+            "checker_file": "check_graph_prompt_dismissal_and_sequential_topology.py",
+            "checker_module": "check_graph_prompt_dismissal_and_sequential_topology.py"
+        },
+        {
+            "id": "DEFECT_OCR_CYRILLIC_AND_ROI_FRAME_INVARIANT",
+            "description": "Подключение text-recognition-cyrillic для распознавания русского текста, удаление коллизионной точки из кнопки ROI и внедрение фиксации участков поиска.",
+            "checker": "check_ocr_cyrillic_and_roi_capture_contract.py",
+            "timestamp": "2026-09-30 12:15:22",
+            "checker_file": "check_ocr_cyrillic_and_roi_capture_contract.py",
+            "checker_module": "check_ocr_cyrillic_and_roi_capture_contract.py"
+        },
+        {
+            "id": "DEFECT_OCR_ROBUSTNESS_AND_CLEAN_ROI_FRAME",
+            "description": "Санация кодировки OcrEngine.kt, программная ARGB_8888 конвертация для InputImage, таймаут 3000мс и удаление точки из кнопки ROI с фиксацией зон поиска.",
+            "checker": "check_ocr_robustness_and_clean_roi_frame.py",
+            "timestamp": "2026-09-30 12:59:53",
+            "checker_file": "check_ocr_robustness_and_clean_roi_frame.py",
+            "checker_module": "check_ocr_robustness_and_clean_roi_frame.py"
+        },
+        {
+            "id": "DEFECT_CAPTURE_FRAME_ROI_DUPLICATION_PURGE",
+            "description": "Устранение дублирования поля designatedRoi в CaptureFrameOverlay.kt и санация поврежденной кодировки Toast.",
+            "checker": "check_capture_frame_roi_singularity.py",
+            "timestamp": "2026-09-30 13:44:41",
+            "checker_file": "check_capture_frame_roi_singularity.py",
+            "checker_module": "check_capture_frame_roi_singularity.py"
+        },
+        {
+            "id": "DEFECT_RECORDER_TOUCH_FREEZE_AND_PATH_TRAJECTORY",
+            "description": "Устранение залипания холста записи в FLAG_NOT_TOUCHABLE после первого тапа и создание полноценной изменяемой траектории для шага ПУТЬ.",
+            "checker": "check_path_action_trajectory_and_recorder_touch_restore.py",
+            "timestamp": "2026-09-30 15:43:29",
+            "checker_file": "check_path_action_trajectory_and_recorder_touch_restore.py",
+            "checker_module": "check_path_action_trajectory_and_recorder_touch_restore.py"
+        },
+        {
+            "id": "DEFECT_AUDIT_LOGS_AND_SMART_LOCK_INTEGRATION",
+            "description": "Развертывание инспектора аудита check_audit_logs_integrity, внедрение реактивной умной блокировки сквозного клика, расширение геометрии панели ROI и глубокий трейсинг записи.",
+            "checker": "check_audit_logs_integrity.py",
+            "timestamp": "2026-09-30 17:37:16",
+            "checker_file": "check_audit_logs_integrity.py",
+            "checker_module": "check_audit_logs_integrity.py"
+        },
+        {
+            "id": "DEFECT_RECORDER_LICENSE_BLOCK_AND_TOUCH_FREEZE",
+            "description": "Разблокировка запуска записи в Debug/Dev, устранение залипания холста в FLAG_NOT_TOUCHABLE, адаптивная панель ROI и модуль контроля журналов.",
+            "checker": "check_audit_logs_integrity.py",
+            "timestamp": "2026-09-30 18:06:01",
+            "checker_file": "check_audit_logs_integrity.py",
+            "checker_module": "check_audit_logs_integrity.py"
+        },
+        {
+            "id": "DEFECT_LICENSE_MANAGER_BUILDCONFIG_PURGE",
+            "description": "Замена запрещенного BuildConfig на системный FLAG_DEBUGGABLE в LicenseManager",
+            "target_file": "app/src/main/java/com/example/autotap/core/license/LicenseManager.kt",
+            "checker_module": "check_license_manager_buildconfig.py",
+            "checker_file": "check_license_manager_buildconfig.py",
+            "checker": "check_license_manager_buildconfig.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_GRAYSCALE_CONTRAST_SHAPE_NORMALIZATION",
+            "description": "Адаптивное ч/б контрастирование маски и шаблонов формы для четких градиентов Собеля",
+            "target_file": "app/src/main/java/com/example/autotap/infrastructure/vision/SmartMaskEngine.kt",
+            "checker_module": "check_grayscale_contrast_shape_normalization.py",
+            "checker_file": "check_grayscale_contrast_shape_normalization.py",
+            "checker": "check_grayscale_contrast_shape_normalization.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_MERGE_BTN_AND_CLEAN_ADVANCED_SETTINGS",
+            "description": "Внедрение кнопки ОБЪЕДИНИТЬ в UI и ликвидация избыточного спойлера расширенных параметров",
+            "target_file": "app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/EditActionDialog.kt",
+            "checker_module": "check_merge_btn_and_clean_advanced_settings.py",
+            "checker_file": "check_merge_btn_and_clean_advanced_settings.py",
+            "checker": "check_merge_btn_and_clean_advanced_settings.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_POST_STROKE_INSTANT_REPLAY_TIMING",
+            "description": "Гармонизация биомеханической длительности жеста instantDuration (100-2500мс) с сохранением контракта Live Motion Streaming и разблокировкой тач-слоя.",
+            "target_file": "GestureRecorderOverlay.kt",
+            "checker_module": "check_post_stroke_instant_replay.py",
+            "checker_file": "check_post_stroke_instant_replay.py",
+            "checker": "check_post_stroke_instant_replay.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_PADDLE_OCR_PPOCRV4_ONNX_INTEGRATION",
+            "description": "Интеграция высокоточной мультиязычной нейросети PaddleOCR (PP-OCRv4) через Microsoft ONNX Runtime для распознавания русского/английского текста в играх.",
+            "target_file": "OcrEngine.kt",
+            "checker_module": "check_ocr_cyrillic_and_roi_capture_contract.py",
+            "checker_file": "check_ocr_cyrillic_and_roi_capture_contract.py",
+            "checker": "check_ocr_cyrillic_and_roi_capture_contract.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_PADDLE_OCR_ACTIVE_PIPELINE_AND_API24_SAFETY",
+            "description": "Сквозное подключение нейросети PaddleOCR к методам поиска текста и извлечения Regex с устранением предупреждений API 26 (HARDWARE Bitmap).",
+            "target_file": "OcrEngine.kt",
+            "checker_module": "check_paddle_ocr_active_pipeline.py",
+            "checker_file": "check_paddle_ocr_active_pipeline.py",
+            "checker": "check_paddle_ocr_active_pipeline.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_MULTILINGUAL_RU_EN_OCR_INTEGRATION",
+            "description": "Активация автономного мультиязычного модуля Google ML Kit Cyrillic 16.0.0 для одновременного распознавания русского и английского текста.",
+            "target_file": "OcrEngine.kt",
+            "checker_module": "check_multilingual_ru_en_ocr.py",
+            "checker_file": "check_multilingual_ru_en_ocr.py",
+            "checker": "check_multilingual_ru_en_ocr.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_RAPID_OCR_AAR_INTEGRATION",
+            "description": "Интеграция официального мультиязычного бинарного пакета RapidOCR AAR (BenjaminWan) для одновременного распознавания русского и английского текста в играх.",
+            "target_file": "OcrEngine.kt",
+            "checker_module": "check_rapid_ocr_aar_integration.py",
+            "checker_file": "check_rapid_ocr_aar_integration.py",
+            "checker": "check_rapid_ocr_aar_integration.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_RAPID_OCR_IMMUNITY_HARMONIZATION",
+            "description": "Синхронизация чекеров кибернетического иммунитета под архитектурный контракт RapidOCR Android AAR (OcrLibrary).",
+            "target_file": "OcrEngine.kt",
+            "checker_module": "check_ocr_cyrillic_and_roi_capture_contract.py",
+            "checker_file": "check_ocr_cyrillic_and_roi_capture_contract.py",
+            "checker": "check_ocr_cyrillic_and_roi_capture_contract.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_PURGE_GHOST_MLKIT_CYRILLIC_AND_STABILIZE_RAPID",
+            "description": "Полное удаление несуществующей зависимости Google ML Kit Cyrillic из Gradle и окончательная фиксация автономного RapidOCR AAR.",
+            "target_file": "build.gradle.kts",
+            "checker_module": "check_multilingual_ru_en_ocr.py",
+            "checker_file": "check_multilingual_ru_en_ocr.py",
+            "checker": "check_multilingual_ru_en_ocr.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_RAPID_OCR_INIT_SIGNATURE_AND_SCOPE_HYGIENE",
+            "description": "Синхронизация сигнатуры engine.init(AssetManager) и устранение коллизий локальных переменных в OcrEngine.kt.",
+            "target_file": "OcrEngine.kt",
+            "checker_module": "check_rapid_ocr_api_and_scope_hygiene.py",
+            "checker_file": "check_rapid_ocr_api_and_scope_hygiene.py",
+            "checker": "check_rapid_ocr_api_and_scope_hygiene.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_ONNX_NATIVE_LIBS_COLLISION",
+            "description": "Устранение коллизии дублирования libonnxruntime.so между AAR и отдельным артефактом через pickFirsts в packaging.jniLibs.",
+            "target_file": "build.gradle.kts",
+            "checker_module": "check_onnx_native_libs_collision.py",
+            "checker_file": "check_onnx_native_libs_collision.py",
+            "checker": "check_onnx_native_libs_collision.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_RAPID_OCR_CYRILLIC_MODEL_LINKED",
+            "description": "Подключение мультиязычной нейросети cyrillic_rec.onnx и словаря cyrillic_dict.txt к RapidOcrEngine для одновременного распознавания русского и английского текста.",
+            "target_file": "OcrEngine.kt",
+            "checker_module": "check_rapid_ocr_cyrillic_model_linked.py",
+            "checker_file": "check_rapid_ocr_cyrillic_model_linked.py",
+            "checker": "check_rapid_ocr_cyrillic_model_linked.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_TFLITE_UNAVAILABLE_REPLACED_WITH_PURE_ONNX",
+            "description": "Переход на прямую интеграцию скачанной модели cyrillic_rec.onnx через Microsoft ONNX Runtime 1.19.2 без использования проблемных AAR.",
+            "target_file": "OcrEngine.kt",
+            "checker_module": "check_pure_onnx_ocr_cyrillic.py",
+            "checker_file": "check_pure_onnx_ocr_cyrillic.py",
+            "checker": "check_pure_onnx_ocr_cyrillic.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_ANDROID_16KB_PAGE_ALIGNMENT",
+            "description": "Оптимизация Page Alignment",
+            "target_file": "build.gradle.kts",
+            "checker_module": "check_android_16kb_page_alignment.py",
+            "checker_file": "check_android_16kb_page_alignment.py",
+            "checker": "check_android_16kb_page_alignment.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_RESTORE_CLEAN_MULTILINGUAL_OCR_AND_PURGE_4KB_LIBS",
+            "description": "Обновление манифеста и выравнивания",
+            "target_file": "build.gradle.kts",
+            "checker_module": "check_android_16kb_page_alignment.py",
+            "checker_file": "check_android_16kb_page_alignment.py",
+            "checker": "check_android_16kb_page_alignment.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_ONNX_16KB_PAGE_ALIGNMENT_OBSOLETE_VERSION",
+            "description": "Актуализация кибернетического иммунитета",
+            "target_file": "check_*.py",
+            "checker_module": "check_android_16kb_page_alignment.py",
+            "checker_file": "check_android_16kb_page_alignment.py",
+            "checker": "check_android_16kb_page_alignment.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_ANDROID_16KB_PAGE_ALIGNMENT_CRASH",
+            "description": "Блокировка 4KB-выровненных библиотек ONNX в Android 15 (устранено через ExtractNativeLibs)",
+            "target_file": "build.gradle.kts",
+            "checker_module": "check_android_16kb_page_alignment.py",
+            "checker_file": "check_android_16kb_page_alignment.py",
+            "checker": "check_android_16kb_page_alignment.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_BOTTOM_SCREEN_NAVIGATION_BAR_CLIPPING",
+            "description": "Разблокировка кликов в нижней части экрана и FQCN-изоляция",
+            "target_file": "TargetOverlayManager.kt",
+            "checker_module": "check_real_metrics_navigation_bar_coverage.py",
+            "checker_file": "check_real_metrics_navigation_bar_coverage.py",
+            "checker": "check_real_metrics_navigation_bar_coverage.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_OCR_AND_PATH_LIFECYCLE_INTEGRITY",
+            "description": "Полосовое OCR-сканирование кириллицы, сохранение геометрии пути и живой continueStroke-стриминг записи",
+            "target_file": "OcrEngine.kt",
+            "checker_module": "check_ocr_and_path_lifecycle_integrity.py",
+            "checker_file": "check_ocr_and_path_lifecycle_integrity.py",
+            "checker": "check_ocr_and_path_lifecycle_integrity.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_PATH_RECORDING_AND_OVERLAY_EDITING",
+            "description": "Ко-эволюция чекера: валидация continueStroke-стриминга и защиты от повторного жеста wasStreaming",
+            "target_file": "GestureRecorderOverlay.kt",
+            "checker_module": "check_path_recording_and_overlay_editing.py",
+            "checker_file": "check_path_recording_and_overlay_editing.py",
+            "checker": "check_path_recording_and_overlay_editing.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_ANDROID_16KB_PAGE_ALIGNMENT_OBSOLETE_VERSION",
+            "description": "Обновление onnxruntime-android до официального релиза 1.30.0 с нативным 16 KB ELF Alignment",
+            "target_file": "build.gradle.kts",
+            "checker_module": "check_android_16kb_page_alignment.py",
+            "checker_file": "check_android_16kb_page_alignment.py",
+            "checker": "check_android_16kb_page_alignment.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_PATH_SETTINGS_AND_OCR_HISTORY_INTEGRITY",
+            "description": "Глобальная длительность пути 5с, снятие блокировки исполнения записи и адаптивная лента истории OCR",
+            "target_file": "GlobalSettingsDialog.kt",
+            "checker_module": "check_path_settings_and_ocr_history_integrity.py",
+            "checker_file": "check_path_settings_and_ocr_history_integrity.py",
+            "checker": "check_path_settings_and_ocr_history_integrity.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_RECORDER_ORCHESTRATOR_ACCESS",
+            "description": "Доступ к оркестратору через публичный метод getInstance(context) вместо приватного INSTANCE",
+            "target_file": "GestureRecorderOverlay.kt",
+            "checker_module": "check_orchestrator_singleton_access.py",
+            "checker_file": "check_orchestrator_singleton_access.py",
+            "checker": "check_orchestrator_singleton_access.py",
+            "status": "FIXED"
+        }
+    ]
+}

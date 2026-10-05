@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- ==================== СМАРТФОН СПРАВА (x: 58-86, h: 48dp) ==================== -->
+    <!-- Корпус смартфона -->
+    <path
+        android:fillColor="#1E293B"
+        android:strokeColor="#475569"
+        android:strokeWidth="1.5"
+        android:pathData="M62,30 h20 a4,4 0 0,1 4,4 v40 a4,4 0 0,1 -4,4 h-20 a4,4 0 0,1 -4,-4 v-40 a4,4 0 0,1 4,-4 z" />
+    <!-- Экран смартфона -->
+    <path
+        android:fillColor="#090D16"
+        android:pathData="M61,35 h22 v38 h-22 z" />
+    <!-- Динамик смартфона -->
+    <path
+        android:strokeColor="#64748B"
+        android:strokeWidth="1"
+        android:pathData="M69,32.5 h6" />
+    <!-- Домашняя черточка -->
+    <path
+        android:strokeColor="#64748B"
+        android:strokeWidth="1"
+        android:pathData="M70,75.5 h4" />
+
+    <!-- ==================== КИБЕР-РОБОТ СЛЕВА (x: 22-50, h: 48dp) ==================== -->
+    <!-- Антенна робота -->
+    <path
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="1.5"
+        android:pathData="M36,26 v-4" />
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M36,20 m-1.5,0 a1.5,1.5 0 1,0 3,0 a1.5,1.5 0 1,0 -3,0" />
+
+    <!-- Голова робота -->
+    <path
+        android:fillColor="#1E293B"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="1.5"
+        android:pathData="M26,30 h20 a4,4 0 0,1 4,4 v14 a2,2 0 0,1 -2,2 h-24 a2,2 0 0,1 -2,-2 v-14 a4,4 0 0,1 4,-4 z" />
+    <!-- Неоновый оптический визор робота -->
+    <path
+        android:fillColor="#0284C7"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="1"
+        android:pathData="M29,36 h14 a2,2 0 0,1 2,2 v2 a2,2 0 0,1 -2,2 h-14 a2,2 0 0,1 -2,-2 v-2 a2,2 0 0,1 2,-2 z" />
+    <!-- Светящиеся глаза-сенсоры -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M32,39 m-1,0 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0 M40,39 m-1,0 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0" />
+
+    <!-- Шея -->
+    <path
+        android:strokeColor="#475569"
+        android:strokeWidth="2"
+        android:pathData="M34,51 h4" />
+
+    <!-- Корпус/плечи робота -->
+    <path
+        android:fillColor="#1E293B"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="1.5"
+        android:pathData="M24,53 h24 a3,3 0 0,1 3,3 v18 a4,4 0 0,1 -4,4 h-22 a4,4 0 0,1 -4,-4 v-18 a3,3 0 0,1 3,-3 z" />
+    <!-- Ядро питания на груди (Power Core) -->
+    <path
+        android:fillColor="#34D399"
+        android:pathData="M36,65 m-2.5,0 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0" />
+
+    <!-- ==================== НЕОНОВЫЙ ЛАЗЕРНЫЙ СКАНЕР ==================== -->
+    <!-- Расходящиеся лучи сканирования от визора робота к экрану смартфона -->
+    <path
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="1.2"
+        android:pathData="M47,38 L61,38 M47,40 L61,46 M47,42 L61,54 M47,44 L61,64 M47,46 L61,72" />
+    <!-- Горизонтальная лазерная линия считывания на экране смартфона -->
+    <path
+        android:strokeColor="#34D399"
+        android:strokeWidth="1.8"
+        android:pathData="M61,54 h22" />
+    <!-- Прицельная мишень автоклика на экране -->
+    <path
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="1.2"
+        android:pathData="M72,50 v8 M68,54 h8" />
+</vector>

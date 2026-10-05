@@ -1,0 +1,28 @@
+# AutoTap Greenfield Architecture — R8/Proguard Rules (v34.0)
+
+# Защита доменных моделей и перечислений для симметричной JSON сериализации
+-keep class com.example.autotap.domain.model.** { *; }
+-keep enum com.example.autotap.domain.model.** { *; }
+-keep class com.example.autotap.domain.model.graph.** { *; }
+-keep enum com.example.autotap.domain.model.graph.** { *; }
+
+# Защита интерфейсов шлюзов и репозиториев
+-keep interface com.example.autotap.domain.gateway.** { *; }
+-keep interface com.example.autotap.domain.repository.** { *; }
+-keep interface com.example.autotap.domain.engine.** { *; }
+
+# Защита динамической загрузки модуля кириллицы ML Kit
+-keep class com.google.mlkit.vision.text.cyrillic.CyrillicTextRecognizerOptions {
+    public static <fields>;
+}
+-keep class com.google.mlkit.vision.text.latin.TextRecognizerOptions {
+    public static <fields>;
+}
+-keep interface com.google.mlkit.vision.text.TextRecognizerOptionsInterface { *; }
+
+# Защита Kotlin Coroutines и StateFlow
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory { *; }
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler { *; }
+
+# Сохранение атрибутов аннотаций и сигнатур типов
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod

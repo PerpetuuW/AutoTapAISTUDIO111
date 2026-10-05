@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/panel_background"
+    android:padding="6dp">
+
+    <!-- Single Bubble Button -->
+    <ImageButton
+        android:id="@+id/btnSingleBubble"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:visibility="gone"
+        android:background="@drawable/bg_icon_squircle"
+        android:src="@android:drawable/ic_input_add"
+        app:tint="#FFFFFF"
+        android:contentDescription="@string/btn_expand" />
+
+    <!-- Main Toolbar Row -->
+    <LinearLayout
+        android:id="@+id/layoutMainRow"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/handleDrag"
+            android:layout_width="32dp"
+            android:layout_height="36dp"
+            android:gravity="center"
+            android:text="@string/btn_drag_handle"
+            android:textColor="#9E95B8"
+            android:textStyle="bold"
+            android:textSize="14sp" />
+
+        <ImageButton
+            android:id="@+id/btnPlay"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:layout_margin="2dp"
+            android:background="@drawable/bg_icon_squircle"
+            android:src="@android:drawable/ic_media_play"
+            app:tint="#FFFFFF"
+            android:contentDescription="@string/btn_play" />
+
+        <ImageButton
+            android:id="@+id/btnAdd"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:layout_margin="2dp"
+            android:background="@drawable/bg_btn_add"
+            android:src="@android:drawable/ic_input_add"
+            app:tint="#FFFFFF"
+            android:contentDescription="@string/btn_add" />
+
+        <ImageButton
+            android:id="@+id/btnRecord"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:layout_margin="2dp"
+            android:background="@drawable/bg_icon_squircle"
+            android:src="@android:drawable/presence_video_online"
+            app:tint="#F43F5E"
+            android:contentDescription="@string/btn_record" />
+
+        <ImageButton
+            android:id="@+id/btnCapturePool"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:layout_margin="2dp"
+            android:background="@drawable/bg_icon_squircle"
+            android:src="@android:drawable/ic_menu_camera"
+            app:tint="#FFFFFF"
+            android:contentDescription="@string/btn_capture" />
+
+        <ImageButton
+            android:id="@+id/btnToggleMenu"
+            android:layout_width="34dp"
+            android:layout_height="38dp"
+            android:layout_margin="2dp"
+            android:background="@drawable/bg_icon_squircle"
+            android:src="@android:drawable/arrow_down_float"
+            app:tint="#A78BFA"
+            android:contentDescription="@string/btn_toggle_menu" />
+    </LinearLayout>
+
+    <!-- Sub Menu Row -->
+    <LinearLayout
+        android:id="@+id/layoutSubMenu"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="4dp">
+
+        <ImageButton
+            android:id="@+id/btnLoadScript"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_margin="2dp"
+            android:background="@drawable/bg_icon_squircle"
+            android:src="@android:drawable/ic_menu_save"
+            app:tint="#FFFFFF"
+            android:contentDescription="@string/btn_scripts" />
+
+        <ImageButton
+            android:id="@+id/btnGlobalSettings"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_margin="2dp"
+            android:background="@drawable/bg_icon_squircle"
+            android:src="@android:drawable/ic_menu_preferences"
+            app:tint="#FFFFFF"
+            android:contentDescription="@string/btn_settings" />
+
+        <Button
+            android:id="@+id/btnJoystickTop"
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:layout_margin="2dp"
+            android:text="@string/btn_joy"
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/bg_icon_squircle" />
+
+        <Button
+            android:id="@+id/btnScreenLockStatic"
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:layout_margin="2dp"
+            android:text="@string/btn_lock"
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/bg_icon_squircle" />
+
+        <ImageButton
+            android:id="@+id/btnClearAll"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_margin="2dp"
+            android:background="@drawable/bg_icon_squircle"
+            android:src="@android:drawable/ic_menu_delete"
+            app:tint="#FDA4AF"
+            android:contentDescription="@string/btn_clear" />
+
+        <ImageButton
+            android:id="@+id/btnHideNumbers"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_margin="2dp"
+            android:background="@drawable/bg_icon_squircle"
+            android:src="@android:drawable/ic_menu_view"
+            app:tint="#FFFFFF"
+            android:contentDescription="@string/btn_hide_numbers" />
+
+        <!-- Highlighted Question Mark (?) Button - Soft Purple Hero -->
+        <ImageButton
+            android:id="@+id/btnHelp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_margin="2dp"
+            android:background="@drawable/bg_btn_help"
+            android:src="@drawable/ic_help"
+            app:tint="#FFFFFF"
+            android:padding="5dp"
+            android:scaleType="fitCenter"
+            android:contentDescription="@string/btn_help" />
+
+        <!-- Highlighted Close Cross (X) Button - Pastel Rose Danger -->
+        <ImageButton
+            android:id="@+id/btnClose"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_margin="2dp"
+            android:background="@drawable/bg_btn_close"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            app:tint="#FFFFFF"
+            android:padding="5dp"
+            android:scaleType="fitCenter"
+            android:contentDescription="@string/btn_close" />
+    </LinearLayout>
+
+</LinearLayout>
