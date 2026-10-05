@@ -186,16 +186,20 @@ class RoiSelectorOverlay(
         root.addView(hudLayout, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT))
 
         fun updateHudPosition() {
-            val hudW = dp(220)
-            val hudH = dp(80)
-            val margin = dp(14)
-            val safeTop = dp(35)
+            hudLayout.measure(
+                View.MeasureSpec.makeMeasureSpec(screenW, View.MeasureSpec.AT_MOST),
+                View.MeasureSpec.makeMeasureSpec(screenH, View.MeasureSpec.AT_MOST)
+            )
+            val hudW = hudLayout.measuredWidth.coerceAtLeast(dp(180))
+            val hudH = hudLayout.measuredHeight.coerceAtLeast(dp(70))
+            val margin = dp(10)
+            val safeTop = dp(30)
 
             val posX = (roi.centerX() - hudW / 2).coerceIn(margin, screenW - hudW - margin)
             val posY = if (roi.top - hudH - margin >= safeTop) {
                 roi.top - hudH - margin
             } else {
-                (roi.bottom + dp(45)).coerceAtMost(screenH - hudH - dp(20))
+                (roi.bottom + dp(15)).coerceAtMost(screenH - hudH - dp(10))
             }
 
             val hudLp = hudLayout.layoutParams as? FrameLayout.LayoutParams

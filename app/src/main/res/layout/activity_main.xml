@@ -423,6 +423,19 @@
             android:focusable="true" />
 
         <TextView
+            android:id="@+id/tab_demo"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1.1"
+            android:gravity="center"
+            android:text="ДЕМО"
+            android:textColor="#818CF8"
+            android:textSize="11.5sp"
+            android:textStyle="bold"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
             android:id="@+id/tab_export"
             android:layout_width="0dp"
             android:layout_height="match_parent"

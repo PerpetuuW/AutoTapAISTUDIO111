@@ -18,6 +18,7 @@ import com.example.autotap.R
 import com.example.autotap.core.accessibility.AccessibilityUtils
 import com.example.autotap.infrastructure.accessibility.AutoTapAccessibilityService
 import com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator
+import com.example.autotap.infrastructure.overlay.OverlayWindowManager
 import com.example.autotap.infrastructure.overlay.dialog.LogViewerDialog
 import com.example.autotap.infrastructure.projection.MediaProjectionService
 
@@ -72,6 +73,21 @@ class MainActivity : AppCompatActivity() {
         initViews()
         setupListeners()
         checkIntentForImport(intent)
+        checkFirstLaunchDemo()
+    }
+
+    private fun checkFirstLaunchDemo() {
+        val prefs = getSharedPreferences("autotap_app_prefs", Context.MODE_PRIVATE)
+        val isDemoShown = prefs.getBoolean("is_first_launch_demo_shown", false)
+        if (!isDemoShown) {
+            prefs.edit().putBoolean("is_first_launch_demo_shown", true).apply()
+            window.decorView.postDelayed({
+                com.example.autotap.infrastructure.overlay.dialog.InteractiveRoboticArmDemoDialog(
+                    context = this,
+                    overlayWindowManager = OverlayWindowManager(this)
+                ).show()
+            }, 1000L)
+        }
     }
 
     override fun onResume() {
@@ -172,7 +188,14 @@ class MainActivity : AppCompatActivity() {
             showSecurityInfoDialog()
         }
 
-                findViewById<TextView>(R.id.tab_export)?.setOnClickListener {
+                findViewById<TextView>(R.id.tab_demo)?.setOnClickListener {
+            com.example.autotap.infrastructure.overlay.dialog.InteractiveRoboticArmDemoDialog(
+                context = this,
+                overlayWindowManager = OverlayWindowManager(this)
+            ).show()
+        }
+
+        findViewById<TextView>(R.id.tab_export)?.setOnClickListener {
             showExportDialog()
         }
 

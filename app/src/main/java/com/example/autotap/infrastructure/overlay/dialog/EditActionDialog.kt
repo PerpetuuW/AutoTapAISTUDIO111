@@ -1357,44 +1357,50 @@ class EditActionDialog(
             }
             dismiss()
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                val screenshot = service.captureScreenshotSync(1500L)
-                if (screenshot == null) {
-                    android.widget.Toast.makeText(context, "Не удалось сделать снимок экрана", android.widget.Toast.LENGTH_SHORT).show()
-                    show()
-                    return@postDelayed
-                }
-                val roi = if (currentRoiLeft != null && currentRoiRight != null) android.graphics.Rect(currentRoiLeft!!, currentRoiTop!!, currentRoiRight!!, currentRoiBottom!!) else null
-                val matches = com.example.autotap.infrastructure.ocr.OcrEngine.findTextOnScreen(screenshot, q, 2500L, roi)
-                screenshot.recycle()
-
-                if (matches.isEmpty()) {
-                    android.widget.Toast.makeText(context, "Совпадений для '$q' не обнаружено", android.widget.Toast.LENGTH_SHORT).show()
-                    show()
-                } else if (matches.size == 1) {
-                    selectedTargetOccurrenceIndex = 0
-                    tvOccurrenceStatus.text = "Выбранный вариант совпадения: #1"
-                    android.widget.Toast.makeText(context, "Найдено 1 совпадение в (${matches[0].clickX}, ${matches[0].clickY})", android.widget.Toast.LENGTH_SHORT).show()
-                    show()
-                } else {
-                    com.example.autotap.infrastructure.overlay.dialog.OcrCandidatePickerDialog(
-                        context = context,
-                        overlayWindowManager = overlayWindowManager,
-                        candidates = matches,
-                        onRescanRequested = {
-                            performOcrScreenScan()
-                        }
-                    ) { idx, _ ->
-                        selectedTargetOccurrenceIndex = idx
-                        tvOccurrenceStatus.text = "Выбранный вариант совпадения: #${selectedTargetOccurrenceIndex + 1}"
+                try {
+                    val screenshot = service.captureScreenshotSync(2500L)
+                    if (screenshot == null) {
+                        android.widget.Toast.makeText(context, "Не удалось сделать снимок экрана", android.widget.Toast.LENGTH_SHORT).show()
                         show()
-                    }.show()
+                        return@postDelayed
+                    }
+                    val roi = if (currentRoiLeft != null && currentRoiRight != null) android.graphics.Rect(currentRoiLeft!!, currentRoiTop!!, currentRoiRight!!, currentRoiBottom!!) else null
+                    val matches = com.example.autotap.infrastructure.ocr.OcrEngine.findTextOnScreen(screenshot, q, 3000L, roi)
+                    screenshot.recycle()
+
+                    if (matches.isEmpty()) {
+                        android.widget.Toast.makeText(context, "Совпадений для '$q' не обнаружено", android.widget.Toast.LENGTH_SHORT).show()
+                        show()
+                    } else if (matches.size == 1) {
+                        selectedTargetOccurrenceIndex = 0
+                        tvOccurrenceStatus.text = "Выбранный вариант совпадения: #1"
+                        android.widget.Toast.makeText(context, "Найдено 1 совпадение в (${matches[0].clickX}, ${matches[0].clickY})", android.widget.Toast.LENGTH_SHORT).show()
+                        show()
+                    } else {
+                        com.example.autotap.infrastructure.overlay.dialog.OcrCandidatePickerDialog(
+                            context = context,
+                            overlayWindowManager = overlayWindowManager,
+                            candidates = matches,
+                            onRescanRequested = {
+                                performOcrScreenScan()
+                            }
+                        ) { idx, _ ->
+                            selectedTargetOccurrenceIndex = idx
+                            tvOccurrenceStatus.text = "Выбранный вариант совпадения: #${selectedTargetOccurrenceIndex + 1}"
+                            show()
+                        }.show()
+                    }
+                } catch (e: Exception) {
+                    com.example.autotap.core.logger.AppLogger.log(context, "OCR_SCAN_ERROR", "Ошибка сканирования: ${e.message}")
+                    android.widget.Toast.makeText(context, "Ошибка сканирования: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                    show()
                 }
-            }, 200L)
+            }, 250L)
         }
 
         // Интерактивный поиск всех вариантов на текущем экране
         val btnSearchAllCandidates = Button(context).apply {
-            text = "[🔍] СКАН И ВЫБОР ТЕКСТА НА ЭКРАНЕ"
+            text = "[ПОИСК] СКАН И ВЫБОР ТЕКСТА НА ЭКРАНЕ"
             textSize = 8f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false

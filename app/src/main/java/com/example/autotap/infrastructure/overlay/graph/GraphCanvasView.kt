@@ -466,7 +466,7 @@ class GraphCanvasView(context: Context) : View(context) {
                         paintPortIn.color = Color.BLACK
                         paintPortIn.textSize = dpF(9f)
                         paintPortIn.typeface = Typeface.DEFAULT_BOLD
-                        canvas.drawText("СТАРТ ▶", bX + dpF(7f), bY + dpF(14f), paintPortIn)
+                        canvas.drawText("СТАРТ >>", bX + dpF(7f), bY + dpF(14f), paintPortIn)
                     }
 
                     // Внешний контур узла с акцентным оттенком

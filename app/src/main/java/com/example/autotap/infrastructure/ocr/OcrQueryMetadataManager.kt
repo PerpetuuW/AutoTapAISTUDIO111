@@ -30,8 +30,8 @@ object OcrQueryMetadataManager {
         val cleanKey = query.trim().lowercase()
         val count = (failureCounters[cleanKey] ?: 0) + 1
         failureCounters[cleanKey] = count
-        AppLogger.log(null, "OCR_METADATA", "Сбой OCR для '$query': попытка $count/$FAILURE_THRESHOLD")
-        return count >= FAILURE_THRESHOLD
+        AppLogger.log(null, "OCR_METADATA", "Сбой OCR для '$query': попытка $count")
+        return false // Отключено по запросу пользователя (без всплывающих окон)
     }
 
     /**
