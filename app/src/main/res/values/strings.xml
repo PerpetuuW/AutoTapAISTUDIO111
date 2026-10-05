@@ -83,4 +83,7 @@
     <string name="desc_trash">Удалить</string>
     <string name="symbol_prev">&lt;</string>
     <string name="symbol_next">&gt;</string>
+    <!-- RuStore Pay SDK Configuration -->
+    <string name="console_app_id">2063548</string>
+    <string name="sdk_pay_scheme">rustorepay2063548</string>
 </resources>

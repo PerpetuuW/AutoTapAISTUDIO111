@@ -34,13 +34,29 @@
             android:name="com.google.mlkit.vision.DEPENDENCIES"
             android:value="ocr" />
 
+        <!-- RuStore Pay SDK Meta Data Configuration -->
+        <meta-data
+            android:name="console_app_id_key"
+            android:value="@string/console_app_id" />
+        <meta-data
+            android:name="sdk_pay_scheme_value"
+            android:value="@string/sdk_pay_scheme" />
+
         <activity
             android:name=".presentation.main.MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- RuStore Pay Deep Link Scheme -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="@string/sdk_pay_scheme" />
             </intent-filter>
         </activity>
 
