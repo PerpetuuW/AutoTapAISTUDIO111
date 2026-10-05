@@ -300,6 +300,10 @@ class AutoTapAccessibilityService : AccessibilityService() {
         fun traverse(node: android.view.accessibility.AccessibilityNodeInfo?) {
             if (node == null) return
             try {
+                val nodePkg = node.packageName?.toString() ?: ""
+                if (nodePkg == packageName || nodePkg.startsWith("com.example.autotap")) {
+                    return
+                }
                 val nodeText = node.text?.toString() ?: node.contentDescription?.toString()
                 if (!nodeText.isNullOrBlank()) {
                     val cleanText = nodeText.lowercase(java.util.Locale.ROOT).replace('ё', 'е').trim()

@@ -23,6 +23,22 @@ import kotlin.math.min
 object TargetHighlightVisualizer {
 
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val activeHighlightViews = java.util.Collections.synchronizedList(mutableListOf<java.lang.ref.WeakReference<View>>())
+
+    fun hideAllHighlights(overlayWindowManager: OverlayWindowManager) {
+        synchronized(activeHighlightViews) {
+            val iterator = activeHighlightViews.iterator()
+            while (iterator.hasNext()) {
+                val ref = iterator.next()
+                val v = ref.get()
+                if (v != null) {
+                    overlayWindowManager.removeViewSafe(v)
+                }
+                iterator.remove()
+            }
+        }
+        hideTrainingHighlight(overlayWindowManager)
+    }
 
     /**
      * Полноценный оверлей с отображением рамки и HUD-бейджа уверенности (Confidence Score).
@@ -39,8 +55,9 @@ object TargetHighlightVisualizer {
         moduleTag: String = "OCR",
         scorePercent: Int = 100,
         detailText: String = "",
-        durationMs: Long = 2200L
+        durationMs: Long = 1800L
     ) {
+        hideAllHighlights(overlayWindowManager)
         val dm = context.resources.displayMetrics
         val density = dm.density
         fun dp(v: Float): Int = (v * density).toInt()
@@ -91,6 +108,7 @@ object TargetHighlightVisualizer {
         rootContainer.addView(boxView, boxParams)
 
         // 2. HUD-бейдж уверенности (Pill Badge) с защитой от вертикального переноса
+        val isOcrModule = (moduleTag == "OCR")
         val badgeLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -123,18 +141,20 @@ object TargetHighlightVisualizer {
             maxLines = 1
         }
         val tvDetail = TextView(context).apply {
-            text = if (detailText.isNotBlank()) "· ${detailText.take(20)}" else ""
+            // Для OCR не выводим сырой текст в оверлей во избежание самораспознавания в зацикленных сценариях
+            val textToShow = if (!isOcrModule && detailText.isNotBlank()) "· ${detailText.take(20)}" else ""
+            text = textToShow
             textSize = 9.5f
             setTextColor(Color.WHITE)
             isSingleLine = true
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
-            visibility = if (detailText.isNotBlank()) View.VISIBLE else View.GONE
+            visibility = if (textToShow.isNotBlank()) View.VISIBLE else View.GONE
         }
 
         badgeLayout.addView(tvTag)
         badgeLayout.addView(tvScore)
-        if (detailText.isNotBlank()) {
+        if (!isOcrModule && detailText.isNotBlank()) {
             badgeLayout.addView(tvDetail)
         }
 
@@ -184,6 +204,7 @@ object TargetHighlightVisualizer {
         }
 
         overlayWindowManager.addViewSafe(rootContainer, windowParams)
+        activeHighlightViews.add(java.lang.ref.WeakReference(rootContainer))
 
         boxView.animate()
             .scaleX(1.0f)
@@ -328,6 +349,7 @@ object TargetHighlightVisualizer {
         }
 
         overlayWindowManager.addViewSafe(rootContainer, windowParams)
+        activeHighlightViews.add(java.lang.ref.WeakReference(rootContainer))
 
         rootContainer.alpha = 0f
         rootContainer.animate().alpha(1f).setDuration(160).withEndAction {

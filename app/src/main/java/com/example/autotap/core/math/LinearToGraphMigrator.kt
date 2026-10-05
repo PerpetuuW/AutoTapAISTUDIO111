@@ -86,140 +86,271 @@ object LinearToGraphMigrator {
                     action.type == ActionType.COLOR_CHECK
 
             if (isDetectionType) {
-                val triggerId = "trig_${action.id}"
-                val targetPort = "out_match_$triggerId"
                 val isColorCheck = action.type == ActionType.COLOR_CHECK
-
-                val triggerName = when (action.type) {
-                    ActionType.TRIGGER -> "ИИ Поиск #${action.id}"
-                    ActionType.OCR -> "OCR Текст #${action.id}"
-                    ActionType.COLOR_CHECK -> "Цвет #${action.id}"
-                    ActionType.CLICK, ActionType.LONG_PRESS, ActionType.SWIPE,
-                    ActionType.PATH, ActionType.PINCH, ActionType.SUBROUTINE,
-                    ActionType.RETURN, ActionType.GLOBAL_BACK, ActionType.GLOBAL_HOME,
-                    ActionType.DELAY -> "Действие #${action.id}"
-                }
-
-                val triggerSpec = NodeTriggerSpec(
-                    id = triggerId,
-                    name = triggerName,
-                    type = action.type,
-                    templatePath = action.templatePath,
-                    multiTemplatePaths = if (action.multiTemplatePaths.isNotEmpty()) action.multiTemplatePaths else emptyList(),
-                    similarityThreshold = action.similarityPercent,
-                    targetQueryOrColor = if (isColorCheck) action.targetColorHex else action.targetScriptOrQuery,
-                    colorTolerance = action.colorTolerance,
-                    isContourMode = action.isContourMode,
-                    isShapeOnlyMode = action.isShapeOnlyMode,
-                    isMultiScaleMode = action.isMultiScaleMode,
-                    colorDeltaEMode = action.colorDeltaEMode,
-                    shapeExpansion = action.shapeExpansion,
-                    paddingOffsetPx = action.paddingOffsetPx,
-                    isCircleShape = action.isCircleShape,
-                    roiLeft = action.roiLeft,
-                    roiTop = action.roiTop,
-                    roiRight = action.roiRight,
-                    roiBottom = action.roiBottom,
-                    autoClickTarget = action.clickAiTarget,
-                    useCustomClick = if (isColorCheck) true else action.useCustomClickOffset,
-                    clickOffset = if (isColorCheck) Point2D(action.posX, action.posY) else Point2D(action.clickOffsetX, action.clickOffsetY),
-                    targetPortId = targetPort
-                )
-
-                val templateName = if (action.templatePath.isNotEmpty()) {
-                    java.io.File(action.templatePath).nameWithoutExtension.removePrefix("mask_").take(12)
-                } else "Цель"
+                val isOcr = action.type == ActionType.OCR
+                val isTrigger = action.type == ActionType.TRIGGER
 
                 // [V151.0] Таймаут с гарантированным запасом (Safety Margin) для защиты от ложных таймаутов
                 val safeTimeoutSeconds = when {
                     action.isWaitUntilMode -> 0
-                    action.aiTimeoutSeconds > 0 -> action.aiTimeoutSeconds + 5
-                    else -> 12 // 12 секунд гарантированный безопасный таймаут с запасом
+                    action.aiTimeoutSeconds > 0 -> action.aiTimeoutSeconds + 4
+                    else -> 10 // 10 секунд гарантированный безопасный таймаут с запасом
                 }
-
-                val node = ScenarioNode(
-                    id = nodeId,
-                    title = "Поиск: $templateName #${action.id}",
-                    canvasX = posX,
-                    canvasY = posY,
-                    evaluationPolicy = EvaluationPolicy.FIRST_MATCH_WINS,
-                    triggers = listOf(triggerSpec),
-                    timeoutSeconds = safeTimeoutSeconds,
-                    isInfiniteWait = action.isWaitUntilMode,
-                    pollIntervalMs = action.checkIntervalMs.coerceAtLeast(100L),
-                    entryActions = emptyList(),
-                    standardPorts = listOf("out_timeout")
-                )
-                nodesMap[nodeId] = node
 
                 val matchTargetNodeId = if (action.jumpToStepOnMatch != null && action.jumpToStepOnMatch in 1..totalActions) {
-                    "node_${action.jumpToStepOnMatch}"
+                    "node_${scenario.actions[action.jumpToStepOnMatch - 1].id}"
                 } else {
                     nextDefaultNodeId
-                }
-
-                // [Последовательный граф записи] Создаем узел клика с паузой между шаблонами
-                if (action.clickAiTarget && action.jumpToStepOnMatch == null) {
-
-                    val actNodeId = "node_${action.id}_act"
-                    val actionSpec = NodeActionSpec(
-                        id = "act_${action.id}",
-                        type = ActionType.DELAY,
-                        x = 0f,
-                        y = 0f,
-                        holdDurationMs = 0L,
-                        delayAfterMs = action.delayMs
-                    )
-                    val actionNode = ScenarioNode(
-                        id = actNodeId,
-                        title = "Клик и пауза: ${action.delayMs}мс",
-                        canvasX = posX + 360f,
-                        canvasY = posY,
-                        entryActions = listOf(actionSpec),
-                        standardPorts = listOf("out_default")
-                    )
-                    nodesMap[actNodeId] = actionNode
-
-                    edgesList.add(
-                        ScenarioEdge(
-                            id = "edge_${action.id}_match_to_act",
-                            fromNodeId = nodeId,
-                            fromPortId = targetPort,
-                            toNodeId = actNodeId
-                        )
-                    )
-                    edgesList.add(
-                        ScenarioEdge(
-                            id = "edge_${action.id}_act_to_next",
-                            fromNodeId = actNodeId,
-                            fromPortId = "out_default",
-                            toNodeId = matchTargetNodeId
-                        )
-                    )
-                } else {
-                    edgesList.add(
-                        ScenarioEdge(
-                            id = "edge_${action.id}_match",
-                            fromNodeId = nodeId,
-                            fromPortId = targetPort,
-                            toNodeId = matchTargetNodeId
-                        )
-                    )
                 }
 
                 val timeoutTargetNodeId = if (action.jumpToStepOnTimeout != null && action.jumpToStepOnTimeout in 1..totalActions) {
-                    "node_${action.jumpToStepOnTimeout}"
+                    "node_${scenario.actions[action.jumpToStepOnTimeout - 1].id}"
                 } else {
                     nextDefaultNodeId
                 }
-                edgesList.add(
-                    ScenarioEdge(
-                        id = "edge_${action.id}_timeout",
-                        fromNodeId = nodeId,
-                        fromPortId = "out_timeout",
-                        toNodeId = timeoutTargetNodeId
+
+                val allTemplatePaths = if (isTrigger) {
+                    (listOf(action.templatePath) + action.multiTemplatePaths).filter { it.isNotBlank() }.distinct()
+                } else emptyList()
+
+                val isMultiTemplateAction = isTrigger && allTemplatePaths.size > 1
+
+                if (isMultiTemplateAction) {
+                    // [Мульти-поиск шаблонов в отдельных упорядоченных узлах графа]
+                    val triggerSpecs = ArrayList<NodeTriggerSpec>()
+                    val branchNodes = ArrayList<ScenarioNode>()
+
+                    for ((idx, path) in allTemplatePaths.withIndex()) {
+                        val templateName = java.io.File(path).nameWithoutExtension.removePrefix("mask_").take(14).ifEmpty { "цель_${idx + 1}" }
+                        val trigId = "trig_${action.id}_${idx + 1}"
+                        val matchPortId = "out_match_$trigId"
+
+                        val trigSpec = NodeTriggerSpec(
+                            id = trigId,
+                            name = "Шаблон: $templateName #${idx + 1}",
+                            type = ActionType.TRIGGER,
+                            templatePath = path,
+                            multiTemplatePaths = listOf(path),
+                            similarityThreshold = action.similarityPercent,
+                            targetQueryOrColor = action.targetScriptOrQuery,
+                            colorTolerance = action.colorTolerance,
+                            isContourMode = action.isContourMode,
+                            isShapeOnlyMode = action.isShapeOnlyMode,
+                            isMultiScaleMode = action.isMultiScaleMode,
+                            colorDeltaEMode = action.colorDeltaEMode,
+                            shapeExpansion = action.shapeExpansion,
+                            paddingOffsetPx = action.paddingOffsetPx,
+                            isCircleShape = action.isCircleShape,
+                            roiLeft = action.roiLeft,
+                            roiTop = action.roiTop,
+                            roiRight = action.roiRight,
+                            roiBottom = action.roiBottom,
+                            autoClickTarget = false,
+                            useCustomClick = action.useCustomClickOffset,
+                            clickOffset = Point2D(action.clickOffsetX, action.clickOffsetY),
+                            targetPortId = matchPortId
+                        )
+                        triggerSpecs.add(trigSpec)
+
+                        val branchNodeId = "node_${action.id}_branch_${idx + 1}"
+                        val branchActionSpec = if (action.clickAiTarget) {
+                            NodeActionSpec(
+                                id = "act_${action.id}_${idx + 1}",
+                                type = ActionType.CLICK,
+                                x = action.posX,
+                                y = action.posY,
+                                holdDurationMs = action.holdDurationMs.coerceAtLeast(30L),
+                                delayAfterMs = action.delayMs
+                            )
+                        } else {
+                            NodeActionSpec(
+                                id = "act_${action.id}_${idx + 1}",
+                                type = ActionType.DELAY,
+                                x = 0f,
+                                y = 0f,
+                                delayAfterMs = action.delayMs
+                            )
+                        }
+
+                        val branchCanvasY = posY + (idx * 130f) - ((allTemplatePaths.size - 1) * 65f)
+                        val branchNode = ScenarioNode(
+                            id = branchNodeId,
+                            title = "Шаблон #${idx + 1}: $templateName",
+                            canvasX = posX + 380f,
+                            canvasY = branchCanvasY,
+                            entryActions = listOf(branchActionSpec),
+                            standardPorts = listOf("out_default")
+                        )
+                        nodesMap[branchNodeId] = branchNode
+
+                        // Связь: Детектор -> Узел действия шаблона
+                        edgesList.add(
+                            ScenarioEdge(
+                                id = "edge_${action.id}_match_branch_${idx + 1}",
+                                fromNodeId = nodeId,
+                                fromPortId = matchPortId,
+                                toNodeId = branchNodeId,
+                                toPortId = "in_entry"
+                            )
+                        )
+
+                        // Связь: Узел действия шаблона -> Следующий узел по сценарию
+                        edgesList.add(
+                            ScenarioEdge(
+                                id = "edge_${action.id}_branch_${idx + 1}_to_next",
+                                fromNodeId = branchNodeId,
+                                fromPortId = "out_default",
+                                toNodeId = matchTargetNodeId,
+                                toPortId = "in_entry"
+                            )
+                        )
+                    }
+
+                    // Основной узел мульти-селектора
+                    val decisionNode = ScenarioNode(
+                        id = nodeId,
+                        title = "Мультипоиск #${action.id} (${allTemplatePaths.size} шабл.)",
+                        canvasX = posX,
+                        canvasY = posY,
+                        evaluationPolicy = EvaluationPolicy.FIRST_MATCH_WINS,
+                        triggers = triggerSpecs,
+                        timeoutSeconds = safeTimeoutSeconds,
+                        isInfiniteWait = action.isWaitUntilMode,
+                        pollIntervalMs = action.checkIntervalMs.coerceAtLeast(100L),
+                        entryActions = emptyList(),
+                        standardPorts = listOf("out_timeout")
                     )
-                )
+                    nodesMap[nodeId] = decisionNode
+
+                    // Связь по таймауту
+                    edgesList.add(
+                        ScenarioEdge(
+                            id = "edge_${action.id}_timeout",
+                            fromNodeId = nodeId,
+                            fromPortId = "out_timeout",
+                            toNodeId = timeoutTargetNodeId,
+                            toPortId = "in_entry"
+                        )
+                    )
+                } else {
+                    // Одиночный поиск (Trigger, OCR, ColorCheck)
+                    val triggerId = "trig_${action.id}"
+                    val targetPort = "out_match_$triggerId"
+
+                    val triggerName = when (action.type) {
+                        ActionType.TRIGGER -> "ИИ Поиск #${action.id}"
+                        ActionType.OCR -> "OCR Текст #${action.id}"
+                        ActionType.COLOR_CHECK -> "Цвет #${action.id}"
+                        else -> "Действие #${action.id}"
+                    }
+
+                    val triggerSpec = NodeTriggerSpec(
+                        id = triggerId,
+                        name = triggerName,
+                        type = action.type,
+                        templatePath = action.templatePath,
+                        multiTemplatePaths = if (action.multiTemplatePaths.isNotEmpty()) action.multiTemplatePaths else emptyList(),
+                        similarityThreshold = action.similarityPercent,
+                        targetQueryOrColor = if (isColorCheck) action.targetColorHex else action.targetScriptOrQuery,
+                        colorTolerance = action.colorTolerance,
+                        isContourMode = action.isContourMode,
+                        isShapeOnlyMode = action.isShapeOnlyMode,
+                        isMultiScaleMode = action.isMultiScaleMode,
+                        colorDeltaEMode = action.colorDeltaEMode,
+                        shapeExpansion = action.shapeExpansion,
+                        paddingOffsetPx = action.paddingOffsetPx,
+                        isCircleShape = action.isCircleShape,
+                        roiLeft = action.roiLeft,
+                        roiTop = action.roiTop,
+                        roiRight = action.roiRight,
+                        roiBottom = action.roiBottom,
+                        autoClickTarget = action.clickAiTarget,
+                        useCustomClick = if (isColorCheck) true else action.useCustomClickOffset,
+                        clickOffset = if (isColorCheck) Point2D(action.posX, action.posY) else Point2D(action.clickOffsetX, action.clickOffsetY),
+                        targetPortId = targetPort
+                    )
+
+                    val templateName = if (action.templatePath.isNotEmpty()) {
+                        java.io.File(action.templatePath).nameWithoutExtension.removePrefix("mask_").take(12)
+                    } else if (isOcr) {
+                        action.targetScriptOrQuery.take(12).ifEmpty { "Текст" }
+                    } else "Цель"
+
+                    val node = ScenarioNode(
+                        id = nodeId,
+                        title = "${if (isOcr) "OCR" else "Поиск"}: $templateName #${action.id}",
+                        canvasX = posX,
+                        canvasY = posY,
+                        evaluationPolicy = EvaluationPolicy.FIRST_MATCH_WINS,
+                        triggers = listOf(triggerSpec),
+                        timeoutSeconds = safeTimeoutSeconds,
+                        isInfiniteWait = action.isWaitUntilMode,
+                        pollIntervalMs = action.checkIntervalMs.coerceAtLeast(100L),
+                        entryActions = emptyList(),
+                        standardPorts = listOf("out_timeout")
+                    )
+                    nodesMap[nodeId] = node
+
+                    if (action.clickAiTarget && action.jumpToStepOnMatch == null) {
+                        val actNodeId = "node_${action.id}_act"
+                        val actionSpec = NodeActionSpec(
+                            id = "act_${action.id}",
+                            type = ActionType.DELAY,
+                            x = 0f,
+                            y = 0f,
+                            holdDurationMs = 0L,
+                            delayAfterMs = action.delayMs
+                        )
+                        val actionNode = ScenarioNode(
+                            id = actNodeId,
+                            title = "Клик и пауза: ${action.delayMs}мс",
+                            canvasX = posX + 360f,
+                            canvasY = posY,
+                            entryActions = listOf(actionSpec),
+                            standardPorts = listOf("out_default")
+                        )
+                        nodesMap[actNodeId] = actionNode
+
+                        edgesList.add(
+                            ScenarioEdge(
+                                id = "edge_${action.id}_match_to_act",
+                                fromNodeId = nodeId,
+                                fromPortId = targetPort,
+                                toNodeId = actNodeId,
+                                toPortId = "in_entry"
+                            )
+                        )
+                        edgesList.add(
+                            ScenarioEdge(
+                                id = "edge_${action.id}_act_to_next",
+                                fromNodeId = actNodeId,
+                                fromPortId = "out_default",
+                                toNodeId = matchTargetNodeId,
+                                toPortId = "in_entry"
+                            )
+                        )
+                    } else {
+                        edgesList.add(
+                            ScenarioEdge(
+                                id = "edge_${action.id}_match",
+                                fromNodeId = nodeId,
+                                fromPortId = targetPort,
+                                toNodeId = matchTargetNodeId,
+                                toPortId = "in_entry"
+                            )
+                        )
+                    }
+
+                    edgesList.add(
+                        ScenarioEdge(
+                            id = "edge_${action.id}_timeout",
+                            fromNodeId = nodeId,
+                            fromPortId = "out_timeout",
+                            toNodeId = timeoutTargetNodeId,
+                            toPortId = "in_entry"
+                        )
+                    )
+                }
             } else {
                 val resolvedSubroutine = action.subroutineTarget.ifEmpty {
                     action.targetScriptOrQuery.ifEmpty { action.subroutineTag }
