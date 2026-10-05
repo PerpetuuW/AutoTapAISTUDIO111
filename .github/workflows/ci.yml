@@ -2,9 +2,9 @@ name: Android CI, Build & Sync
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "1gemini" ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "1gemini" ]
   workflow_dispatch:
 
 permissions:
