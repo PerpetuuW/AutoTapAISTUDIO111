@@ -37,6 +37,7 @@ data class NodeTriggerSpec(
     val roiRight: Int? = null,
     val roiBottom: Int? = null,
     val autoClickTarget: Boolean = true,
+    val targetOccurrenceIndex: Int = 0,
     val useCustomClick: Boolean = false,
     val clickOffset: Point2D = Point2D(0f, 0f),
     val targetPortId: String = "out_match_${id}",

@@ -233,17 +233,19 @@ class GraphEditorOverlay(
             setTextColor(textColor)
             textSize = 9.5f
             typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            minHeight = 0
+            minimumHeight = 0
+            gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 setColor(bgColorHex.toColorInt())
                 cornerRadius = dpF(6f)
             }
-            layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, dp(32)).apply { marginEnd = dp(4) }
-            setPadding(dp(8), 0, dp(8), 0)
+            layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, dp(34)).apply { marginEnd = dp(4) }
+            setPadding(dp(8), dp(4), dp(8), dp(4))
             setOnClickListener { onClick() }
         }
     }
-
-
 
     private fun createPaletteBtn(title: String, accentHex: String, onClick: () -> Unit): Button {
         return Button(context).apply {
@@ -251,13 +253,17 @@ class GraphEditorOverlay(
             setTextColor(Color.WHITE)
             textSize = 8.5f
             typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            minHeight = 0
+            minimumHeight = 0
+            gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 setColor("#1E1736".toColorInt())
-                cornerRadius = dpF(5f)
+                cornerRadius = dpF(6f)
                 setStroke(dp(1), accentHex.toColorInt())
             }
-            layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, dp(26)).apply { marginEnd = dp(4) }
-            setPadding(dp(6), 0, dp(6), 0)
+            layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, dp(30)).apply { marginEnd = dp(4) }
+            setPadding(dp(8), dp(2), dp(8), dp(2))
             setOnClickListener { onClick() }
         }
     }
@@ -422,9 +428,13 @@ class GraphEditorOverlay(
     private fun showNodeInspector(node: ScenarioNode) {
         inspectorCard?.let { overlayContainerView?.removeView(it) }
 
+        val screenH = dm.heightPixels
+        val cardW = dp(320).coerceAtMost((dm.widthPixels * 0.92f).toInt())
+        val maxScrollH = (screenH * 0.62f).toInt().coerceAtLeast(dp(180))
+
         val card = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            val p = dp(14)
+            val p = dp(12)
             setPadding(p, p, p, p)
             background = GradientDrawable().apply {
                 setColor("#F817112B".toColorInt())
@@ -435,17 +445,33 @@ class GraphEditorOverlay(
         }
         inspectorCard = card
 
-
         val title = TextView(context).apply {
             text = "БЛОК: ${node.title}"
             setTextColor("#38BDF8".toColorInt())
             textSize = 11f
             typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
             setPadding(0, 0, 0, dp(6))
         }
         card.addView(title)
 
-                // [V12.4] СЕКЦИЯ ПРИВЯЗКИ ШАБЛОНОВ ДЛЯ УЗЛОВ ЗРЕНИЯ
+        val scrollBody = object : android.widget.ScrollView(context) {
+            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+                val limitedSpec = MeasureSpec.makeMeasureSpec(maxScrollH, MeasureSpec.AT_MOST)
+                super.onMeasure(widthMeasureSpec, limitedSpec)
+            }
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f).apply {
+                bottomMargin = dp(4)
+            }
+            isVerticalScrollBarEnabled = true
+        }
+
+        val scrollContent = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        // [V12.4] СЕКЦИЯ ПРИВЯЗКИ ШАБЛОНОВ ДЛЯ УЗЛОВ ЗРЕНИЯ
         val isVisionNode = node.triggers.isNotEmpty() || node.title.contains("Поиск", ignoreCase = true) || node.title.contains("исчезновения", ignoreCase = true)
         if (isVisionNode) {
             val tvTemplateHeader = TextView(context).apply {
@@ -453,9 +479,10 @@ class GraphEditorOverlay(
                 setTextColor("#10B981".toColorInt())
                 textSize = 9.5f
                 typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, dp(6), 0, dp(4))
+                includeFontPadding = false
+                setPadding(0, dp(4), 0, dp(4))
             }
-            card.addView(tvTemplateHeader)
+            scrollContent.addView(tvTemplateHeader)
 
             val currentTrig = node.triggers.firstOrNull()
             val templateName = if (currentTrig?.templatePath.isNullOrBlank()) "Шаблон не привязан" else File(currentTrig!!.templatePath).nameWithoutExtension
@@ -464,9 +491,10 @@ class GraphEditorOverlay(
                 text = "Текущий: $templateName"
                 setTextColor(Color.WHITE)
                 textSize = 9f
+                includeFontPadding = false
                 setPadding(0, 0, 0, dp(4))
             }
-            card.addView(tvCurrentTpl)
+            scrollContent.addView(tvCurrentTpl)
 
             val tplActionsRow = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -479,13 +507,14 @@ class GraphEditorOverlay(
                 typeface = Typeface.DEFAULT_BOLD
                 includeFontPadding = false
                 minHeight = 0; minimumHeight = 0
-                setPadding(0, 0, 0, 0)
+                gravity = Gravity.CENTER
+                setPadding(dp(4), 0, dp(4), 0)
                 setTextColor(Color.WHITE)
                 background = GradientDrawable().apply {
                     setColor("#2563EB".toColorInt())
                     cornerRadius = dpF(6f)
                 }
-                layoutParams = LinearLayout.LayoutParams(0, dp(34), 1.25f).apply { marginEnd = dp(4) }
+                layoutParams = LinearLayout.LayoutParams(0, dp(32), 1.25f).apply { marginEnd = dp(4) }
                 setOnClickListener {
                     overlayContainerView?.removeView(card)
                     showCustomTemplatePickerDialog(node, 0)
@@ -500,13 +529,14 @@ class GraphEditorOverlay(
                 typeface = Typeface.DEFAULT_BOLD
                 includeFontPadding = false
                 minHeight = 0; minimumHeight = 0
+                gravity = Gravity.CENTER
                 setPadding(0, 0, 0, 0)
                 setTextColor(Color.WHITE)
                 background = GradientDrawable().apply {
                     setColor("#059669".toColorInt())
                     cornerRadius = dpF(6f)
                 }
-                layoutParams = LinearLayout.LayoutParams(0, dp(34), 0.8f)
+                layoutParams = LinearLayout.LayoutParams(0, dp(32), 0.8f)
                 setOnClickListener {
                     val newIdx = node.triggers.size + 1
                     val newTrigId = "trig_${node.id}_$newIdx"
@@ -532,21 +562,22 @@ class GraphEditorOverlay(
                 }
             }
             tplActionsRow.addView(btnAddBranch)
-            card.addView(tplActionsRow)
-            }
+            scrollContent.addView(tplActionsRow)
+        }
 
-            // [V100.0] Интерактивные степперы параметров цикла (repeatCount) и задержек
-            val loopAction = node.entryActions.firstOrNull { it.repeatCount > 1 }
-            val isLoopNode = loopAction != null || node.standardPorts.contains("out_loop_body") || node.title.contains("Цикл", ignoreCase = true)
-            if (isLoopNode) {
+        // [V100.0] Интерактивные степперы параметров цикла (repeatCount) и задержек
+        val loopAction = node.entryActions.firstOrNull { it.repeatCount > 1 }
+        val isLoopNode = loopAction != null || node.standardPorts.contains("out_loop_body") || node.title.contains("Цикл", ignoreCase = true)
+        if (isLoopNode) {
             val tvParamHeader = TextView(context).apply {
                 text = "ПАРАМЕТРЫ ЦИКЛА:"
                 setTextColor("#C084FC".toColorInt())
                 textSize = 9.5f
                 typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, dp(6), 0, dp(4))
+                includeFontPadding = false
+                setPadding(0, dp(4), 0, dp(4))
             }
-            card.addView(tvParamHeader)
+            scrollContent.addView(tvParamHeader)
 
             val currentRepeats = loopAction?.repeatCount ?: 3
             val stepperRow = LinearLayout(context).apply {
@@ -559,6 +590,7 @@ class GraphEditorOverlay(
                 setTextColor(Color.WHITE)
                 textSize = 9.5f
                 typeface = Typeface.DEFAULT_BOLD
+                includeFontPadding = false
                 layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
             }
             val btnMinus = Button(context).apply {
@@ -567,6 +599,7 @@ class GraphEditorOverlay(
                 typeface = Typeface.DEFAULT_BOLD
                 includeFontPadding = false
                 minHeight = 0; minimumHeight = 0
+                gravity = Gravity.CENTER
                 setPadding(0, 0, 0, 0)
                 setTextColor(Color.WHITE)
                 background = GradientDrawable().apply { setColor("#21262D".toColorInt()); cornerRadius = dpF(4f) }
@@ -596,6 +629,7 @@ class GraphEditorOverlay(
                 typeface = Typeface.DEFAULT_BOLD
                 includeFontPadding = false
                 minHeight = 0; minimumHeight = 0
+                gravity = Gravity.CENTER
                 setPadding(0, 0, 0, 0)
                 setTextColor(Color.WHITE)
                 background = GradientDrawable().apply { setColor("#21262D".toColorInt()); cornerRadius = dpF(4f) }
@@ -622,8 +656,8 @@ class GraphEditorOverlay(
             stepperRow.addView(tvRepeatsLabel)
             stepperRow.addView(btnMinus)
             stepperRow.addView(btnPlus)
-            card.addView(stepperRow)
-            }
+            scrollContent.addView(stepperRow)
+        }
 
         // РОУТЕР ВЕТВЛЕНИЙ (НАГЛЯДНАЯ МАРШРУТИЗАЦИЯ ВЫХОДОВ)
         val tvBranchHeader = TextView(context).apply {
@@ -631,9 +665,10 @@ class GraphEditorOverlay(
             setTextColor("#A78BFA".toColorInt())
             textSize = 9.5f
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, dp(6), 0, dp(4))
+            includeFontPadding = false
+            setPadding(0, dp(4), 0, dp(4))
         }
-        card.addView(tvBranchHeader)
+        scrollContent.addView(tvBranchHeader)
 
         val sc = currentScenario
         // [V85.0] Лаконичные метки портов против вытеснения и обрезки текста целевых узлов
@@ -647,7 +682,7 @@ class GraphEditorOverlay(
             val row = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, dp(3), 0, dp(3))
+                setPadding(0, dp(2), 0, dp(2))
             }
 
             val tvLabel = TextView(context).apply {
@@ -655,6 +690,7 @@ class GraphEditorOverlay(
                 setTextColor(if (portId == "out_timeout") "#F59E0B".toColorInt() else if (portId.startsWith("out_match")) "#10B981".toColorInt() else "#C084FC".toColorInt())
                 textSize = 9f
                 typeface = Typeface.DEFAULT_BOLD
+                includeFontPadding = false
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1.1f)
@@ -667,7 +703,8 @@ class GraphEditorOverlay(
                 typeface = Typeface.DEFAULT_BOLD
                 includeFontPadding = false
                 minHeight = 0; minimumHeight = 0
-                setPadding(dp(4), 0, dp(4), 0)
+                gravity = Gravity.CENTER
+                setPadding(dp(6), 0, dp(6), 0)
                 setTextColor(Color.WHITE)
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
@@ -676,18 +713,21 @@ class GraphEditorOverlay(
                     cornerRadius = dpF(6f)
                     setStroke(dp(1), "#3E2A6E".toColorInt())
                 }
-                layoutParams = LinearLayout.LayoutParams(0, dp(34), 1.4f)
+                layoutParams = LinearLayout.LayoutParams(0, dp(32), 1.4f)
                 setOnClickListener {
                     showNodeSelectionDialog(node.id, portId)
                 }
             }
             row.addView(btnTarget)
-            card.addView(row)
+            scrollContent.addView(row)
         }
+
+        scrollBody.addView(scrollContent)
+        card.addView(scrollBody)
 
         val btnRowBottom = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(0, dp(8), 0, 0)
+            setPadding(0, dp(6), 0, 0)
         }
 
         // [V110.0] Ликвидация лишней кнопки старта: точка входа задается протяжкой провода от узла СТАРТ
@@ -700,6 +740,7 @@ class GraphEditorOverlay(
                 typeface = Typeface.DEFAULT_BOLD
                 includeFontPadding = false
                 minHeight = 0; minimumHeight = 0
+                gravity = Gravity.CENTER
                 setPadding(0, 0, 0, 0)
                 setTextColor(Color.WHITE)
                 background = GradientDrawable().apply { setColor("#F04438".toColorInt()); cornerRadius = dpF(6f) }
@@ -719,7 +760,7 @@ class GraphEditorOverlay(
                     overlayContainerView?.removeView(card)
                 }
             }
-            btnRowBottom.addView(btnDeleteNode, LinearLayout.LayoutParams(0, dp(34), 1.1f).apply { marginEnd = dp(8) })
+            btnRowBottom.addView(btnDeleteNode, LinearLayout.LayoutParams(0, dp(34), 1.1f).apply { marginEnd = dp(6) })
 
             val btnCloseInspector = Button(context).apply {
                 text = "ЗАКРЫТЬ"
@@ -727,6 +768,7 @@ class GraphEditorOverlay(
                 typeface = Typeface.DEFAULT_BOLD
                 includeFontPadding = false
                 minHeight = 0; minimumHeight = 0
+                gravity = Gravity.CENTER
                 setPadding(0, 0, 0, 0)
                 setTextColor(Color.WHITE)
                 background = GradientDrawable().apply { setColor("#21262D".toColorInt()); cornerRadius = dpF(6f) }
@@ -740,6 +782,7 @@ class GraphEditorOverlay(
                 typeface = Typeface.DEFAULT_BOLD
                 includeFontPadding = false
                 minHeight = 0; minimumHeight = 0
+                gravity = Gravity.CENTER
                 setPadding(0, 0, 0, 0)
                 setTextColor(Color.WHITE)
                 background = GradientDrawable().apply { setColor("#21262D".toColorInt()); cornerRadius = dpF(6f) }
@@ -750,7 +793,9 @@ class GraphEditorOverlay(
 
         card.addView(btnRowBottom)
 
-        val lp = FrameLayout.LayoutParams(dp(320), WRAP_CONTENT, Gravity.END or Gravity.CENTER_VERTICAL).apply { rightMargin = dp(16) }
+        val lp = FrameLayout.LayoutParams(cardW, WRAP_CONTENT, Gravity.END or Gravity.CENTER_VERTICAL).apply {
+            rightMargin = dp(12)
+        }
         overlayContainerView?.addView(card, lp)
     }
 
@@ -1172,9 +1217,12 @@ class GraphEditorOverlay(
             private fun showCascadeCategoryDialog(categoryTitle: String, items: List<Pair<String, () -> Unit>>) {
         cascadeMenuCard?.let { overlayContainerView?.removeView(it) }
 
+        val screenH = dm.heightPixels
+        val maxListH = (screenH * 0.55f).toInt().coerceAtLeast(dp(160))
+
         val card = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            val p = dp(14)
+            val p = dp(12)
             setPadding(p, p, p, p)
             background = GradientDrawable().apply {
                 setColor("#F816112C".toColorInt())
@@ -1190,40 +1238,63 @@ class GraphEditorOverlay(
             setTextColor("#A78BFA".toColorInt())
             textSize = 10.5f
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, 0, 0, dp(8))
+            includeFontPadding = false
+            setPadding(0, 0, 0, dp(6))
         }
         card.addView(tvHeader)
+
+        val scroll = object : android.widget.ScrollView(context) {
+            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+                val limitedSpec = MeasureSpec.makeMeasureSpec(maxListH, MeasureSpec.AT_MOST)
+                super.onMeasure(widthMeasureSpec, limitedSpec)
+            }
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f)
+            isVerticalScrollBarEnabled = true
+        }
+
+        val list = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
 
         items.forEach { (actionTitle, onSelected) ->
             val btn = Button(context).apply {
                 text = actionTitle
                 textSize = 9f
+                typeface = Typeface.DEFAULT_BOLD
+                includeFontPadding = false
+                minHeight = 0; minimumHeight = 0
+                gravity = Gravity.CENTER
                 setTextColor(Color.WHITE)
                 background = GradientDrawable().apply {
                     setColor("#23183F".toColorInt())
-                    cornerRadius = dpF(4f)
+                    cornerRadius = dpF(6f)
                     setStroke(dp(1), "#3E2A6E".toColorInt())
                 }
                 layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(32)).apply { bottomMargin = dp(4) }
-                setPadding(dp(8), 0, dp(8), 0)
+                setPadding(dp(8), dp(4), dp(8), dp(4))
                 setOnClickListener {
                     overlayContainerView?.removeView(card)
                     cascadeMenuCard = null
                     onSelected()
                 }
             }
-            card.addView(btn)
+            list.addView(btn)
         }
+        scroll.addView(list)
+        card.addView(scroll)
 
         val btnCancel = Button(context).apply {
             text = "ОТМЕНА"
             textSize = 8.5f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            minHeight = 0; minimumHeight = 0
+            gravity = Gravity.CENTER
             setTextColor("#F43F5E".toColorInt())
             background = GradientDrawable().apply {
                 setColor("#2E1218".toColorInt())
                 cornerRadius = dpF(4f)
             }
-            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(28)).apply { topMargin = dp(4) }
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(30)).apply { topMargin = dp(4) }
             setOnClickListener {
                 overlayContainerView?.removeView(card)
                 cascadeMenuCard = null
@@ -1231,9 +1302,7 @@ class GraphEditorOverlay(
         }
         card.addView(btnCancel)
 
-        val lp = FrameLayout.LayoutParams(dp(260), WRAP_CONTENT, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
-            topMargin = dp(90)
-        }
+        val lp = FrameLayout.LayoutParams(dp(270).coerceAtMost((dm.widthPixels * 0.9f).toInt()), WRAP_CONTENT, Gravity.CENTER)
         overlayContainerView?.addView(card, lp)
     }
 

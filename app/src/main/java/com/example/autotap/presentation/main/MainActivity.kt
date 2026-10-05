@@ -294,8 +294,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun showExportDialog() {
         val pbm = com.example.autotap.infrastructure.storage.PackageBackupManager(this)
-        val checkedItems = booleanArrayOf(true, true)
-        val labels = arrayOf("Сценарии (.json)", "Шаблоны (маски + цвета + мета)")
+        val checkedItems = booleanArrayOf(true, true, true)
+        val labels = arrayOf("Сценарии и граф (.json)", "Шаблоны (маски + цвета + мета)", "OCR словарь и метаданные поиска")
 
         AlertDialog.Builder(this)
             .setTitle("Экспорт данных")
@@ -305,40 +305,19 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("Экспорт") { _, _ ->
                 val exportScenarios = checkedItems[0]
                 val exportTemplates = checkedItems[1]
-                val zip = when {
-                    exportScenarios && exportTemplates -> pbm.exportFullBackupZip()
-                    exportTemplates -> pbm.exportAllTemplatesZip()
+                val exportOcr = checkedItems[2]
 
-                    exportScenarios -> {
-                    val sDir = java.io.File(filesDir, "scripts")
-                    val hasScripts = sDir.exists() && sDir.walkTopDown().any { it.isFile && it.name.endsWith(".json") }
-                    if (!hasScripts) {
-                    null
-                    } else {
-                    val zFile = java.io.File(externalCacheDir ?: cacheDir, "autotap_scenarios.zip")
-                    java.util.zip.ZipOutputStream(java.io.BufferedOutputStream(java.io.FileOutputStream(zFile))).use { zos ->
-                    sDir.walkTopDown().filter { it.isFile && it.name.endsWith(".json") }.forEach { sf ->
-                    zos.putNextEntry(java.util.zip.ZipEntry("scripts/${sf.name}"))
-                    zos.write(sf.readBytes())
-                    zos.closeEntry()
-                    }
-                    }
-                    if (zFile.length() <= 22L) {
-                    zFile.delete()
-                    null
-                    } else {
-                    zFile
-                    }
-                    }
-                    }
-                    else -> null
-                    }
-                    if (zip != null) {
+                val zip = pbm.exportFullBackupZip(
+                    exportScripts = exportScenarios,
+                    exportTemplates = exportTemplates,
+                    exportOcr = exportOcr
+                )
+                if (zip != null) {
                     pbm.shareZipFile(zip, "Экспорт AutoTap")
-                    } else {
-                    android.widget.Toast.makeText(this, "Нет данных для экспорта", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                    }
+                } else {
+                    android.widget.Toast.makeText(this, "Нет выбранных данных для экспорта", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
             .setNegativeButton("Отмена", null)
             .show()
     }

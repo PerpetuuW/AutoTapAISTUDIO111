@@ -200,21 +200,31 @@ class ScriptsDialog(
             setPadding(dp(6), dp(4), dp(6), dp(4))
 
             setOnClickListener {
-            val scriptsDir = java.io.File(context.filesDir, "scripts")
-            val templatesDir = java.io.File(context.filesDir, "templates")
-            val hasScripts = scriptsDir.exists() && scriptsDir.walkTopDown().any { it.isFile && it.name.endsWith(".json") }
-            val hasTemplates = templatesDir.exists() && templatesDir.walkTopDown().any { it.isFile && it.name.endsWith(".png") }
-            if (!hasScripts && !hasTemplates) {
-            Toast.makeText(context, "Нет сценариев и шаблонов для экспорта", Toast.LENGTH_SHORT).show()
-            return@setOnClickListener
-            }
-            val pbm = com.example.autotap.infrastructure.storage.PackageBackupManager(context)
-            val zip = pbm.exportFullBackupZip()
-            if (zip != null) {
-            pbm.shareZipFile(zip, "Экспорт AutoTap")
-            } else {
-            Toast.makeText(context, "Нет данных для экспорта", Toast.LENGTH_SHORT).show()
-            }
+                val checkedItems = booleanArrayOf(true, true, true)
+                val labels = arrayOf("Сценарии и граф (.json)", "Шаблоны (маски + цвета + мета)", "OCR словарь и метаданные поиска")
+
+                val builder = android.app.AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                    .setTitle("Экспорт данных")
+                    .setMultiChoiceItems(labels, checkedItems) { _, which, isChecked ->
+                        checkedItems[which] = isChecked
+                    }
+                    .setPositiveButton("Экспорт") { _, _ ->
+                        val pbm = com.example.autotap.infrastructure.storage.PackageBackupManager(context)
+                        val zip = pbm.exportFullBackupZip(
+                            exportScripts = checkedItems[0],
+                            exportTemplates = checkedItems[1],
+                            exportOcr = checkedItems[2]
+                        )
+                        if (zip != null) {
+                            pbm.shareZipFile(zip, "Экспорт AutoTap")
+                        } else {
+                            Toast.makeText(context, "Нет выбранных данных для экспорта", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    .setNegativeButton("Отмена", null)
+                    .create()
+                builder.window?.setType(overlayWindowManager.getOverlayType(false))
+                builder.show()
             }
             }
             toolsRow.addView(btnExportDialog, LinearLayout.LayoutParams(0, dp(26), 1f).apply { marginEnd = dp(4) })
@@ -249,12 +259,16 @@ class ScriptsDialog(
         toolsRow.addView(btnImportZip, LinearLayout.LayoutParams(0, dp(26), 1f))
         rootCard.addView(toolsRow)
 
+        val screenH = dm.heightPixels
+        val maxListH = (screenH * 0.45f).toInt().coerceAtLeast(dp(180))
+
         val scrollView = ScrollView(context).apply {
             tag = "LIST"
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(210)).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, maxListH).apply {
                 val t = dp(8)
                 setMargins(0, t, 0, t)
             }
+            isVerticalScrollBarEnabled = true
         }
 
         val listLayout = LinearLayout(context).apply {
@@ -496,13 +510,14 @@ class ScriptsDialog(
             textSize = 7.5f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
+            minHeight = 0; minimumHeight = 0
+            gravity = Gravity.CENTER
             setTextColor(textHex.toColorInt())
             background = GradientDrawable().apply {
                 setColor(bgHex.toColorInt())
                 cornerRadius = dpF(5f)
                 setStroke(dp(1), textHex.toColorInt())
             }
-            minHeight = 0; minimumHeight = 0
             setPadding(dp(4), 0, dp(4), 0)
             setOnClickListener { onClick() }
         }

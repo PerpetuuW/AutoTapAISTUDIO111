@@ -42,7 +42,10 @@ class GlobalSettingsDialog(
     fun show() {
         if (dialogView != null) return
 
-        val cardW = dp(310).coerceAtMost((dm.widthPixels * 0.94f).toInt())
+        val screenH = dm.heightPixels
+        val cardW = dp(320).coerceAtMost((dm.widthPixels * 0.94f).toInt())
+        val maxScrollH = (screenH * 0.62f).toInt().coerceAtLeast(dp(180))
+
         val rootCard = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable(
@@ -62,7 +65,7 @@ class GlobalSettingsDialog(
             tag = "HEADER"
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, dp(8))
+            setPadding(0, 0, 0, dp(6))
         }
 
         val tvTitle = TextView(context).apply {
@@ -73,7 +76,6 @@ class GlobalSettingsDialog(
             setTextColor("#A78BFA".toColorInt())
         }
         header.addView(tvTitle, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-
 
         val btnHelp = createIconButton(VectorIconDrawer.IconType.HELP, "#21262D", "#38BDF8", dp(28)) {
             InteractiveTutorialOverlay(
@@ -86,6 +88,20 @@ class GlobalSettingsDialog(
         header.addView(btnHelp)
         rootCard.addView(header)
 
+        val scrollView = object : android.widget.ScrollView(context) {
+            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+                val limitedSpec = MeasureSpec.makeMeasureSpec(maxScrollH, MeasureSpec.AT_MOST)
+                super.onMeasure(widthMeasureSpec, limitedSpec)
+            }
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+            isVerticalScrollBarEnabled = true
+        }
+
+        val scrollContent = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
         val tvClickLabel = TextView(context).apply {
             text = "Период клика по умолчанию (мс):"
             textSize = 9f
@@ -93,7 +109,7 @@ class GlobalSettingsDialog(
             setTextColor("#8B949E".toColorInt())
             setPadding(0, dp(4), 0, dp(2))
         }
-        rootCard.addView(tvClickLabel)
+        scrollContent.addView(tvClickLabel)
 
         val etClick = EditText(context).apply {
             tag = "CLICK"
@@ -113,17 +129,17 @@ class GlobalSettingsDialog(
                 minHeight = dp(38)
             }
         }
-        rootCard.addView(etClick)
+        scrollContent.addView(etClick)
 
         val presetRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, dp(2), 0, dp(4))
         }
         fun applyPreset(ms: Long) { etClick.setText(ms.toString()) }
-        presetRow.addView(createPresetChip("ЧЕЛОВЕК (250мс)") { applyPreset(250L) }, LinearLayout.LayoutParams(0, dp(22), 1f).apply { marginEnd = dp(2) })
-        presetRow.addView(createPresetChip("БЕЗОПАСНО (120мс)") { applyPreset(120L) }, LinearLayout.LayoutParams(0, dp(22), 1.1f).apply { marginEnd = dp(2) })
-        presetRow.addView(createPresetChip("БЫСТРО (60мс)") { applyPreset(60L) }, LinearLayout.LayoutParams(0, dp(22), 1f))
-        rootCard.addView(presetRow)
+        presetRow.addView(createPresetChip("ЧЕЛОВЕК (250мс)") { applyPreset(250L) }, LinearLayout.LayoutParams(0, dp(26), 1f).apply { marginEnd = dp(2) })
+        presetRow.addView(createPresetChip("БЕЗОПАСНО (120мс)") { applyPreset(120L) }, LinearLayout.LayoutParams(0, dp(26), 1.1f).apply { marginEnd = dp(2) })
+        presetRow.addView(createPresetChip("БЫСТРО (60мс)") { applyPreset(60L) }, LinearLayout.LayoutParams(0, dp(26), 1f))
+        scrollContent.addView(presetRow)
 
         // [V170.0] Переключатель помощника закрытия рекламы
         val adAssistRow = LinearLayout(context).apply {
@@ -134,6 +150,7 @@ class GlobalSettingsDialog(
         val tvAdAssist = TextView(context).apply {
             text = "Помощник закрытия рекламы:"
             textSize = 9.5f
+            includeFontPadding = false
             setTextColor(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
@@ -145,6 +162,7 @@ class GlobalSettingsDialog(
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
             minHeight = 0; minimumHeight = 0
+            gravity = Gravity.CENTER
             setPadding(0, 0, 0, 0)
             setTextColor(if (curState) Color.BLACK else Color.WHITE)
             background = GradientDrawable().apply {
@@ -162,20 +180,21 @@ class GlobalSettingsDialog(
         }
         adAssistRow.addView(tvAdAssist)
         adAssistRow.addView(btnToggleAssist)
-        rootCard.addView(adAssistRow)
+        scrollContent.addView(adAssistRow)
 
         val prefs = context.getSharedPreferences("autotap_prefs", Context.MODE_PRIVATE)
         val autoGraphRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(8), 0, 0)
+            setPadding(0, dp(6), 0, dp(4))
         }
         val tvAutoGraph = TextView(context).apply {
-            text = "АВТО-ПРЕДЛОЖЕНИЕ ГРАФА"
+            text = "АВТО-ПРЕДЛОЖЕНИЕ ГРАФА:"
             textSize = 9.5f
             typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
             setTextColor(Color.WHITE)
-            setPadding(0, 0, dp(8), 0)
+            setPadding(0, 0, dp(4), 0)
         }
         var autoGraphState = prefs.getBoolean("PREF_PROMPT_AUTO_GRAPH", true)
         val btnToggleAutoGraph = Button(context).apply {
@@ -183,6 +202,8 @@ class GlobalSettingsDialog(
             textSize = 8.5f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
+            minHeight = 0; minimumHeight = 0
+            gravity = Gravity.CENTER
             setTextColor(if (autoGraphState) Color.BLACK else Color.WHITE)
             background = GradientDrawable().apply {
                 setColor(Color.parseColor(if (autoGraphState) "#10B981" else "#21262D"))
@@ -199,7 +220,8 @@ class GlobalSettingsDialog(
         }
         autoGraphRow.addView(tvAutoGraph, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         autoGraphRow.addView(btnToggleAutoGraph)
-        rootCard.addView(autoGraphRow)
+        scrollContent.addView(autoGraphRow)
+
         val tvSwipeLabel = TextView(context).apply {
             text = "Длительность свайпа по умолчанию (мс):"
             textSize = 9f
@@ -207,7 +229,7 @@ class GlobalSettingsDialog(
             setTextColor("#8B949E".toColorInt())
             setPadding(0, dp(6), 0, dp(2))
         }
-        rootCard.addView(tvSwipeLabel)
+        scrollContent.addView(tvSwipeLabel)
 
         val etSwipe = EditText(context).apply {
             tag = "SWIPE"
@@ -227,7 +249,7 @@ class GlobalSettingsDialog(
                 minHeight = dp(38)
             }
         }
-        rootCard.addView(etSwipe)
+        scrollContent.addView(etSwipe)
 
         val tvPathLabel = TextView(context).apply {
             text = "Длительность пути по умолчанию (мс):"
@@ -236,7 +258,7 @@ class GlobalSettingsDialog(
             setTextColor("#8B949E".toColorInt())
             setPadding(0, dp(6), 0, dp(2))
         }
-        rootCard.addView(tvPathLabel)
+        scrollContent.addView(tvPathLabel)
 
         val etPath = EditText(context).apply {
             tag = "PATH"
@@ -256,29 +278,32 @@ class GlobalSettingsDialog(
                 minHeight = dp(38)
             }
         }
-        rootCard.addView(etPath)
+        scrollContent.addView(etPath)
 
         val pathPresetRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, dp(2), 0, dp(4))
         }
         val applyPathPreset = { ms: Long -> etPath.setText(ms.toString()) }
-        pathPresetRow.addView(createPresetChip("1с") { applyPathPreset(1000L) })
-        pathPresetRow.addView(createPresetChip("3с") { applyPathPreset(3000L) })
-        pathPresetRow.addView(createPresetChip("5с") { applyPathPreset(5000L) })
-        pathPresetRow.addView(createPresetChip("10с") { applyPathPreset(10000L) })
-        rootCard.addView(pathPresetRow)
+        pathPresetRow.addView(createPresetChip("1с") { applyPathPreset(1000L) }, LinearLayout.LayoutParams(0, dp(26), 1f).apply { marginEnd = dp(2) })
+        pathPresetRow.addView(createPresetChip("3с") { applyPathPreset(3000L) }, LinearLayout.LayoutParams(0, dp(26), 1f).apply { marginEnd = dp(2) })
+        pathPresetRow.addView(createPresetChip("5с") { applyPathPreset(5000L) }, LinearLayout.LayoutParams(0, dp(26), 1f).apply { marginEnd = dp(2) })
+        pathPresetRow.addView(createPresetChip("10с") { applyPathPreset(10000L) }, LinearLayout.LayoutParams(0, dp(26), 1f))
+        scrollContent.addView(pathPresetRow)
+
+        scrollView.addView(scrollContent)
+        rootCard.addView(scrollView)
 
         val btnRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(12), 0, 0)
+            setPadding(0, dp(8), 0, 0)
         }
 
         val btnCancel = createActionIconBtn(VectorIconDrawer.IconType.CLOSE, "#1B1430", "#FDA4AF") {
             dismiss()
         }
-        btnRow.addView(btnCancel, LinearLayout.LayoutParams(0, dp(40), 1f).apply { marginEnd = dp(4) })
+        btnRow.addView(btnCancel, LinearLayout.LayoutParams(0, dp(38), 1f).apply { marginEnd = dp(4) })
 
         val btnSave = createActionIconBtn(VectorIconDrawer.IconType.CHECK, "#6D28D9", "#A78BFA").apply {
             tag = "SAVE"
@@ -291,7 +316,7 @@ class GlobalSettingsDialog(
             dismiss()
             Toast.makeText(context, "Настройки сохранены!", Toast.LENGTH_SHORT).show()
         }
-        btnRow.addView(btnSave, LinearLayout.LayoutParams(0, dp(40), 1.5f))
+        btnRow.addView(btnSave, LinearLayout.LayoutParams(0, dp(38), 1.5f))
         rootCard.addView(btnRow)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -300,14 +325,15 @@ class GlobalSettingsDialog(
                 textSize = 8f
                 typeface = Typeface.DEFAULT_BOLD
                 includeFontPadding = false
+                minHeight = 0
+                minimumHeight = 0
+                gravity = Gravity.CENTER
                 setTextColor(Color.WHITE)
                 background = GradientDrawable().apply {
                     setColor("#D97706".toColorInt())
                     cornerRadius = dpF(6f)
                 }
-                minHeight = 0
-                minimumHeight = 0
-                setPadding(dp(6), dp(6), dp(6), dp(6))
+                setPadding(dp(6), dp(4), dp(6), dp(4))
                 setOnClickListener {
                     Toast.makeText(context, "Нажмите ⋮ (три точки) вверху справа -> Разрешить ограниченные настройки", Toast.LENGTH_LONG).show()
                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -319,7 +345,7 @@ class GlobalSettingsDialog(
                 }
             }
             rootCard.addView(btnRestricted, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(32)).apply {
-                topMargin = dp(8)
+                topMargin = dp(6)
             })
         }
 
@@ -336,11 +362,12 @@ class GlobalSettingsDialog(
     private fun createPresetChip(label: String, onClick: () -> Unit): Button {
         return Button(context).apply {
             text = label
-            textSize = 7f
+            textSize = 7.5f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
             minHeight = 0; minimumHeight = 0
-            setPadding(dp(3), dp(2), dp(3), dp(2))
+            gravity = Gravity.CENTER
+            setPadding(dp(4), dp(2), dp(4), dp(2))
             setTextColor("#C4B5FD".toColorInt())
             background = GradientDrawable().apply {
                 setColor("#1F1738".toColorInt())

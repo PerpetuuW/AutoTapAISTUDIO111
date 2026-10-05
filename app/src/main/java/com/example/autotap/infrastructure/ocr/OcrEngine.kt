@@ -886,13 +886,8 @@ object OcrEngine {
                         )
                         matches.add(matchResult)
                         if (cleanQuery.isNotBlank()) {
-                            val elapsed = System.currentTimeMillis() - perfStart
-                            AppLogger.log(null, "OCR", "Game OCR Успех: '$rec' (совпало с '$targetQuery') в (${matchResult.clickX}, ${matchResult.clickY}) за ${elapsed}мс")
+                            AppLogger.log(null, "OCR", "Game OCR Найдено совпадение: '$rec' (запрос '$targetQuery') в (${matchResult.clickX}, ${matchResult.clickY})")
                             OcrQueryMetadataManager.registerOcrSuccess(cleanQuery)
-                            threadPool.shutdownNow()
-                            if (localBmp != srcBmp && !localBmp.isRecycled) localBmp.recycle()
-                            if (srcBmp != bitmap && !srcBmp.isRecycled) srcBmp.recycle()
-                            return listOf(matchResult)
                         }
                     }
                 }
@@ -900,6 +895,9 @@ object OcrEngine {
         }
 
         if (matches.isNotEmpty()) {
+            matches.sortBy { it.rectTop * 10000 + it.rectLeft }
+            val elapsed = System.currentTimeMillis() - perfStart
+            AppLogger.log(null, "OCR", "Game OCR Завершен: найдено ${matches.size} вариантов для '$targetQuery' за ${elapsed}мс")
             if (localBmp != srcBmp && !localBmp.isRecycled) localBmp.recycle()
             if (srcBmp != bitmap && !srcBmp.isRecycled) srcBmp.recycle()
             return matches

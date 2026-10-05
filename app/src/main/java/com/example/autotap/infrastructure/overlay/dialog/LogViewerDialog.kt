@@ -121,6 +121,8 @@ class LogViewerDialog(
             text = "ОБНОВИТЬ"
             textSize = 8.5f
             typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
             background = GradientDrawable().apply {
                 setColor("#1F6FEB".toColorInt())
@@ -141,6 +143,8 @@ class LogViewerDialog(
             text = "КОПИРОВАТЬ"
             textSize = 8.5f
             typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
             background = GradientDrawable().apply {
                 setColor("#21262D".toColorInt())
@@ -161,6 +165,8 @@ class LogViewerDialog(
             text = "ЭКСПОРТ"
             textSize = 8.5f
             typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
             background = GradientDrawable().apply {
                 setColor("#21262D".toColorInt())
@@ -169,7 +175,7 @@ class LogViewerDialog(
             minHeight = 0
             minimumHeight = 0
             setPadding(dp(4), 0, dp(4), 0)
-                        setOnClickListener {
+            setOnClickListener {
                 dismiss()
                 AppLogger.shareLogs(context, tvLogs.text.toString())
             }
@@ -181,6 +187,8 @@ class LogViewerDialog(
             textSize = 8.5f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor("#F04438".toColorInt())
+            includeFontPadding = false
+            gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 setColor("#21262D".toColorInt())
                 cornerRadius = dpF(6f)

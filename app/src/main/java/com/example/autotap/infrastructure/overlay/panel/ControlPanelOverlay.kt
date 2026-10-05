@@ -15,6 +15,7 @@ import android.view.ViewOutlineProvider
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import com.example.autotap.core.logger.AppLogger
 import com.example.autotap.infrastructure.overlay.OverlayWindowManager
 import com.example.autotap.infrastructure.overlay.model.PanelDisplayMode
@@ -534,12 +535,15 @@ class ControlPanelOverlay(
         })
     }
 
-    private fun showAddActionTypeMenu(anchorView: View) {
+    fun showAddActionTypeMenu(anchorView: View) {
         val dm = context.resources.displayMetrics
         fun dp(v: Int): Int = (v * dm.density).toInt()
         fun dpF(v: Float): Float = v * dm.density
 
-        val menuW = dp(320)
+        val menuW = dp(320).coerceAtMost((dm.widthPixels * 0.94f).toInt())
+        val screenH = dm.heightPixels
+        val maxScrollH = (screenH * 0.58f).toInt().coerceAtLeast(dp(180))
+
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable(
@@ -569,11 +573,13 @@ class ControlPanelOverlay(
             text = "ДОБАВИТЬ ШАГ"
             textSize = 12f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
+            includeFontPadding = false
             setTextColor(Color.parseColor("#EDE9FE"))
         }
         val tvSub = android.widget.TextView(context).apply {
             text = "Интерактивный конструктор сценария"
             textSize = 8.5f
+            includeFontPadding = false
             setTextColor(Color.parseColor("#94A3B8"))
         }
         headerTextLayout.addView(tvHeader)
@@ -584,6 +590,7 @@ class ControlPanelOverlay(
             text = "?"
             textSize = 11f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
+            includeFontPadding = false
             setTextColor(Color.parseColor("#38BDF8"))
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
@@ -598,8 +605,8 @@ class ControlPanelOverlay(
                     mode = InteractiveTutorialOverlay.TutorialMode.EDIT_STEP
                 ).show()
             }
-            }
-            headerRow.addView(btnHelpAction, LinearLayout.LayoutParams(dp(24), dp(24)))
+        }
+        headerRow.addView(btnHelpAction, LinearLayout.LayoutParams(dp(24), dp(24)))
         container.addView(headerRow)
 
         var dialogRef: View? = null
@@ -618,6 +625,7 @@ class ControlPanelOverlay(
                 text = title
                 textSize = 8.5f
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
+                includeFontPadding = false
                 setTextColor(Color.parseColor("#94A3B8"))
                 setPadding(dp(2), dp(8), 0, dp(4))
             }
@@ -681,37 +689,60 @@ class ControlPanelOverlay(
             }
         }
 
-        container.addView(createCategoryTitle("КОМПЬЮТЕРНОЕ ЗРЕНИЕ (OPENCV ⇄ AI)"))
+        val contentLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        contentLayout.addView(createCategoryTitle("КОМПЬЮТЕРНОЕ ЗРЕНИЕ (OPENCV ⇄ AI)"))
         val visionRow1 = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
         visionRow1.addView(createActionTile(MenuItemInfo("OPENCV", "Поиск шаблона", com.example.autotap.domain.model.ActionType.TRIGGER, VectorIconDrawer.IconType.ACTION_TRIGGER, "#F59E0B", false)))
         visionRow1.addView(createActionTile(MenuItemInfo("AI", "Нейропоиск", com.example.autotap.domain.model.ActionType.TRIGGER, VectorIconDrawer.IconType.ACTION_TRIGGER, "#818CF8", true)))
-        container.addView(visionRow1)
+        contentLayout.addView(visionRow1)
 
         val visionRow2 = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
         visionRow2.addView(createActionTile(MenuItemInfo("OCR ТЕКСТ", "Поиск надписи", com.example.autotap.domain.model.ActionType.OCR, VectorIconDrawer.IconType.ACTION_OCR, "#38BDF8")))
         visionRow2.addView(createActionTile(MenuItemInfo("ЦВЕТ", "Пипетка пикселя", com.example.autotap.domain.model.ActionType.COLOR_CHECK, VectorIconDrawer.IconType.ACTION_COLOR, "#EC4899")))
-        container.addView(visionRow2)
+        contentLayout.addView(visionRow2)
 
-        container.addView(createCategoryTitle("ФИЗИЧЕСКИЕ ЖЕСТЫ"))
+        contentLayout.addView(createCategoryTitle("ФИЗИЧЕСКИЕ ЖЕСТЫ"))
         val gestureRow1 = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
         gestureRow1.addView(createActionTile(MenuItemInfo("КЛИК", "Одиночный тап", com.example.autotap.domain.model.ActionType.CLICK, VectorIconDrawer.IconType.ACTION_CLICK, "#8B5CF6")))
         gestureRow1.addView(createActionTile(MenuItemInfo("УДЕРЖАНИЕ", "Долгий нажим", com.example.autotap.domain.model.ActionType.LONG_PRESS, VectorIconDrawer.IconType.ACTION_LONG_PRESS, "#A78BFA")))
-        container.addView(gestureRow1)
+        contentLayout.addView(gestureRow1)
 
         val gestureRow2 = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
         gestureRow2.addView(createActionTile(MenuItemInfo("СВАЙП", "Прямой жест", com.example.autotap.domain.model.ActionType.SWIPE, VectorIconDrawer.IconType.ACTION_SWIPE, "#C084FC")))
         gestureRow2.addView(createActionTile(MenuItemInfo("ПУТЬ", "Траектория", com.example.autotap.domain.model.ActionType.PATH, VectorIconDrawer.IconType.ACTION_PATH, "#A78BFA")))
-        container.addView(gestureRow2)
+        contentLayout.addView(gestureRow2)
 
         val gestureRow3 = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
         gestureRow3.addView(createActionTile(MenuItemInfo("ПИНЧ", "Масштабирование", com.example.autotap.domain.model.ActionType.PINCH, VectorIconDrawer.IconType.ACTION_PINCH, "#C084FC")))
         gestureRow3.addView(createActionTile(MenuItemInfo("СЦЕНАРИЙ", "Подпрограмма", com.example.autotap.domain.model.ActionType.SUBROUTINE, VectorIconDrawer.IconType.ACTION_SUBROUTINE, "#10B981")))
-        container.addView(gestureRow3)
+        contentLayout.addView(gestureRow3)
+
+        val scrollView = ScrollView(context).apply {
+            isVerticalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+            addView(contentLayout)
+        }
+        val constrainedScroll = object : FrameLayout(context) {
+            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+                val limitedHeightSpec = MeasureSpec.makeMeasureSpec(maxScrollH, MeasureSpec.AT_MOST)
+                super.onMeasure(widthMeasureSpec, limitedHeightSpec)
+            }
+        }.apply {
+            addView(scrollView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT))
+        }
+        container.addView(constrainedScroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
 
         val btnCancel = android.widget.Button(context).apply {
             text = "ЗАКРЫТЬ"
             textSize = 9f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            gravity = Gravity.CENTER
+            minHeight = 0
+            minimumHeight = 0
             setTextColor(Color.parseColor("#94A3B8"))
             background = GradientDrawable().apply {
                 setColor(Color.parseColor("#161B24"))
@@ -734,7 +765,7 @@ class ControlPanelOverlay(
         fun dp(v: Int): Int = (v * dm.density).toInt()
         fun dpF(v: Float): Float = v * dm.density
 
-        val menuW = dp(270)
+        val menuW = dp(270).coerceAtMost((dm.widthPixels * 0.92f).toInt())
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -757,6 +788,7 @@ class ControlPanelOverlay(
             text = "РЕЖИМ ЗАПИСИ"
             textSize = 10.5f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
+            includeFontPadding = false
             setTextColor(Color.parseColor("#38BDF8"))
         }
         headerRow.addView(tvHeader, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
@@ -765,6 +797,7 @@ class ControlPanelOverlay(
             text = "?"
             textSize = 11f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
+            includeFontPadding = false
             setTextColor(Color.parseColor("#38BDF8"))
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
@@ -798,11 +831,13 @@ class ControlPanelOverlay(
                     text = title
                     textSize = 9.5f
                     typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    includeFontPadding = false
                     setTextColor(Color.parseColor(colorHex))
                 }
                 val tvD = android.widget.TextView(context).apply {
                     text = desc
                     textSize = 7.5f
+                    includeFontPadding = false
                     setTextColor(Color.parseColor("#94A3B8"))
                 }
                 addView(tvT)
@@ -826,6 +861,10 @@ class ControlPanelOverlay(
             text = "ОТМЕНА"
             textSize = 9f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            gravity = Gravity.CENTER
+            minHeight = 0
+            minimumHeight = 0
             setTextColor(Color.parseColor("#94A3B8"))
             background = GradientDrawable().apply {
                 setColor(Color.parseColor("#161B24"))

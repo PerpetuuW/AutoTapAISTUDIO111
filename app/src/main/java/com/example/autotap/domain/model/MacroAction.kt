@@ -49,6 +49,7 @@ data class MacroAction(
     val jumpToStepOnTimeout: Int? = null,
     val pathPoints: List<Point2D> = emptyList(),
     val targetScriptOrQuery: String = "",
+    val targetOccurrenceIndex: Int = 0,
     val subroutineTag: String = "",
     val subroutineTarget: String = "",
 

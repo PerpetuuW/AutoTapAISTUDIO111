@@ -517,12 +517,15 @@ class MacroExecutionEngine(
                                     val service = accessibilityServiceProvider()
                                     val nativeMatches = service?.findTextInActiveWindow(query, roi) ?: emptyList()
                                     if (nativeMatches.isNotEmpty() && !query.startsWith("regex:") && !(query.contains("{") && query.contains("}"))) {
-                                        val firstMatch = nativeMatches.first()
+                                        val targetIdx = action.targetOccurrenceIndex.coerceIn(0, nativeMatches.size - 1)
+                                        val selectedMatch = nativeMatches[targetIdx]
                                         isMatched = true
-                                        clickTargetX = firstMatch.clickX.toFloat()
-                                        clickTargetY = firstMatch.clickY.toFloat()
-                                        matchedOcrRect = Rect(firstMatch.rectLeft, firstMatch.rectTop, firstMatch.rectRight, firstMatch.rectBottom)
-                                        variableContext["last_ocr"] = firstMatch.matchedText
+                                        val offX = if (action.useCustomClickOffset) action.clickOffsetX else 0f
+                                        val offY = if (action.useCustomClickOffset) action.clickOffsetY else 0f
+                                        clickTargetX = selectedMatch.clickX.toFloat() + offX
+                                        clickTargetY = selectedMatch.clickY.toFloat() + offY
+                                        matchedOcrRect = Rect(selectedMatch.rectLeft, selectedMatch.rectTop, selectedMatch.rectRight, selectedMatch.rectBottom)
+                                        variableContext["last_ocr"] = selectedMatch.matchedText
                                         break
                                     }
 
@@ -546,12 +549,15 @@ class MacroExecutionEngine(
                                             } else {
                                                 val results = OcrEngine.findTextOnScreen(screenshot, query, 2500L, roi, variableContext)
                                                 if (results.isNotEmpty()) {
-                                                    val firstMatch = results.first()
+                                                    val targetIdx = action.targetOccurrenceIndex.coerceIn(0, results.size - 1)
+                                                    val selectedMatch = results[targetIdx]
                                                     isMatched = true
-                                                    clickTargetX = firstMatch.clickX.toFloat()
-                                                    clickTargetY = firstMatch.clickY.toFloat()
-                                                    matchedOcrRect = Rect(firstMatch.rectLeft, firstMatch.rectTop, firstMatch.rectRight, firstMatch.rectBottom)
-                                                    variableContext["last_ocr"] = firstMatch.matchedText
+                                                    val offX = if (action.useCustomClickOffset) action.clickOffsetX else 0f
+                                                    val offY = if (action.useCustomClickOffset) action.clickOffsetY else 0f
+                                                    clickTargetX = selectedMatch.clickX.toFloat() + offX
+                                                    clickTargetY = selectedMatch.clickY.toFloat() + offY
+                                                    matchedOcrRect = Rect(selectedMatch.rectLeft, selectedMatch.rectTop, selectedMatch.rectRight, selectedMatch.rectBottom)
+                                                    variableContext["last_ocr"] = selectedMatch.matchedText
                                                     break
                                                 }
                                             }
@@ -1179,10 +1185,13 @@ class MacroExecutionEngine(
 
                     val results = OcrEngine.findTextOnScreen(bmp, trig.targetQueryOrColor, 1000L, roi, variableContext)
                     if (results.isNotEmpty()) {
-                        val best = results.first()
+                        val targetIdx = trig.targetOccurrenceIndex.coerceIn(0, results.size - 1)
+                        val best = results[targetIdx]
                         if (trig.autoClickTarget) {
-                            val clickX = best.clickX + trig.clickOffset.x
-                            val clickY = best.clickY + trig.clickOffset.y
+                            val offX = if (trig.useCustomClick) trig.clickOffset.x else 0f
+                            val offY = if (trig.useCustomClick) trig.clickOffset.y else 0f
+                            val clickX = best.clickX + offX
+                            val clickY = best.clickY + offY
                             withContext(Dispatchers.IO) {
                                 gestureGateway.performClick(clickX, clickY, 60L)
                             }

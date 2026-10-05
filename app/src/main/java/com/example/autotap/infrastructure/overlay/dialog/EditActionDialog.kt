@@ -89,6 +89,10 @@ class EditActionDialog(
     private var isNotifyOnMatch: Boolean = action.notifyOnMatch
 
     private var selectedSubroutineScenario: String = action.subroutineTarget.ifEmpty { action.targetScriptOrQuery.ifEmpty { action.subroutineTag } }
+    private var selectedTargetOccurrenceIndex = action.targetOccurrenceIndex
+    private var isOcrUseOffset = action.useCustomClickOffset
+    private var ocrOffsetX = action.clickOffsetX
+    private var ocrOffsetY = action.clickOffsetY
     private var globalLayoutListener: ViewTreeObserver.OnGlobalLayoutListener? = null
 
 
@@ -1318,6 +1322,10 @@ class EditActionDialog(
             dismiss()
             onSelectRoi?.invoke(action.copy(
                 targetScriptOrQuery = etOcrQuery.text.toString().trim(),
+                targetOccurrenceIndex = selectedTargetOccurrenceIndex,
+                useCustomClickOffset = isOcrUseOffset,
+                clickOffsetX = ocrOffsetX,
+                clickOffsetY = ocrOffsetY,
                 roiLeft = currentRoiLeft,
                 roiTop = currentRoiTop,
                 roiRight = currentRoiRight,
@@ -1326,6 +1334,165 @@ class EditActionDialog(
         }
         layoutOcr.addView(btnRoiOcr, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(30)).apply {
             topMargin = dp(4)
+            bottomMargin = dp(4)
+        })
+
+        // [Порядковый номер совпадения - выбор из нескольких найденных]
+        val tvOccurrenceLabel = TextView(context).apply {
+            text = "ВАРИАНТ СОВПАДЕНИЯ (ЕСЛИ НЕСКОЛЬКО):"
+            textSize = 7.5f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            setTextColor("#94A3B8".toColorInt())
+            setPadding(0, dp(4), 0, dp(2))
+        }
+        layoutOcr.addView(tvOccurrenceLabel)
+
+        val occChipsRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+        val occLabels = arrayOf("#1 (Первый)", "#2 (Второй)", "#3 (Третий)", "#4 (Четвертый)")
+        val occButtonsList = mutableListOf<Button>()
+
+        fun updateOccChipStyles() {
+            occButtonsList.forEachIndexed { i, btn ->
+                val isSel = (i == selectedTargetOccurrenceIndex)
+                btn.setTextColor(if (isSel) Color.WHITE else "#94A3B8".toColorInt())
+                btn.background = GradientDrawable().apply {
+                    setColor(if (isSel) "#38BDF8".toColorInt() else "#161B22".toColorInt())
+                    cornerRadius = dpF(4f)
+                    setStroke(dp(1), if (isSel) "#0EA5E9".toColorInt() else "#30363D".toColorInt())
+                }
+            }
+        }
+
+        occLabels.forEachIndexed { idx, label ->
+            val btnChip = Button(context).apply {
+                text = label
+                textSize = 7.5f
+                typeface = Typeface.DEFAULT_BOLD
+                includeFontPadding = false
+                gravity = Gravity.CENTER
+                minHeight = 0; minimumHeight = 0
+                setPadding(dp(4), dp(2), dp(4), dp(2))
+                setOnClickListener {
+                    selectedTargetOccurrenceIndex = idx
+                    updateOccChipStyles()
+                }
+            }
+            occButtonsList.add(btnChip)
+            occChipsRow.addView(btnChip, LinearLayout.LayoutParams(0, dp(26), 1f).apply {
+                if (idx < occLabels.size - 1) marginEnd = dp(3)
+            })
+        }
+        updateOccChipStyles()
+        layoutOcr.addView(occChipsRow)
+
+        // Интерактивный поиск всех вариантов на текущем экране
+        val btnSearchAllCandidates = Button(context).apply {
+            text = "[?] ИСКАТЬ ВСЕ ВАРИАНТЫ ТЕКСТА НА ЭКРАНЕ"
+            textSize = 8f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            gravity = Gravity.CENTER
+            minHeight = 0; minimumHeight = 0
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                setColor("#1E1B4B".toColorInt())
+                cornerRadius = dpF(6f)
+                setStroke(dp(1), "#818CF8".toColorInt())
+            }
+            setPadding(dp(6), dp(4), dp(6), dp(4))
+            setOnClickListener {
+                val q = etOcrQuery.text.toString().trim()
+                val service = com.example.autotap.infrastructure.accessibility.AutoTapAccessibilityService.instance
+                if (service == null) {
+                    android.widget.Toast.makeText(context, "Служба кликера не активна", android.widget.Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                val screenshot = service.captureScreenshotSync(1500L)
+                if (screenshot == null) {
+                    android.widget.Toast.makeText(context, "Не удалось сделать снимок экрана", android.widget.Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                val roi = if (currentRoiLeft != null && currentRoiRight != null) android.graphics.Rect(currentRoiLeft!!, currentRoiTop!!, currentRoiRight!!, currentRoiBottom!!) else null
+                val matches = com.example.autotap.infrastructure.ocr.OcrEngine.findTextOnScreen(screenshot, q, 2500L, roi)
+                screenshot.recycle()
+
+                if (matches.isEmpty()) {
+                    android.widget.Toast.makeText(context, "Совпадений для '$q' не обнаружено", android.widget.Toast.LENGTH_SHORT).show()
+                } else if (matches.size == 1) {
+                    selectedTargetOccurrenceIndex = 0
+                    updateOccChipStyles()
+                    android.widget.Toast.makeText(context, "Найдено 1 совпадение в (${matches[0].clickX}, ${matches[0].clickY})", android.widget.Toast.LENGTH_SHORT).show()
+                } else {
+                    dismiss()
+                    com.example.autotap.infrastructure.overlay.dialog.OcrCandidatePickerDialog(
+                        context = context,
+                        overlayWindowManager = overlayWindowManager,
+                        candidates = matches
+                    ) { idx, _ ->
+                        selectedTargetOccurrenceIndex = idx
+                        show()
+                    }.show()
+                }
+            }
+        }
+        layoutOcr.addView(btnSearchAllCandidates, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(28)).apply {
+            topMargin = dp(4)
+            bottomMargin = dp(4)
+        })
+
+        // [Галочка и калибровка оффсета клика (вынос, чтобы палец не закрывал текст)]
+        val cbUseOcrOffset = android.widget.CheckBox(context).apply {
+            text = "Точный оффсет клика (палец не закрывает текст)"
+            textSize = 8f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            setTextColor("#EC4899".toColorInt())
+            isChecked = isOcrUseOffset
+            setOnCheckedChangeListener { _, isChecked ->
+                isOcrUseOffset = isChecked
+            }
+        }
+        layoutOcr.addView(cbUseOcrOffset, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(2)
+        })
+
+        val btnSetupOcrOffset = Button(context).apply {
+            text = "[+] НАСТРОИТЬ ВЫНОС ТОЧКИ КЛИКА И ОФФСЕТ"
+            textSize = 8f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            gravity = Gravity.CENTER
+            minHeight = 0; minimumHeight = 0
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                setColor("#2E1022".toColorInt())
+                cornerRadius = dpF(6f)
+                setStroke(dp(1), "#EC4899".toColorInt())
+            }
+            setPadding(dp(6), dp(4), dp(6), dp(4))
+            setOnClickListener {
+                dismiss()
+                val targetX = action.posX.coerceAtLeast(100f)
+                val targetY = action.posY.coerceAtLeast(100f)
+                com.example.autotap.infrastructure.overlay.capture.OcrOffsetCalibrationOverlay(
+                    context = context,
+                    overlayWindowManager = overlayWindowManager,
+                    targetText = etOcrQuery.text.toString().trim().ifEmpty { "Пример Текста" },
+                    targetCenterX = targetX,
+                    targetCenterY = targetY,
+                    initialOffsetX = ocrOffsetX,
+                    initialOffsetY = ocrOffsetY
+                ) { dx, dy ->
+                    isOcrUseOffset = true
+                    cbUseOcrOffset.isChecked = true
+                    ocrOffsetX = dx
+                    ocrOffsetY = dy
+                    show()
+                }.show()
+            }
+        }
+        layoutOcr.addView(btnSetupOcrOffset, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(28)).apply {
             bottomMargin = dp(4)
         })
 
@@ -1440,6 +1607,10 @@ class EditActionDialog(
                 jumpToStepOnMatch = jumpM, jumpToStepOnTimeout = jumpT,
                 subroutineTarget = subTarget, subroutineTag = subTarget,
                 targetScriptOrQuery = when (selectedType) { ActionType.SUBROUTINE -> subTarget; ActionType.OCR -> etOcrQuery.text.toString().trim(); else -> action.targetScriptOrQuery },
+                targetOccurrenceIndex = selectedTargetOccurrenceIndex,
+                useCustomClickOffset = isOcrUseOffset,
+                clickOffsetX = ocrOffsetX,
+                clickOffsetY = ocrOffsetY,
                 targetColorHex = etColorHex.text.toString().trim(),
                 colorTolerance = etColorTolerance.text.toString().toIntOrNull() ?: 15
             )
@@ -1491,6 +1662,10 @@ class EditActionDialog(
                     jumpToStepOnMatch = jumpM, jumpToStepOnTimeout = jumpT,
                     subroutineTarget = subTarget, subroutineTag = subTarget,
                     targetScriptOrQuery = when (selectedType) { ActionType.SUBROUTINE -> subTarget; ActionType.OCR -> etOcrQuery.text.toString().trim(); else -> action.targetScriptOrQuery },
+                    targetOccurrenceIndex = selectedTargetOccurrenceIndex,
+                    useCustomClickOffset = isOcrUseOffset,
+                    clickOffsetX = ocrOffsetX,
+                    clickOffsetY = ocrOffsetY,
 
                     targetColorHex = etColorHex.text.toString().trim().ifEmpty { "#6366F1" },
                     colorTolerance = etColorTolerance.text.toString().toIntOrNull() ?: 15,

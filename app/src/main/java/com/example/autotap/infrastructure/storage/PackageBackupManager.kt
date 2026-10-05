@@ -197,31 +197,53 @@ class PackageBackupManager(private val context: Context) {
     }
 
 
-    fun exportFullBackupZip(): File? {
-    return try {
-    val scriptsDir = File(context.filesDir, "scripts")
-    val templatesDir = File(context.filesDir, "templates")
-    val hasScripts = scriptsDir.exists() && scriptsDir.walkTopDown().any { it.isFile && it.name.endsWith(".json") }
-    val hasTemplates = templatesDir.exists() && templatesDir.walkTopDown().any { it.isFile && it.name.endsWith(".png") }
-    if (!hasScripts && !hasTemplates) {
-    AppLogger.log(context, "BACKUP", "Экспорт отменен: нет сценариев или шаблонов для создания бэкапа")
-    return null
+    fun exportOcrMetadataZip(): File? {
+        return try {
+            val json = com.example.autotap.infrastructure.ocr.OcrQueryMetadataManager.exportOcrMetadataJson(context)
+            val zipFile = File(context.externalCacheDir ?: context.cacheDir, "autotap_ocr_backup.zip")
+            ZipOutputStream(BufferedOutputStream(FileOutputStream(zipFile))).use { zos ->
+                zos.putNextEntry(ZipEntry("ocr_metadata.json"))
+                zos.write(json.toString(2).toByteArray(Charsets.UTF_8))
+                zos.closeEntry()
+            }
+            AppLogger.log(context, "BACKUP", "OCR метаданные успешно экспортированы (${zipFile.length()} байт)")
+            zipFile
+        } catch (e: Exception) {
+            AppLogger.logError(context, "BACKUP", e)
+            null
+        }
     }
-    val zipFile = File(context.externalCacheDir ?: context.cacheDir, "autotap_full_backup.zip")
-    ZipOutputStream(BufferedOutputStream(FileOutputStream(zipFile))).use { zos ->
-    if (scriptsDir.exists()) zipDirectory(context.filesDir, scriptsDir, zos)
-    if (templatesDir.exists()) zipDirectory(context.filesDir, templatesDir, zos)
-    }
-    if (zipFile.length() <= 22L) {
-    zipFile.delete()
-    return null
-    }
-    AppLogger.log(context, "BACKUP", "Полный бэкап успешно создан (${zipFile.length()} байт)")
-    zipFile
-    } catch (e: Exception) {
-    AppLogger.logError(context, "BACKUP", e)
-    null
-    }
+
+    fun exportFullBackupZip(
+        exportScripts: Boolean = true,
+        exportTemplates: Boolean = true,
+        exportOcr: Boolean = true
+    ): File? {
+        return try {
+            val scriptsDir = File(context.filesDir, "scripts")
+            val templatesDir = File(context.filesDir, "templates")
+
+            val zipFile = File(context.externalCacheDir ?: context.cacheDir, "autotap_full_backup.zip")
+            ZipOutputStream(BufferedOutputStream(FileOutputStream(zipFile))).use { zos ->
+                if (exportScripts && scriptsDir.exists()) zipDirectory(context.filesDir, scriptsDir, zos)
+                if (exportTemplates && templatesDir.exists()) zipDirectory(context.filesDir, templatesDir, zos)
+                if (exportOcr) {
+                    val ocrJson = com.example.autotap.infrastructure.ocr.OcrQueryMetadataManager.exportOcrMetadataJson(context)
+                    zos.putNextEntry(ZipEntry("ocr_metadata.json"))
+                    zos.write(ocrJson.toString(2).toByteArray(Charsets.UTF_8))
+                    zos.closeEntry()
+                }
+            }
+            if (zipFile.length() <= 22L) {
+                zipFile.delete()
+                return null
+            }
+            AppLogger.log(context, "BACKUP", "Полный бэкап успешно создан (${zipFile.length()} байт)")
+            zipFile
+        } catch (e: Exception) {
+            AppLogger.logError(context, "BACKUP", e)
+            null
+        }
     }
 
     fun importPackageZip(zipStream: ZipInputStream): Boolean {
@@ -232,17 +254,27 @@ class PackageBackupManager(private val context: Context) {
             while (entry != null) {
                 if (!entry.isDirectory) {
                     val entryName = entry.name
-                    val targetFile = if (entryName.startsWith("scripts/")) {
-                        File(File(context.filesDir, "scripts"), entryName.substringAfterLast("/"))
-                    } else if (entryName.startsWith("templates/")) {
-                        File(File(context.filesDir, "templates"), entryName.removePrefix("templates/"))
+                    if (entryName == "ocr_metadata.json" || entryName.endsWith("/ocr_metadata.json")) {
+                        val text = zipStream.bufferedReader(Charsets.UTF_8).readText()
+                        try {
+                            val json = JSONObject(text)
+                            com.example.autotap.infrastructure.ocr.OcrQueryMetadataManager.importOcrMetadataJson(context, json)
+                        } catch (e: Exception) {
+                            AppLogger.logError(context, "IMPORT_OCR", e)
+                        }
                     } else {
-                        File(context.filesDir, entryName)
-                    }
+                        val targetFile = if (entryName.startsWith("scripts/")) {
+                            File(File(context.filesDir, "scripts"), entryName.substringAfterLast("/"))
+                        } else if (entryName.startsWith("templates/")) {
+                            File(File(context.filesDir, "templates"), entryName.removePrefix("templates/"))
+                        } else {
+                            File(context.filesDir, entryName)
+                        }
 
-                    if (targetFile.canonicalPath.startsWith(canonicalFilesDir + File.separator)) {
-                        targetFile.parentFile?.mkdirs()
-                        FileOutputStream(targetFile).use { out -> zipStream.copyTo(out) }
+                        if (targetFile.canonicalPath.startsWith(canonicalFilesDir + File.separator)) {
+                            targetFile.parentFile?.mkdirs()
+                            FileOutputStream(targetFile).use { out -> zipStream.copyTo(out) }
+                        }
                     }
                 }
                 zipStream.closeEntry()

@@ -100,4 +100,69 @@ object OcrQueryMetadataManager {
             .apply()
         failureCounters.remove(cleanKey)
     }
+
+    /**
+     * Экспорт всех сохраненных персистентных метаданных OCR и истории в JSON.
+     */
+    fun exportOcrMetadataJson(context: Context): org.json.JSONObject {
+        val root = org.json.JSONObject()
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val allEntries = prefs.all
+        val metadataObj = org.json.JSONObject()
+
+        allEntries.forEach { (key, value) ->
+            metadataObj.put(key, value)
+        }
+        root.put("ocr_metadata", metadataObj)
+
+        val ocrPrefs = context.getSharedPreferences("autotap_recent_ocr", Context.MODE_PRIVATE)
+        val rawHistory = ocrPrefs.getString("recent_queries", "") ?: ""
+        root.put("recent_queries", rawHistory)
+        root.put("export_timestamp", System.currentTimeMillis())
+        return root
+    }
+
+    /**
+     * Импорт метаданных OCR из JSON структуры. Возвращает количество импортированных ключей.
+     */
+    fun importOcrMetadataJson(context: Context, root: org.json.JSONObject): Int {
+        var importedCount = 0
+        try {
+            val metadataObj = root.optJSONObject("ocr_metadata")
+            if (metadataObj != null) {
+                val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                val editor = prefs.edit()
+                val keys = metadataObj.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    val v = metadataObj.get(k)
+                    when (v) {
+                        is Int -> editor.putInt(k, v)
+                        is Long -> editor.putLong(k, v)
+                        is Float -> editor.putFloat(k, v)
+                        is String -> editor.putString(k, v)
+                        is Boolean -> editor.putBoolean(k, v)
+                    }
+                    importedCount++
+                }
+                editor.apply()
+            }
+
+            val recentQueries = root.optString("recent_queries", "")
+            if (recentQueries.isNotBlank()) {
+                val ocrPrefs = context.getSharedPreferences("autotap_recent_ocr", Context.MODE_PRIVATE)
+                val existing = ocrPrefs.getString("recent_queries", "") ?: ""
+                val merged = (existing.split("|||") + recentQueries.split("|||"))
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                    .take(20)
+                    .joinToString("|||")
+                ocrPrefs.edit().putString("recent_queries", merged).apply()
+            }
+            AppLogger.log(context, "OCR_METADATA", "Успешно импортировано $importedCount элементов метаданных OCR")
+        } catch (e: Exception) {
+            AppLogger.logError(context, "OCR_METADATA_IMPORT", e)
+        }
+        return importedCount
+    }
 }
