@@ -518,7 +518,7 @@ class EditActionDialog(
                 setPadding(0, dp(2), 0, dp(2))
             }
             val tvPathSub = TextView(context).apply {
-                text = "Любую точку можно свободно двигать пальцем прямо на экране"
+                text = "Любую точку можно свободно перемещать по экрану"
                 textSize = 7.5f
                 setTextColor("#64748B".toColorInt())
                 setPadding(0, 0, 0, dp(4))
@@ -605,8 +605,8 @@ class EditActionDialog(
             }
         }
         layoutPinchRef = layoutPinch
-        val (etPinchStart, _) = createNumericInputWithSteppers(layoutPinch, "Начальное расстояние пальцев (px):", action.pinchStartDistance.toInt().toString(), 50L)
-        val (etPinchEnd, _) = createNumericInputWithSteppers(layoutPinch, "Конечное расстояние пальцев (px):", action.pinchEndDistance.toInt().toString(), 50L)
+        val (etPinchStart, _) = createNumericInputWithSteppers(layoutPinch, "Начальное расстояние точек сжатия (px):", action.pinchStartDistance.toInt().toString(), 50L)
+        val (etPinchEnd, _) = createNumericInputWithSteppers(layoutPinch, "Конечное расстояние точек сжатия (px):", action.pinchEndDistance.toInt().toString(), 50L)
         contentLayout.addView(layoutPinch)
 
         val layoutTriggerCard = LinearLayout(context).apply {
@@ -1337,58 +1337,64 @@ class EditActionDialog(
             bottomMargin = dp(4)
         })
 
-        // [Порядковый номер совпадения - выбор из нескольких найденных]
-        val tvOccurrenceLabel = TextView(context).apply {
-            text = "ВАРИАНТ СОВПАДЕНИЯ (ЕСЛИ НЕСКОЛЬКО):"
-            textSize = 7.5f
+        // [Порядковый номер совпадения - выбор из найденных на экране]
+        val tvOccurrenceStatus = TextView(context).apply {
+            text = "Выбранный вариант совпадения: #${selectedTargetOccurrenceIndex + 1}"
+            textSize = 8f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
-            setTextColor("#94A3B8".toColorInt())
+            setTextColor("#38BDF8".toColorInt())
             setPadding(0, dp(4), 0, dp(2))
         }
-        layoutOcr.addView(tvOccurrenceLabel)
+        layoutOcr.addView(tvOccurrenceStatus)
 
-        val occChipsRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
-        val occLabels = arrayOf("#1 (Первый)", "#2 (Второй)", "#3 (Третий)", "#4 (Четвертый)")
-        val occButtonsList = mutableListOf<Button>()
-
-        fun updateOccChipStyles() {
-            occButtonsList.forEachIndexed { i, btn ->
-                val isSel = (i == selectedTargetOccurrenceIndex)
-                btn.setTextColor(if (isSel) Color.WHITE else "#94A3B8".toColorInt())
-                btn.background = GradientDrawable().apply {
-                    setColor(if (isSel) "#38BDF8".toColorInt() else "#161B22".toColorInt())
-                    cornerRadius = dpF(4f)
-                    setStroke(dp(1), if (isSel) "#0EA5E9".toColorInt() else "#30363D".toColorInt())
-                }
+        fun performOcrScreenScan() {
+            val q = etOcrQuery.text.toString().trim()
+            val service = com.example.autotap.infrastructure.accessibility.AutoTapAccessibilityService.instance
+            if (service == null) {
+                android.widget.Toast.makeText(context, "Служба кликера не активна", android.widget.Toast.LENGTH_SHORT).show()
+                return
             }
-        }
-
-        occLabels.forEachIndexed { idx, label ->
-            val btnChip = Button(context).apply {
-                text = label
-                textSize = 7.5f
-                typeface = Typeface.DEFAULT_BOLD
-                includeFontPadding = false
-                gravity = Gravity.CENTER
-                minHeight = 0; minimumHeight = 0
-                setPadding(dp(4), dp(2), dp(4), dp(2))
-                setOnClickListener {
-                    selectedTargetOccurrenceIndex = idx
-                    updateOccChipStyles()
+            dismiss()
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                val screenshot = service.captureScreenshotSync(1500L)
+                if (screenshot == null) {
+                    android.widget.Toast.makeText(context, "Не удалось сделать снимок экрана", android.widget.Toast.LENGTH_SHORT).show()
+                    show()
+                    return@postDelayed
                 }
-            }
-            occButtonsList.add(btnChip)
-            occChipsRow.addView(btnChip, LinearLayout.LayoutParams(0, dp(26), 1f).apply {
-                if (idx < occLabels.size - 1) marginEnd = dp(3)
-            })
+                val roi = if (currentRoiLeft != null && currentRoiRight != null) android.graphics.Rect(currentRoiLeft!!, currentRoiTop!!, currentRoiRight!!, currentRoiBottom!!) else null
+                val matches = com.example.autotap.infrastructure.ocr.OcrEngine.findTextOnScreen(screenshot, q, 2500L, roi)
+                screenshot.recycle()
+
+                if (matches.isEmpty()) {
+                    android.widget.Toast.makeText(context, "Совпадений для '$q' не обнаружено", android.widget.Toast.LENGTH_SHORT).show()
+                    show()
+                } else if (matches.size == 1) {
+                    selectedTargetOccurrenceIndex = 0
+                    tvOccurrenceStatus.text = "Выбранный вариант совпадения: #1"
+                    android.widget.Toast.makeText(context, "Найдено 1 совпадение в (${matches[0].clickX}, ${matches[0].clickY})", android.widget.Toast.LENGTH_SHORT).show()
+                    show()
+                } else {
+                    com.example.autotap.infrastructure.overlay.dialog.OcrCandidatePickerDialog(
+                        context = context,
+                        overlayWindowManager = overlayWindowManager,
+                        candidates = matches,
+                        onRescanRequested = {
+                            performOcrScreenScan()
+                        }
+                    ) { idx, _ ->
+                        selectedTargetOccurrenceIndex = idx
+                        tvOccurrenceStatus.text = "Выбранный вариант совпадения: #${selectedTargetOccurrenceIndex + 1}"
+                        show()
+                    }.show()
+                }
+            }, 200L)
         }
-        updateOccChipStyles()
-        layoutOcr.addView(occChipsRow)
 
         // Интерактивный поиск всех вариантов на текущем экране
         val btnSearchAllCandidates = Button(context).apply {
-            text = "[?] ИСКАТЬ ВСЕ ВАРИАНТЫ ТЕКСТА НА ЭКРАНЕ"
+            text = "[🔍] СКАН И ВЫБОР ТЕКСТА НА ЭКРАНЕ"
             textSize = 8f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
@@ -1402,38 +1408,7 @@ class EditActionDialog(
             }
             setPadding(dp(6), dp(4), dp(6), dp(4))
             setOnClickListener {
-                val q = etOcrQuery.text.toString().trim()
-                val service = com.example.autotap.infrastructure.accessibility.AutoTapAccessibilityService.instance
-                if (service == null) {
-                    android.widget.Toast.makeText(context, "Служба кликера не активна", android.widget.Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-                val screenshot = service.captureScreenshotSync(1500L)
-                if (screenshot == null) {
-                    android.widget.Toast.makeText(context, "Не удалось сделать снимок экрана", android.widget.Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-                val roi = if (currentRoiLeft != null && currentRoiRight != null) android.graphics.Rect(currentRoiLeft!!, currentRoiTop!!, currentRoiRight!!, currentRoiBottom!!) else null
-                val matches = com.example.autotap.infrastructure.ocr.OcrEngine.findTextOnScreen(screenshot, q, 2500L, roi)
-                screenshot.recycle()
-
-                if (matches.isEmpty()) {
-                    android.widget.Toast.makeText(context, "Совпадений для '$q' не обнаружено", android.widget.Toast.LENGTH_SHORT).show()
-                } else if (matches.size == 1) {
-                    selectedTargetOccurrenceIndex = 0
-                    updateOccChipStyles()
-                    android.widget.Toast.makeText(context, "Найдено 1 совпадение в (${matches[0].clickX}, ${matches[0].clickY})", android.widget.Toast.LENGTH_SHORT).show()
-                } else {
-                    dismiss()
-                    com.example.autotap.infrastructure.overlay.dialog.OcrCandidatePickerDialog(
-                        context = context,
-                        overlayWindowManager = overlayWindowManager,
-                        candidates = matches
-                    ) { idx, _ ->
-                        selectedTargetOccurrenceIndex = idx
-                        show()
-                    }.show()
-                }
+                performOcrScreenScan()
             }
         }
         layoutOcr.addView(btnSearchAllCandidates, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(28)).apply {
@@ -1441,9 +1416,9 @@ class EditActionDialog(
             bottomMargin = dp(4)
         })
 
-        // [Галочка и калибровка оффсета клика (вынос, чтобы палец не закрывал текст)]
+        // [Галочка и калибровка оффсета клика]
         val cbUseOcrOffset = android.widget.CheckBox(context).apply {
-            text = "Точный оффсет клика (палец не закрывает текст)"
+            text = "Точный оффсет клика (вынос точки нажатия)"
             textSize = 8f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false

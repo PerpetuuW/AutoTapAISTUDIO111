@@ -26,6 +26,7 @@ class OcrCandidatePickerDialog(
     private val context: Context,
     private val overlayWindowManager: OverlayWindowManager,
     private val candidates: List<OcrMatchResult>,
+    private val onRescanRequested: (() -> Unit)? = null,
     private val onCandidateSelected: (index: Int, selectedMatch: OcrMatchResult) -> Unit
 ) {
 
@@ -111,13 +112,38 @@ class OcrCandidatePickerDialog(
         }
 
         val tvTitle = TextView(context).apply {
-            text = "НАЙДЕНО ВАРИАНТОВ ТЕКСТА: ${candidates.size}"
-            textSize = 10.5f
+            text = "ВАРИАНТЫ ТЕКСТА (${candidates.size})"
+            textSize = 10f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
             setTextColor("#38BDF8".toColorInt())
         }
         headerRow.addView(tvTitle, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
+        if (onRescanRequested != null) {
+            val btnRescan = Button(context).apply {
+                text = "🔄 ПЕРЕСКАНИРОВАТЬ"
+                textSize = 7.5f
+                typeface = Typeface.DEFAULT_BOLD
+                includeFontPadding = false
+                gravity = Gravity.CENTER
+                minHeight = 0; minimumHeight = 0
+                setTextColor(Color.WHITE)
+                background = GradientDrawable().apply {
+                    setColor("#1E293B".toColorInt())
+                    cornerRadius = dpF(4f)
+                    setStroke(dp(1), "#38BDF8".toColorInt())
+                }
+                setPadding(dp(6), dp(3), dp(6), dp(3))
+                setOnClickListener {
+                    dismiss()
+                    onRescanRequested.invoke()
+                }
+            }
+            headerRow.addView(btnRescan, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(26)).apply {
+                marginEnd = dp(6)
+            })
+        }
 
         val btnClose = Button(context).apply {
             text = "✕"

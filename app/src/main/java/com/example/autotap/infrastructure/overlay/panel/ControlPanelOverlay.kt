@@ -853,7 +853,7 @@ class ControlPanelOverlay(
             listener.onSmartRecordClicked()
         })
 
-        container.addView(createModeItem("ЗАПИСЬ ЖЕСТОВ (ТАПЫ И СВАЙПЫ)", "Пишет физические нажатия и траектории пальца", "#8B5CF6") {
+        container.addView(createModeItem("ЗАПИСЬ ЖЕСТОВ (ТАПЫ И СВАЙПЫ)", "Запись физических нажатий и траекторий жестов", "#8B5CF6") {
             listener.onRecordClicked()
         })
 
