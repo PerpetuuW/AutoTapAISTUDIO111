@@ -1,4 +1,4 @@
-name: Android CI & Auto Sync
+name: Android CI, Build & Sync
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-and-sync:
     runs-on: ubuntu-latest
 
     steps:
@@ -26,10 +26,39 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
+          cache: 'gradle'
 
-      - name: Build Android App
-        run: gradle assembleDebug --no-daemon
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Cache Gradle Dependencies & Build Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Grant Execute Permission for Gradle
+        run: chmod +x gradlew || true
+
+      - name: Decode Signing Keystore (if provided)
+        if: ${{ secrets.SIGNING_KEY_BASE64 != '' }}
+        run: |
+          echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 --decode > app/release.keystore
+
+      - name: Build Android App (Assemble Debug & Release)
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          gradle assembleDebug --no-daemon
+          if [ -f "app/release.keystore" ]; then
+            gradle assembleRelease --no-daemon || true
+          fi
 
       - name: Post-Build Automated Repository Sync & Push
         if: success() && github.event_name != 'pull_request'

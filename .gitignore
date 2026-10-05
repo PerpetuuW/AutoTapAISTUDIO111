@@ -19,4 +19,5 @@ local.properties
 *.mp4
 .build-outputs/
 .res_backup/
+.env
 
