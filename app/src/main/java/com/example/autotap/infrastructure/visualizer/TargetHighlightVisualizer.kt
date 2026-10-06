@@ -1,6 +1,7 @@
 package com.example.autotap.infrastructure.visualizer
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.Typeface
@@ -12,6 +13,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.graphics.toColorInt
@@ -24,6 +26,24 @@ object TargetHighlightVisualizer {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val activeHighlightViews = java.util.Collections.synchronizedList(mutableListOf<java.lang.ref.WeakReference<View>>())
+
+    /**
+     * Глобальный флаг включения визуального дебага (настраивается в глобальных настройках).
+     * Если выключен — рамки, скоринг и оверлеи шаблонов не отображаются.
+     */
+    @Volatile
+    var isVisualDebugEnabled: Boolean = true
+
+    fun init(context: Context) {
+        val prefs = context.getSharedPreferences("autotap_prefs", Context.MODE_PRIVATE)
+        isVisualDebugEnabled = prefs.getBoolean("PREF_VISUAL_DEBUG", true)
+    }
+
+    fun setVisualDebugEnabled(context: Context, enabled: Boolean) {
+        isVisualDebugEnabled = enabled
+        val prefs = context.getSharedPreferences("autotap_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("PREF_VISUAL_DEBUG", enabled).apply()
+    }
 
     fun hideAllHighlights(overlayWindowManager: OverlayWindowManager) {
         synchronized(activeHighlightViews) {
@@ -41,12 +61,11 @@ object TargetHighlightVisualizer {
     }
 
     /**
-     * Полноценный оверлей с отображением рамки и HUD-бейджа уверенности (Confidence Score).
-     * Адаптивная верстка с защитой от сжатия текста в вертикальные колонки в углах экрана.
-     *
-     * @param moduleTag Метка модуля: "OCR" или "ШАБЛОН"
-     * @param scorePercent Процент уверенности (0..100%)
-     * @param detailText Дополнительная информация (распознанный текст или статус совпадения)
+     * Премиальный визуализатор обнаружения цели без лишнего текстового шума.
+     * Отображает:
+     * 1) Элегантную градиентную рамку и полупрозрачную подсветку зоны
+     * 2) Если передан bitmap шаблона — накладывает полупрозрачный шаблон с градиентным свечением поверх экрана
+     * 3) Компактный Pill-бейдж только с процентом уверенности "%"
      */
     fun showConfidenceHighlight(
         context: Context,
@@ -55,8 +74,11 @@ object TargetHighlightVisualizer {
         moduleTag: String = "OCR",
         scorePercent: Int = 100,
         detailText: String = "",
-        durationMs: Long = 1800L
+        durationMs: Long = 1800L,
+        templateBitmap: Bitmap? = null
     ) {
+        if (!isVisualDebugEnabled) return
+
         hideAllHighlights(overlayWindowManager)
         val dm = context.resources.displayMetrics
         val density = dm.density
@@ -74,89 +96,77 @@ object TargetHighlightVisualizer {
         val boxW = safeRight - safeLeft
         val boxH = safeBottom - safeTop
 
-        // Цветовая дифференциация: >=85% Зеленый (Отлично), 70-84% Янтарный (Внимание), <70% Красный (Плохо)
-        val (primaryColorHex, bgColorHex) = when {
-            scorePercent >= 85 -> Pair("#10B981", "#2510B981")
-            scorePercent >= 70 -> Pair("#F59E0B", "#25F59E0B")
-            else -> Pair("#EF4444", "#25EF4444")
+        // Цветовая дифференциация: >=85% Изумрудный/Неоновый, 70-84% Янтарный, <70% Коралловый
+        val (primaryColorHex, gradStartHex, gradEndHex) = when {
+            scorePercent >= 85 -> Triple("#10B981", "#4D10B981", "#1538BDF8")
+            scorePercent >= 70 -> Triple("#F59E0B", "#4DF59E0B", "#15FCD34D")
+            else -> Triple("#EF4444", "#4DEF4444", "#15F87171")
         }
 
         val primaryColor = primaryColorHex.toColorInt()
-        val bgColor = bgColorHex.toColorInt()
+        val gradStart = gradStartHex.toColorInt()
+        val gradEnd = gradEndHex.toColorInt()
 
         val rootContainer = FrameLayout(context).apply {
             clipChildren = false
             clipToPadding = false
         }
 
-        // 1. Рамка выделения цели с подсветкой
-        val boxView = View(context).apply {
-            background = GradientDrawable().apply {
-                setStroke(dp(2.5f), primaryColor)
-                setColor(bgColor)
-                cornerRadius = 6f * density
+        // 1. Контейнер целевой области с градиентной подсветкой и неоновой рамкой
+        val boxContainer = FrameLayout(context).apply {
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(gradStart, gradEnd)
+            ).apply {
+                setStroke(dp(2.2f), primaryColor)
+                cornerRadius = 8f * density
             }
             alpha = 0f
-            scaleX = 1.04f
-            scaleY = 1.04f
+            scaleX = 1.05f
+            scaleY = 1.05f
         }
+
+        // 1.1 Если передан шаблон — накладываем его с мягким альфа-блендингом для моментального визуального сравнения
+        if (templateBitmap != null && !templateBitmap.isRecycled) {
+            val ivTemplate = ImageView(context).apply {
+                scaleType = ImageView.ScaleType.FIT_XY
+                setImageBitmap(templateBitmap)
+                alpha = 0.78f
+            }
+            boxContainer.addView(ivTemplate, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        }
+
         val boxParams = FrameLayout.LayoutParams(boxW, boxH).apply {
             gravity = Gravity.TOP or Gravity.START
             leftMargin = safeLeft
             topMargin = safeTop
         }
-        rootContainer.addView(boxView, boxParams)
+        rootContainer.addView(boxContainer, boxParams)
 
-        // 2. HUD-бейдж уверенности (Pill Badge) с защитой от вертикального переноса
-        val isOcrModule = (moduleTag == "OCR")
+        // 2. Минималистичный бейдж уверенности: строго процент "$scorePercent%" без лишних надписей
         val badgeLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(8f), dp(4f), dp(8f), dp(4f))
-            background = GradientDrawable().apply {
-                setColor("#0F172A".toColorInt())
-                setStroke(dp(1.5f), primaryColor)
-                cornerRadius = dp(14f).toFloat()
+            setPadding(dp(8f), dp(3.5f), dp(8f), dp(3.5f))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf("#EE0F172A".toColorInt(), "#EE1E293B".toColorInt())
+            ).apply {
+                setStroke(dp(1.2f), primaryColor)
+                cornerRadius = dp(12f).toFloat()
             }
             elevation = dp(6f).toFloat()
         }
 
-        val tvTag = TextView(context).apply {
-            text = "[$moduleTag]"
-            textSize = 9.5f
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor("#94A3B8".toColorInt())
-            setPadding(0, 0, dp(4f), 0)
-            isSingleLine = true
-            maxLines = 1
-            ellipsize = TextUtils.TruncateAt.END
-        }
         val tvScore = TextView(context).apply {
             text = "$scorePercent%"
-            textSize = 11.5f
+            textSize = 11f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(primaryColor)
-            setPadding(0, 0, dp(4f), 0)
             isSingleLine = true
             maxLines = 1
         }
-        val tvDetail = TextView(context).apply {
-            // Для OCR не выводим сырой текст в оверлей во избежание самораспознавания в зацикленных сценариях
-            val textToShow = if (!isOcrModule && detailText.isNotBlank()) "· ${detailText.take(20)}" else ""
-            text = textToShow
-            textSize = 9.5f
-            setTextColor(Color.WHITE)
-            isSingleLine = true
-            maxLines = 1
-            ellipsize = TextUtils.TruncateAt.END
-            visibility = if (textToShow.isNotBlank()) View.VISIBLE else View.GONE
-        }
-
-        badgeLayout.addView(tvTag)
         badgeLayout.addView(tvScore)
-        if (!isOcrModule && detailText.isNotBlank()) {
-            badgeLayout.addView(tvDetail)
-        }
 
         // Пре-измерение бейджа для точного позиционирования без сжатия в углах экрана
         badgeLayout.measure(
@@ -166,7 +176,7 @@ object TargetHighlightVisualizer {
         val badgeW = badgeLayout.measuredWidth
         val badgeH = badgeLayout.measuredHeight
 
-        // Горизонтальное позиционирование (защита от вылета за правый край и сплющивания)
+        // Горизонтальное позиционирование
         val badgeLeft = if (safeLeft + badgeW <= screenW - edgePadding) {
             safeLeft.coerceAtLeast(edgePadding)
         } else {
@@ -174,12 +184,12 @@ object TargetHighlightVisualizer {
         }
 
         // Вертикальное позиционирование (если цель у верхнего края - бейдж снизу, иначе сверху)
-        val badgeTop = if (safeTop >= badgeH + dp(6f)) {
-            safeTop - badgeH - dp(4f)
-        } else if (safeBottom + badgeH + dp(6f) <= screenH) {
-            safeBottom + dp(4f)
+        val badgeTop = if (safeTop >= badgeH + dp(5f)) {
+            safeTop - badgeH - dp(3f)
+        } else if (safeBottom + badgeH + dp(5f) <= screenH) {
+            safeBottom + dp(3f)
         } else {
-            (safeTop + dp(4f)).coerceIn(edgePadding, screenH - badgeH - edgePadding)
+            (safeTop + dp(3f)).coerceIn(edgePadding, screenH - badgeH - edgePadding)
         }
 
         val badgeParams = FrameLayout.LayoutParams(
@@ -206,7 +216,7 @@ object TargetHighlightVisualizer {
         overlayWindowManager.addViewSafe(rootContainer, windowParams)
         activeHighlightViews.add(java.lang.ref.WeakReference(rootContainer))
 
-        boxView.animate()
+        boxContainer.animate()
             .scaleX(1.0f)
             .scaleY(1.0f)
             .alpha(1.0f)
@@ -227,17 +237,17 @@ object TargetHighlightVisualizer {
     }
 
     /**
-     * Мульти-подсветка нескольких найденных шаблонов со скорингом и ранжированием (#1, #2, #3).
-     * Адаптивная верстка бейджей с проверкой границ углов экрана.
+     * Мульти-подсветка нескольких найденных шаблонов со скорингом.
      */
     fun showMultiTemplateHighlights(
         context: Context,
         overlayWindowManager: OverlayWindowManager,
         candidates: List<MatchCandidate>,
         requiredThreshold: Int = 85,
-        durationMs: Long = 2400L
+        durationMs: Long = 2400L,
+        templateBitmaps: Map<String, Bitmap> = emptyMap()
     ) {
-        if (candidates.isEmpty()) return
+        if (!isVisualDebugEnabled || candidates.isEmpty()) return
         val dm = context.resources.displayMetrics
         val density = dm.density
         fun dp(v: Float): Int = (v * density).toInt()
@@ -254,13 +264,14 @@ object TargetHighlightVisualizer {
         candidates.take(6).forEachIndexed { idx, cand ->
             val scorePct = (cand.score * 100).toInt().coerceIn(0, 100)
             val isBest = (idx == 0)
-            val (primaryColorHex, bgColorHex) = when {
-                scorePct >= requiredThreshold -> if (isBest) Pair("#10B981", "#2510B981") else Pair("#38BDF8", "#2038BDF8")
-                scorePct >= (requiredThreshold - 10) -> Pair("#F59E0B", "#25F59E0B")
-                else -> Pair("#EF4444", "#25EF4444")
+            val (primaryColorHex, gradStartHex, gradEndHex) = when {
+                scorePct >= requiredThreshold -> if (isBest) Triple("#10B981", "#4D10B981", "#1538BDF8") else Triple("#38BDF8", "#4038BDF8", "#150284C7")
+                scorePct >= (requiredThreshold - 10) -> Triple("#F59E0B", "#4DF59E0B", "#15FCD34D")
+                else -> Triple("#EF4444", "#4DEF4444", "#15F87171")
             }
             val primaryColor = primaryColorHex.toColorInt()
-            val bgColor = bgColorHex.toColorInt()
+            val gradStart = gradStartHex.toColorInt()
+            val gradEnd = gradEndHex.toColorInt()
 
             val safeLeft = min(cand.rectLeft, cand.rectRight).coerceIn(0, max(0, screenW - dp(16f)))
             val safeTop = min(cand.rectTop, cand.rectBottom).coerceIn(0, max(0, screenH - dp(16f)))
@@ -269,33 +280,48 @@ object TargetHighlightVisualizer {
             val boxW = safeRight - safeLeft
             val boxH = safeBottom - safeTop
 
-            val boxView = View(context).apply {
-                background = GradientDrawable().apply {
-                    setStroke(dp(if (isBest) 2.5f else 1.8f), primaryColor)
-                    setColor(bgColor)
-                    cornerRadius = 6f * density
+            val boxContainer = FrameLayout(context).apply {
+                background = GradientDrawable(
+                    GradientDrawable.Orientation.TL_BR,
+                    intArrayOf(gradStart, gradEnd)
+                ).apply {
+                    setStroke(dp(if (isBest) 2.2f else 1.6f), primaryColor)
+                    cornerRadius = 8f * density
                 }
             }
+
+            val tplBmp = templateBitmaps[cand.templatePath]
+            if (tplBmp != null && !tplBmp.isRecycled) {
+                val iv = ImageView(context).apply {
+                    scaleType = ImageView.ScaleType.FIT_XY
+                    setImageBitmap(tplBmp)
+                    alpha = 0.72f
+                }
+                boxContainer.addView(iv, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+            }
+
             val boxParams = FrameLayout.LayoutParams(boxW, boxH).apply {
                 gravity = Gravity.TOP or Gravity.START
                 leftMargin = safeLeft
                 topMargin = safeTop
             }
-            rootContainer.addView(boxView, boxParams)
+            rootContainer.addView(boxContainer, boxParams)
 
             val badge = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(6f), dp(3f), dp(6f), dp(3f))
-                background = GradientDrawable().apply {
-                    setColor("#0F172A".toColorInt())
-                    setStroke(dp(1.2f), primaryColor)
-                    cornerRadius = dp(12f).toFloat()
+                setPadding(dp(6f), dp(2.5f), dp(6f), dp(2.5f))
+                background = GradientDrawable(
+                    GradientDrawable.Orientation.TOP_BOTTOM,
+                    intArrayOf("#EE0F172A".toColorInt(), "#EE1E293B".toColorInt())
+                ).apply {
+                    setStroke(dp(1.1f), primaryColor)
+                    cornerRadius = dp(10f).toFloat()
                 }
                 elevation = dp(4f).toFloat()
             }
             val tv = TextView(context).apply {
-                text = if (isBest) "[ШАБЛОН #1] $scorePct%" else "#${idx + 1}: $scorePct%"
+                text = "$scorePct%"
                 textSize = 9.5f
                 typeface = Typeface.DEFAULT_BOLD
                 setTextColor(primaryColor)
@@ -318,12 +344,12 @@ object TargetHighlightVisualizer {
                 (screenW - bW - edgePadding).coerceAtLeast(edgePadding)
             }
 
-            val badgeTop = if (safeTop >= bH + dp(6f)) {
-                safeTop - bH - dp(4f)
-            } else if (safeBottom + bH + dp(6f) <= screenH) {
-                safeBottom + dp(4f)
+            val badgeTop = if (safeTop >= bH + dp(5f)) {
+                safeTop - bH - dp(3f)
+            } else if (safeBottom + bH + dp(5f) <= screenH) {
+                safeBottom + dp(3f)
             } else {
-                (safeTop + dp(4f)).coerceIn(edgePadding, screenH - bH - edgePadding)
+                (safeTop + dp(3f)).coerceIn(edgePadding, screenH - bH - edgePadding)
             }
 
             val badgeParams = FrameLayout.LayoutParams(
@@ -365,19 +391,17 @@ object TargetHighlightVisualizer {
         }.start()
     }
 
-    fun showSpringHighlight(context: Context, overlayWindowManager: OverlayWindowManager, rect: Rect, durationMs: Long = 1400L) {
+    fun showSpringHighlight(context: Context, overlayWindowManager: OverlayWindowManager, rect: Rect, durationMs: Long = 1400L, templateBitmap: Bitmap? = null) {
         showConfidenceHighlight(
             context = context,
             overlayWindowManager = overlayWindowManager,
             rect = rect,
-            moduleTag = "TARGET",
             scorePercent = 100,
-            detailText = "",
-            durationMs = durationMs
+            durationMs = durationMs,
+            templateBitmap = templateBitmap
         )
     }
 
-    // [V28.1] Использование слабой ссылки WeakReference для предотвращения Static Field Context Leak
     private var trainingViewRef: java.lang.ref.WeakReference<View>? = null
 
     fun showTrainingHighlight(context: Context, overlayWindowManager: OverlayWindowManager, rect: Rect) {

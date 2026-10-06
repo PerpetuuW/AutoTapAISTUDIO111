@@ -225,6 +225,46 @@ class GlobalSettingsDialog(
         scrollContent.addView(adAssistRow)
 
         val prefs = context.getSharedPreferences("autotap_prefs", Context.MODE_PRIVATE)
+
+        val visualDebugRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(6), 0, dp(4))
+        }
+        val tvVisualDebug = TextView(context).apply {
+            text = "ВИЗУАЛЬНЫЙ ДЕБАГ ПОИСКА:"
+            textSize = 9.5f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            setTextColor(Color.WHITE)
+            setPadding(0, 0, dp(4), 0)
+        }
+        var visualDebugState = prefs.getBoolean("PREF_VISUAL_DEBUG", true)
+        val btnToggleVisualDebug = Button(context).apply {
+            text = if (visualDebugState) "ВКЛЮЧЕН" else "ВЫКЛЮЧЕН"
+            textSize = 8.5f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            minHeight = 0; minimumHeight = 0
+            gravity = Gravity.CENTER
+            setTextColor(if (visualDebugState) Color.BLACK else Color.WHITE)
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor(if (visualDebugState) "#10B981" else "#21262D"))
+                cornerRadius = dpF(4f)
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(76), dp(28))
+            setOnClickListener {
+                visualDebugState = !visualDebugState
+                com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.setVisualDebugEnabled(context, visualDebugState)
+                text = if (visualDebugState) "ВКЛЮЧЕН" else "ВЫКЛЮЧЕН"
+                setTextColor(if (visualDebugState) Color.BLACK else Color.WHITE)
+                (background as? GradientDrawable)?.setColor(Color.parseColor(if (visualDebugState) "#10B981" else "#21262D"))
+            }
+        }
+        visualDebugRow.addView(tvVisualDebug, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        visualDebugRow.addView(btnToggleVisualDebug)
+        scrollContent.addView(visualDebugRow)
+
         val autoGraphRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL

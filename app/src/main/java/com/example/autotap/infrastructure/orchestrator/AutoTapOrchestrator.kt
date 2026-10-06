@@ -125,6 +125,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
 
     init {
         AppLogger.init(appContext)
+        com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.init(appContext)
         globalClickDurationMs = prefs.getLong("PREF_GLOBAL_CLICK_DURATION", 30L)
         globalClickPauseMs = prefs.getLong("PREF_GLOBAL_CLICK_PAUSE", 60L)
         globalSwipeDurationMs = prefs.getLong("PREF_GLOBAL_SWIPE_DURATION", 300L)
@@ -707,22 +708,27 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                                         val best = matches.first()
                                         val scorePct = (best.score * 100).toInt().coerceIn(0, 100)
                                         if (matches.size > 1) {
+                                            val bitmapsMap = matches.mapNotNull { cand ->
+                                                val b = templateRepository.getTemplate(cand.templatePath)
+                                                if (b != null) cand.templatePath to b else null
+                                            }.toMap()
                                             TargetHighlightVisualizer.showMultiTemplateHighlights(
                                                 context = appContext,
                                                 overlayWindowManager = overlayWindowManager,
                                                 candidates = matches,
                                                 requiredThreshold = action.similarityPercent,
-                                                durationMs = 2400L
+                                                durationMs = 2400L,
+                                                templateBitmaps = bitmapsMap
                                             )
                                         } else {
+                                            val tplBmp = templateRepository.getTemplate(best.templatePath)
                                             TargetHighlightVisualizer.showConfidenceHighlight(
                                                 context = appContext,
                                                 overlayWindowManager = overlayWindowManager,
                                                 rect = Rect(best.rectLeft, best.rectTop, best.rectRight, best.rectBottom),
-                                                moduleTag = "ШАБЛОН",
                                                 scorePercent = scorePct,
-                                                detailText = "порог ${action.similarityPercent}%",
-                                                durationMs = 2200L
+                                                durationMs = 2200L,
+                                                templateBitmap = tplBmp
                                             )
                                         }
                                         if (action.clickAiTarget) {
@@ -758,9 +764,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                                         context = appContext,
                                         overlayWindowManager = overlayWindowManager,
                                         rect = Rect(best.rectLeft, best.rectTop, best.rectRight, best.rectBottom),
-                                        moduleTag = "OCR",
                                         scorePercent = scorePct,
-                                        detailText = best.matchedText,
                                         durationMs = 2200L
                                     )
                                     if (action.clickAiTarget) {

@@ -397,6 +397,7 @@ class MacroExecutionEngine(
 
                                     val matchScorePct = (bestMatchCand.score * 100).toInt().coerceIn(0, 100)
                                     val matchRect = android.graphics.Rect(bestMatchCand.rectLeft, bestMatchCand.rectTop, bestMatchCand.rectRight, bestMatchCand.rectBottom)
+                                    val templateBmp = templateRepository.getTemplate(bestMatchCand.templatePath)
                                     withContext(kotlinx.coroutines.Dispatchers.Main) {
                                         val ctx = accessibilityServiceProvider()?.applicationContext
                                         if (ctx != null) {
@@ -404,10 +405,9 @@ class MacroExecutionEngine(
                                                 context = ctx,
                                                 overlayWindowManager = com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx),
                                                 rect = matchRect,
-                                                moduleTag = "ШАБЛОН",
                                                 scorePercent = matchScorePct,
-                                                detailText = "порог ${action.similarityPercent}%",
-                                                durationMs = 1400L
+                                                durationMs = 1400L,
+                                                templateBitmap = templateBmp
                                             )
                                         }
                                     }
@@ -593,9 +593,7 @@ class MacroExecutionEngine(
                                                 context = ctx,
                                                 overlayWindowManager = com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx),
                                                 rect = ocrRect,
-                                                moduleTag = "OCR",
                                                 scorePercent = 100,
-                                                detailText = matchedTextStr,
                                                 durationMs = 1400L
                                             )
                                         }
