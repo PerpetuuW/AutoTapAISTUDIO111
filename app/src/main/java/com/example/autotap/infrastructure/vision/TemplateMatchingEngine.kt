@@ -59,7 +59,8 @@ class TemplateFeatures(
         val clickOffsetYFromMeta: Float = 0f,
         val useCustomOffsetFromMeta: Boolean = false,
         val calibratedX: Int? = null,
-        val calibratedY: Int? = null
+        val calibratedY: Int? = null,
+        val optimalGridStepFromMeta: Int = 0
     )
 
     val lastMatchedPositions = ConcurrentHashMap<String, Pair<Int, Int>>()
@@ -134,6 +135,7 @@ class TemplateFeatures(
         var metaUseOffset = false
         var metaCalibX: Int? = null
         var metaCalibY: Int? = null
+        var metaGridStep = 0
 
         if (tPath.isNotEmpty()) {
             try {
@@ -154,6 +156,8 @@ class TemplateFeatures(
                     if (meta.has("calibratedY")) metaCalibY = meta.getInt("calibratedY")
                     else if (meta.has("cropTop")) metaCalibY = meta.getInt("cropTop") + th / 2
                     else if (meta.has("originalY")) metaCalibY = meta.getInt("originalY")
+
+                    if (meta.has("optimalGridStep")) metaGridStep = meta.getInt("optimalGridStep")
                 }
             } catch (_: Exception) {}
         }
@@ -385,7 +389,8 @@ class TemplateFeatures(
             clickOffsetYFromMeta = metaClickY,
             useCustomOffsetFromMeta = metaUseOffset,
             calibratedX = metaCalibX,
-            calibratedY = metaCalibY
+            calibratedY = metaCalibY,
+            optimalGridStepFromMeta = metaGridStep
         )
         templateFeatureCache[dynamicKey] = features
         return features
@@ -600,8 +605,9 @@ class TemplateFeatures(
                 (templateThreshold * 0.30f).coerceIn(0.18f, 0.35f)
             }
                         // [V14.0] Адаптивный шаг сетки: для микроиконок и тонких линий (стрелки, крестики) шаг 3..6 px для исключения пропусков штрихов
-            val gridStepX = if (isSmall) (features.tw / 4).coerceIn(3, 6) else (features.tw / 3).coerceIn(8, 24)
-            val gridStepY = if (isSmall) (features.th / 4).coerceIn(3, 6) else (features.th / 3).coerceIn(8, 24)
+            val metaStep = features.optimalGridStepFromMeta
+            val gridStepX = if (metaStep in 2..16) metaStep else (if (isSmall) (features.tw / 4).coerceIn(3, 6) else (features.tw / 3).coerceIn(8, 24))
+            val gridStepY = if (metaStep in 2..16) metaStep else (if (isSmall) (features.th / 4).coerceIn(3, 6) else (features.th / 3).coerceIn(8, 24))
             val spatialSectors = HashMap<Long, Triple<Int, Int, Float>>()
             val sectorBinSize = if (isSmall) 16 else 36
             var earlyExitFound = false

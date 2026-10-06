@@ -435,34 +435,62 @@ class InteractiveRoboticArmDemoDialog(
                     }
                     else -> {
                         stageTagText = "[ШАГ 5/5 · АВТОМАТИЧЕСКИЙ МАКРОС]"
-                        val p = if (selectedManualStage != null) (now % 5500) / 5500f else ((animProgress - 0.72f) / 0.28f)
-                        if (p < 0.25f) {
+                        val p = if (selectedManualStage != null) (now % 6500) / 6500f else ((animProgress - 0.72f) / 0.28f)
+                        if (p < 0.20f) {
+                            // Фаза 1: Скан проходит по всему экрану, отдельно от указателя
+                            isScanning = true
+                            isTapping = false
+                            targetX = w * 0.82f // Указатель держится в стороне во время сканирования
+                            targetY = h * 0.65f
+                            statusLine1 = "1. Скан проходит по ВСЕМУ ЭКРАНУ (кроме ROI)."
+                            statusLine2 = "Сканер работает отдельно от указателя пальца."
+                        } else if (p < 0.35f) {
+                            // Фаза 2: Анимация с пояснением, что объект найден
+                            isScanning = false
+                            isTapping = false
+                            targetX = w * 0.82f
+                            targetY = h * 0.65f
+                            statusLine1 = "[НАЙДЕНО]: Обнаружен объект 'СУНДУК' (98%)."
+                            statusLine2 = "Наведение указателя пальца на найденную цель..."
+                        } else if (p < 0.50f) {
+                            // Фаза 3: Перемещение указателя к цели и клик
+                            isScanning = false
                             targetX = arrowTarget.centerX()
                             targetY = arrowTarget.centerY()
-                            isScanning = p < 0.12f
-                            isTapping = p >= 0.12f
-                            statusLine1 = "ИИ-скан внутри ROI (98% совпадение)."
-                            statusLine2 = "Мгновенный клик по сундуку с наградой."
-                        } else if (p < 0.50f) {
+                            isTapping = p in 0.42f..0.48f
+                            statusLine1 = "3. Перемещение пальца и нажатие сундука."
+                            statusLine2 = "Мгновенное исполнение шага #1!"
+                        } else if (p < 0.68f) {
+                            // Фаза 4: Скан OCR и клик по тексту 'CLAIM 500x'
                             targetX = ocrClaimBtn.centerX()
                             targetY = ocrClaimBtn.centerY()
-                            isScanning = p < 0.38f
-                            isTapping = p >= 0.38f
-                            statusLine1 = "OCR распознавание кнопки 'CLAIM 500x'."
-                            statusLine2 = "Автоматическое нажатие на найденный текст."
-                        } else if (p < 0.75f) {
-                            targetX = rewardBtn1.centerX()
-                            targetY = rewardBtn1.centerY()
-                            isTapping = p in 0.62f..0.72f
-                            statusLine1 = "Последовательный сбор Награды #1."
-                            statusLine2 = "Выполнение стандартных кликов."
+                            isScanning = p < 0.58f
+                            isTapping = p >= 0.58f
+                            statusLine1 = "4. OCR скан и клик по тексту 'CLAIM 500x'."
+                            statusLine2 = "Автоматическое распознавание символов."
+                        } else if (p < 0.84f) {
+                            // Фаза 5: Простые клики по списку наград (#1 и #2)
+                            if (p < 0.76f) {
+                                targetX = rewardBtn1.centerX()
+                                targetY = rewardBtn1.centerY()
+                                isTapping = p in 0.71f..0.75f
+                                statusLine1 = "5. Взять Награду #1 из списка."
+                                statusLine2 = "Простой клик по первому пункту."
+                            } else {
+                                targetX = rewardBtn2.centerX()
+                                targetY = rewardBtn2.centerY()
+                                isTapping = p in 0.80f..0.83f
+                                statusLine1 = "6. Взять Награду #2 из списка."
+                                statusLine2 = "Простой клик по второму пункту."
+                            }
                         } else {
-                            val swipeProg = (p - 0.75f) / 0.25f
+                            // Фаза 6: Прокрутка (свайп) списка наград
+                            val swipeProg = (p - 0.84f) / 0.16f
                             targetX = listArea.centerX()
                             targetY = (listArea.bottom - dpF(15f)) - swipeProg * dpF(55f)
                             isSwiping = true
-                            statusLine1 = "Плавный свайп списка наград вверх."
-                            statusLine2 = "Демонстрация работы приложения завершена!"
+                            statusLine1 = "7. Прокрутка (свайп) списка наград вверх."
+                            statusLine2 = "Демонстрация макроса завершена!"
                         }
                     }
                 }
@@ -650,6 +678,11 @@ class InteractiveRoboticArmDemoDialog(
              * Четко вытянутый УКАЗАТЕЛЬНЫЙ ПАЛЕЦ, направленный строго в точку клика (tx, ty),
              * при этом средний, безымянный пальцы и мизинец согнуты в кулак сбоку, а большой палец сложен на ладони.
              */
+            /**
+             * Классическая узнаваемая золотистая указательная кисть в стиле эмодзи (👆 Emoji Pointing Hand):
+             * Вытянутый УКАЗАТЕЛЬНЫЙ ПАЛЕЦ, направленный строго в точку касания (tx, ty),
+             * с округлыми золотистыми фалангами (#FCD34D), сложенными пальцами кулака и обводкой (#B45309).
+             */
             private fun drawClassicIndexPointerGlove(
                 canvas: Canvas,
                 tx: Float,
@@ -657,64 +690,82 @@ class InteractiveRoboticArmDemoDialog(
                 isTapping: Boolean,
                 isScanning: Boolean
             ) {
-                // Направление указательного пальца снизу-справа вверх-влево под углом -135° к цели
-                val pointerAngle = -3f * PI.toFloat() / 4f
-                val indexLen = dpF(32f)
+                val angle = -135f * (PI.toFloat() / 180f)
+                val cosA = cos(angle.toDouble()).toFloat()
+                val sinA = sin(angle.toDouble()).toFloat()
+                val perpX = -sinA
+                val perpY = cosA
 
-                // Основание указательного пальца (сустав у ладони)
-                val indexBaseX = tx - cos(pointerAngle.toDouble()).toFloat() * indexLen
-                val indexBaseY = ty - sin(pointerAngle.toDouble()).toFloat() * indexLen
+                val fingerLen = dpF(34f)
+                val fingerWidth = dpF(12f)
+                val palmWidth = dpF(28f)
+                val palmLen = dpF(26f)
 
-                val perp = pointerAngle + (PI / 2f).toFloat()
+                val baseX = tx - cosA * fingerLen
+                val baseY = ty - sinA * fingerLen
+                val palmCenterX = baseX - cosA * (palmLen * 0.5f)
+                val palmCenterY = baseY - sinA * (palmLen * 0.5f)
 
-                // 1. Согнутый кулак (ладонь находится позади основания указательного пальца)
-                val fistW = dpF(24f)
-                val fistL = dpF(22f)
-                val palmX = indexBaseX - cos(pointerAngle.toDouble()).toFloat() * (fistL * 0.5f)
-                val palmY = indexBaseY - sin(pointerAngle.toDouble()).toFloat() * (fistL * 0.5f)
-
-                reusablePath.rewind()
-                reusablePath.moveTo(palmX + cos(perp.toDouble()).toFloat() * (fistW * 0.5f), palmY + sin(perp.toDouble()).toFloat() * (fistW * 0.5f))
-                reusablePath.lineTo(palmX - cos(perp.toDouble()).toFloat() * (fistW * 0.5f), palmY - sin(perp.toDouble()).toFloat() * (fistW * 0.5f))
-                reusablePath.lineTo(
-                    indexBaseX - cos(perp.toDouble()).toFloat() * (fistW * 0.4f),
-                    indexBaseY - sin(perp.toDouble()).toFloat() * (fistW * 0.4f)
-                )
-                reusablePath.lineTo(
-                    indexBaseX + cos(perp.toDouble()).toFloat() * (fistW * 0.4f),
-                    indexBaseY + sin(perp.toDouble()).toFloat() * (fistW * 0.4f)
-                )
-                reusablePath.close()
-
-                handChassisPaint.shader = LinearGradient(
-                    palmX, palmY, tx, ty,
-                    intArrayOf("#334155".toColorInt(), "#0F172A".toColorInt(), "#1E293B".toColorInt()), null, Shader.TileMode.CLAMP
-                )
-                canvas.drawPath(reusablePath, handChassisPaint)
-                canvas.drawPath(reusablePath, handBorderPaint)
-
-                // 2. Согнутые фаланги среднего, безымянного пальцев и мизинца сбоку кулака
-                for (f in 0..2) {
-                    val kX = palmX - cos(perp.toDouble()).toFloat() * (dpF(4f) + f * dpF(6f)) + cos(pointerAngle.toDouble()).toFloat() * dpF(2f)
-                    val kY = palmY - sin(perp.toDouble()).toFloat() * (dpF(4f) + f * dpF(6f)) + sin(pointerAngle.toDouble()).toFloat() * dpF(2f)
-                    canvas.drawCircle(kX, kY, dpF(4f - f * 0.4f), fingerJointPaint)
+                val emojiSkinPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.FILL
+                    color = "#FCD34D".toColorInt()
+                }
+                val emojiShadePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.FILL
+                    color = "#F59E0B".toColorInt()
+                }
+                val emojiStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.STROKE
+                    strokeWidth = dpF(2f)
+                    color = "#B45309".toColorInt()
+                    strokeCap = Paint.Cap.ROUND
+                    strokeJoin = Paint.Join.ROUND
                 }
 
-                // 3. Вытянутый УКАЗАТЕЛЬНЫЙ ПАЛЕЦ (2 сегмента с центральным суставом)
-                val midX = (indexBaseX + tx) / 2f
-                val midY = (indexBaseY + ty) / 2f
+                // 1. Кулак ладони
+                val fistRect = RectF(
+                    palmCenterX - palmWidth * 0.5f,
+                    palmCenterY - palmLen * 0.5f,
+                    palmCenterX + palmWidth * 0.5f,
+                    palmCenterY + palmLen * 0.5f
+                )
+                canvas.drawRoundRect(fistRect, dpF(12f), dpF(12f), emojiShadePaint)
+                canvas.drawRoundRect(fistRect, dpF(12f), dpF(12f), emojiSkinPaint)
+                canvas.drawRoundRect(fistRect, dpF(12f), dpF(12f), emojiStrokePaint)
 
-                // Фаланга 1
-                drawSegment(canvas, indexBaseX, indexBaseY, midX, midY, dpF(8f), dpF(6.5f))
-                canvas.drawCircle(midX, midY, dpF(4.2f), fingerJointPaint)
+                // 2. Вытянутый УКАЗАТЕЛЬНЫЙ ПАЛЕЦ
+                reusablePath.rewind()
+                reusablePath.moveTo(baseX + perpX * (fingerWidth * 0.5f), baseY + perpY * (fingerWidth * 0.5f))
+                reusablePath.lineTo(tx + perpX * (fingerWidth * 0.4f), ty + perpY * (fingerWidth * 0.4f))
+                reusablePath.arcTo(
+                    RectF(tx - fingerWidth * 0.5f, ty - fingerWidth * 0.5f, tx + fingerWidth * 0.5f, ty + fingerWidth * 0.5f),
+                    Math.toDegrees(angle.toDouble()).toFloat() - 90f,
+                    180f
+                )
+                reusablePath.lineTo(baseX - perpX * (fingerWidth * 0.5f), baseY - perpY * (fingerWidth * 0.5f))
+                reusablePath.close()
 
-                // Фаланга 2 (направленная точно в кончик касания)
-                drawSegment(canvas, midX, midY, tx, ty, dpF(6.5f), dpF(4.5f))
+                canvas.drawPath(reusablePath, emojiSkinPaint)
+                canvas.drawPath(reusablePath, emojiStrokePaint)
 
-                // Светящийся кончик указательного пальца
-                val tipColor = if (isTapping || isScanning) "#00F0FF".toColorInt() else "#10B981".toColorInt()
+                // 3. Фаланги сложенных пальцев
+                for (i in 0..2) {
+                    val fX = palmCenterX + perpX * (dpF(4f) + i * dpF(6f)) - cosA * dpF(2f)
+                    val fY = palmCenterY + perpY * (dpF(4f) + i * dpF(6f)) - sinA * dpF(2f)
+                    canvas.drawCircle(fX, fY, dpF(4f), emojiShadePaint)
+                    canvas.drawCircle(fX, fY, dpF(4f), emojiStrokePaint)
+                }
+
+                // 4. Сложенный большой палец
+                val thumbX = palmCenterX - perpX * dpF(8f) + cosA * dpF(2f)
+                val thumbY = palmCenterY - perpY * dpF(8f) + sinA * dpF(2f)
+                canvas.drawCircle(thumbX, thumbY, dpF(5f), emojiShadePaint)
+                canvas.drawCircle(thumbX, thumbY, dpF(5f), emojiStrokePaint)
+
+                // 5. Яркая точка контакта на кончике пальца
+                val tipColor = if (isTapping || isScanning) "#38BDF8".toColorInt() else "#10B981".toColorInt()
                 tapCorePaint.color = tipColor
-                canvas.drawCircle(tx, ty, dpF(6f), tapCorePaint)
+                canvas.drawCircle(tx, ty, dpF(4.5f), tapCorePaint)
             }
 
             private fun drawSegment(canvas: Canvas, x1: Float, y1: Float, x2: Float, y2: Float, w1: Float, w2: Float) {

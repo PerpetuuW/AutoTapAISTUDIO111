@@ -294,6 +294,9 @@ class GestureRecorderOverlay(
                                             android.graphics.Bitmap.createBitmap(cropped, rx, ry, rw, rh)
                                         } catch (_: Exception) { cropped }
 
+                                        val minDim = kotlin.math.min(finalMask.width, finalMask.height)
+                                        val calculatedGridStep = kotlin.math.max(2, kotlin.math.min(minDim / 4, 8))
+
                                         val meta = org.json.JSONObject().apply {
                                             put("similarityPercent", opt.bestSimilarity.coerceAtLeast(80))
                                             put("isShapeOnlyMode", morph.isShapeOnlyRecommended)
@@ -302,6 +305,11 @@ class GestureRecorderOverlay(
                                             put("paddingOffsetPx", opt.optimalPadding)
                                             put("cropX", safeX + opt.cropOffsetX)
                                             put("cropY", safeY + opt.cropOffsetY)
+                                            put("cropLeft", safeX + opt.cropOffsetX)
+                                            put("cropTop", safeY + opt.cropOffsetY)
+                                            put("cropWidth", finalMask.width)
+                                            put("cropHeight", finalMask.height)
+                                            put("optimalGridStep", calculatedGridStep)
                                             put("cropSize", maxOf(finalMask.width, finalMask.height))
                                             put("useCustomClickOffset", kotlin.math.abs(clickOffX) > 1.5f || kotlin.math.abs(clickOffY) > 1.5f)
                                             put("clickOffsetX", clickOffX)

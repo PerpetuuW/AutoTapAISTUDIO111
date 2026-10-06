@@ -1470,7 +1470,10 @@ private val targetStepId: Int? = null,
                 val finalCalibX = bestCand?.clickX?.toInt() ?: (anchorCropX + finalMask.width / 2)
                 val finalCalibY = bestCand?.clickY?.toInt() ?: (anchorCropY + finalMask.height / 2)
 
-                                val metaObj = JSONObject().apply {
+                                val minDim = kotlin.math.min(finalMask.width, finalMask.height)
+                val calculatedGridStep = kotlin.math.max(2, kotlin.math.min(minDim / 4, 8))
+
+                val metaObj = JSONObject().apply {
                     put("similarityPercent", currentSimilarity.coerceAtLeast(60))
                     put("shapeExpansion", currentShapeExpansion)
                     put("paddingOffsetPx", currentPaddingOffset)
@@ -1483,6 +1486,11 @@ private val targetStepId: Int? = null,
 
                     put("calibratedX", finalCalibX)
                     put("calibratedY", finalCalibY)
+                    put("optimalGridStep", calculatedGridStep)
+                    put("cropLeft", anchorCropX)
+                    put("cropTop", anchorCropY)
+                    put("cropWidth", finalMask.width)
+                    put("cropHeight", finalMask.height)
                     put("updatedAt", System.currentTimeMillis())
                     val verifArr = org.json.JSONArray()
                     coVerificationTemplates.forEach { verifArr.put(it) }
