@@ -679,9 +679,8 @@ class InteractiveRoboticArmDemoDialog(
              * при этом средний, безымянный пальцы и мизинец согнуты в кулак сбоку, а большой палец сложен на ладони.
              */
             /**
-             * Классическая узнаваемая золотистая указательная кисть в стиле эмодзи (👆 Emoji Pointing Hand):
-             * Вытянутый УКАЗАТЕЛЬНЫЙ ПАЛЕЦ, направленный строго в точку касания (tx, ty),
-             * с округлыми золотистыми фалангами (#FCD34D), сложенными пальцами кулака и обводкой (#B45309).
+             * Простая, высокоэстетичная геометрическая стрелка указателя (Neon Cursor Arrow).
+             * Кончик указывает ровно в (tx, ty), имеет золотистую заливку (#FCD34D) и темный контур (#B45309).
              */
             private fun drawClassicIndexPointerGlove(
                 canvas: Canvas,
@@ -690,31 +689,40 @@ class InteractiveRoboticArmDemoDialog(
                 isTapping: Boolean,
                 isScanning: Boolean
             ) {
-                val angle = -135f * (PI.toFloat() / 180f)
-                val cosA = cos(angle.toDouble()).toFloat()
-                val sinA = sin(angle.toDouble()).toFloat()
+                val angleRad = -135f * (PI.toFloat() / 180f)
+                val cosA = cos(angleRad.toDouble()).toFloat()
+                val sinA = sin(angleRad.toDouble()).toFloat()
                 val perpX = -sinA
                 val perpY = cosA
 
-                val fingerLen = dpF(34f)
-                val fingerWidth = dpF(12f)
-                val palmWidth = dpF(28f)
-                val palmLen = dpF(26f)
+                val len = dpF(28f)
+                val width = dpF(18f)
 
-                val baseX = tx - cosA * fingerLen
-                val baseY = ty - sinA * fingerLen
-                val palmCenterX = baseX - cosA * (palmLen * 0.5f)
-                val palmCenterY = baseY - sinA * (palmLen * 0.5f)
+                // Основание стрелки
+                val baseX = tx - cosA * len
+                val baseY = ty - sinA * len
 
-                val emojiSkinPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                // Левое крыло стрелки
+                val leftX = baseX + perpX * (width * 0.5f)
+                val leftY = baseY + perpY * (width * 0.5f)
+
+                // Правое крыло стрелки
+                val rightX = baseX - perpX * (width * 0.5f)
+                val rightY = baseY - perpY * (width * 0.5f)
+
+                // Срез в центре (хвостовая выемка)
+                val recessX = tx - cosA * (len * 0.72f)
+                val recessY = ty - sinA * (len * 0.72f)
+
+                // Хвостовой стержень (shaft)
+                val tailEndX = tx - cosA * (len * 1.35f)
+                val tailEndY = ty - sinA * (len * 1.35f)
+
+                val arrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     style = Paint.Style.FILL
                     color = "#FCD34D".toColorInt()
                 }
-                val emojiShadePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    style = Paint.Style.FILL
-                    color = "#F59E0B".toColorInt()
-                }
-                val emojiStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     style = Paint.Style.STROKE
                     strokeWidth = dpF(2f)
                     color = "#B45309".toColorInt()
@@ -722,50 +730,35 @@ class InteractiveRoboticArmDemoDialog(
                     strokeJoin = Paint.Join.ROUND
                 }
 
-                // 1. Кулак ладони
-                val fistRect = RectF(
-                    palmCenterX - palmWidth * 0.5f,
-                    palmCenterY - palmLen * 0.5f,
-                    palmCenterX + palmWidth * 0.5f,
-                    palmCenterY + palmLen * 0.5f
-                )
-                canvas.drawRoundRect(fistRect, dpF(12f), dpF(12f), emojiShadePaint)
-                canvas.drawRoundRect(fistRect, dpF(12f), dpF(12f), emojiSkinPaint)
-                canvas.drawRoundRect(fistRect, dpF(12f), dpF(12f), emojiStrokePaint)
-
-                // 2. Вытянутый УКАЗАТЕЛЬНЫЙ ПАЛЕЦ
+                // Рисуем тело стрелки
                 reusablePath.rewind()
-                reusablePath.moveTo(baseX + perpX * (fingerWidth * 0.5f), baseY + perpY * (fingerWidth * 0.5f))
-                reusablePath.lineTo(tx + perpX * (fingerWidth * 0.4f), ty + perpY * (fingerWidth * 0.4f))
-                reusablePath.arcTo(
-                    RectF(tx - fingerWidth * 0.5f, ty - fingerWidth * 0.5f, tx + fingerWidth * 0.5f, ty + fingerWidth * 0.5f),
-                    Math.toDegrees(angle.toDouble()).toFloat() - 90f,
-                    180f
-                )
-                reusablePath.lineTo(baseX - perpX * (fingerWidth * 0.5f), baseY - perpY * (fingerWidth * 0.5f))
+                reusablePath.moveTo(tx, ty)
+                reusablePath.lineTo(leftX, leftY)
+                reusablePath.lineTo(recessX, recessY)
+                reusablePath.lineTo(recessX + perpX * dpF(2.5f), recessY + perpY * dpF(2.5f))
+                reusablePath.lineTo(tailEndX, tailEndY)
+                reusablePath.lineTo(recessX - perpX * dpF(2.5f), recessY - perpY * dpF(2.5f))
+                reusablePath.lineTo(recessX, recessY)
+                reusablePath.lineTo(rightX, rightY)
                 reusablePath.close()
 
-                canvas.drawPath(reusablePath, emojiSkinPaint)
-                canvas.drawPath(reusablePath, emojiStrokePaint)
-
-                // 3. Фаланги сложенных пальцев
-                for (i in 0..2) {
-                    val fX = palmCenterX + perpX * (dpF(4f) + i * dpF(6f)) - cosA * dpF(2f)
-                    val fY = palmCenterY + perpY * (dpF(4f) + i * dpF(6f)) - sinA * dpF(2f)
-                    canvas.drawCircle(fX, fY, dpF(4f), emojiShadePaint)
-                    canvas.drawCircle(fX, fY, dpF(4f), emojiStrokePaint)
+                // Отрисовка тени
+                canvas.save()
+                canvas.translate(dpF(2f), dpF(2f))
+                val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.FILL
+                    color = "#500F172A".toColorInt()
                 }
+                canvas.drawPath(reusablePath, shadowPaint)
+                canvas.restore()
 
-                // 4. Сложенный большой палец
-                val thumbX = palmCenterX - perpX * dpF(8f) + cosA * dpF(2f)
-                val thumbY = palmCenterY - perpY * dpF(8f) + sinA * dpF(2f)
-                canvas.drawCircle(thumbX, thumbY, dpF(5f), emojiShadePaint)
-                canvas.drawCircle(thumbX, thumbY, dpF(5f), emojiStrokePaint)
+                canvas.drawPath(reusablePath, arrowPaint)
+                canvas.drawPath(reusablePath, borderPaint)
 
-                // 5. Яркая точка контакта на кончике пальца
+                // Светящаяся неоновая точка касания
                 val tipColor = if (isTapping || isScanning) "#38BDF8".toColorInt() else "#10B981".toColorInt()
                 tapCorePaint.color = tipColor
-                canvas.drawCircle(tx, ty, dpF(4.5f), tapCorePaint)
+                canvas.drawCircle(tx, ty, dpF(4f), tapCorePaint)
             }
 
             private fun drawSegment(canvas: Canvas, x1: Float, y1: Float, x2: Float, y2: Float, w1: Float, w2: Float) {
