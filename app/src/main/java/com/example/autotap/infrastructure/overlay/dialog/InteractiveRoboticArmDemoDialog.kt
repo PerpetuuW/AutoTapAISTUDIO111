@@ -603,17 +603,20 @@ class InteractiveRoboticArmDemoDialog(
 
                 // 5.5 Во время реального исполнения (Стадия 4)
                 if (currentStage == 4) {
-                    val roiBox = RectF(chestArea.left - dpF(2f), chestArea.top - dpF(2f), chestArea.right + dpF(2f), chestArea.bottom + dpF(2f))
-                    canvas.drawRoundRect(roiBox, dpF(6f), dpF(6f), roiDashedPaint)
+                    val p = if (selectedManualStage != null) (now % 6500) / 6500f else ((animProgress - 0.72f) / 0.28f)
+                    if (p >= 0.20f) {
+                        val roiBox = RectF(chestArea.left - dpF(2f), chestArea.top - dpF(2f), chestArea.right + dpF(2f), chestArea.bottom + dpF(2f))
+                        canvas.drawRoundRect(roiBox, dpF(6f), dpF(6f), roiDashedPaint)
 
-                    highlightFillPaint.shader = LinearGradient(
-                        arrowTarget.left, arrowTarget.top, arrowTarget.right, arrowTarget.bottom,
-                        intArrayOf("#5038BDF8".toColorInt(), "#2000F0FF".toColorInt()), null, Shader.TileMode.CLAMP
-                    )
-                    canvas.drawRoundRect(arrowTarget, dpF(4f), dpF(4f), highlightFillPaint)
-                    canvas.drawRoundRect(arrowTarget, dpF(4f), dpF(4f), highlightBoxPaint)
+                        highlightFillPaint.shader = LinearGradient(
+                            arrowTarget.left, arrowTarget.top, arrowTarget.right, arrowTarget.bottom,
+                            intArrayOf("#5038BDF8".toColorInt(), "#2000F0FF".toColorInt()), null, Shader.TileMode.CLAMP
+                        )
+                        canvas.drawRoundRect(arrowTarget, dpF(4f), dpF(4f), highlightFillPaint)
+                        canvas.drawRoundRect(arrowTarget, dpF(4f), dpF(4f), highlightBoxPaint)
 
-                    canvas.drawRoundRect(ocrClaimBtn, dpF(6f), dpF(6f), ocrBoxPaint)
+                        canvas.drawRoundRect(ocrClaimBtn, dpF(6f), dpF(6f), ocrBoxPaint)
+                    }
 
                     if (isSwiping) {
                         canvas.drawLine(listArea.centerX(), listArea.bottom - dpF(15f), listArea.centerX(), listArea.top + dpF(15f), swipeTrajectoryPaint)
@@ -623,20 +626,27 @@ class InteractiveRoboticArmDemoDialog(
                 // 6. Классическая узнаваемая указательная рука с вытянутым указательным пальцем (Index Pointer Glove)
                 drawClassicIndexPointerGlove(canvas, targetX, targetY, isTapping, isScanning)
 
-                // 7. Лазерный радар сканирования
+                // 7. Лазерный радар сканирования (линейная развертка по всему игровому экрану)
                 if (isScanning) {
-                    laserScanPaint.shader = RadialGradient(
-                        targetX, targetY, dpF(75f),
-                        intArrayOf("#5000F0FF".toColorInt(), "#1000F0FF".toColorInt(), Color.TRANSPARENT),
-                        floatArrayOf(0f, 0.6f, 1f),
-                        Shader.TileMode.CLAMP
-                    )
-                    canvas.drawCircle(targetX, targetY, dpF(70f), laserScanPaint)
+                    val sweepProgress = (now % 1800) / 1800f
+                    val sweepY = gameRect.top + sweepProgress * gameRect.height()
+                    val scanLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        style = Paint.Style.STROKE
+                        strokeWidth = dpF(3f)
+                        color = "#00F0FF".toColorInt()
+                    }
+                    canvas.drawLine(gameRect.left, sweepY, gameRect.right, sweepY, scanLinePaint)
 
-                    val scanAngle = (now % 1000) / 1000f * (2 * PI.toFloat())
-                    val scanLineX = targetX + cos(scanAngle.toDouble()).toFloat() * dpF(60f)
-                    val scanLineY = targetY + sin(scanAngle.toDouble()).toFloat() * dpF(60f)
-                    canvas.drawLine(targetX, targetY, scanLineX, scanLineY, laserLinePaint)
+                    // Мягкое неоновое свечение под линией развертки
+                    val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        style = Paint.Style.FILL
+                        shader = LinearGradient(
+                            0f, sweepY - dpF(14f), 0f, sweepY + dpF(14f),
+                            intArrayOf(Color.TRANSPARENT, "#2500F0FF".toColorInt(), Color.TRANSPARENT),
+                            null, Shader.TileMode.CLAMP
+                        )
+                    }
+                    canvas.drawRect(gameRect.left, sweepY - dpF(14f), gameRect.right, sweepY + dpF(14f), glowPaint)
                 }
 
                 // 8. Импульсные волны касания (Pulse Circles)
@@ -655,22 +665,25 @@ class InteractiveRoboticArmDemoDialog(
                     canvas.drawCircle(targetX, targetY, dpF(4.5f), tapCorePaint)
                 }
 
-                // 9. Крупная двухстрочная плашка подсказок внизу экрана
-                val bannerH = dpF(68f)
-                val bannerY = h - bannerH - dpF(12f)
-                reusableRectF.set(dpF(10f), bannerY, w - dpF(10f), bannerY + bannerH)
+                // 9. Крупная двухстрочная плашка подсказок внизу экрана (расширена горизонтально и вертикально)
+                val bannerH = dpF(82f)
+                val bannerY = h - bannerH - dpF(8f)
+                reusableRectF.set(w * 0.04f, bannerY, w * 0.96f, bannerY + bannerH)
 
                 generalItemBg.color = "#F80F172A".toColorInt()
                 canvas.drawRoundRect(reusableRectF, dpF(10f), dpF(10f), generalItemBg)
                 panelBorderPaint.color = "#8B5CF6".toColorInt()
                 canvas.drawRoundRect(reusableRectF, dpF(10f), dpF(10f), panelBorderPaint)
 
+                // Смещение текста вровень с левой границей расширенной плашки
+                val textStartX = w * 0.04f + dpF(14f)
+
                 // 1. Шаговый тикер
-                canvas.drawText(stageTagText, dpF(18f), bannerY + dpF(18f), stageTagPaint)
+                canvas.drawText(stageTagText, textStartX, bannerY + dpF(20f), stageTagPaint)
                 // 2. Строка 1 подсказки (крупный жирный шрифт 13dp)
-                canvas.drawText(statusLine1, dpF(18f), bannerY + dpF(38f), bannerTextPaint)
+                canvas.drawText(statusLine1, textStartX, bannerY + dpF(42f), bannerTextPaint)
                 // 3. Строка 2 подсказки
-                canvas.drawText(statusLine2, dpF(18f), bannerY + dpF(56f), bannerTextPaint)
+                canvas.drawText(statusLine2, textStartX, bannerY + dpF(64f), bannerTextPaint)
             }
 
             /**

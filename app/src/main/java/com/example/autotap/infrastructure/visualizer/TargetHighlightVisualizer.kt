@@ -226,10 +226,10 @@ object TargetHighlightVisualizer {
                 mainHandler.postDelayed({
                     if (rootContainer.isAttachedToWindow) {
                         rootContainer.animate().alpha(0f).setDuration(220).withEndAction {
-                            overlayWindowManager.removeViewSafe(rootContainer)
+                            if (rootContainer.isAttachedToWindow) {
+                                overlayWindowManager.removeViewSafe(rootContainer)
+                            }
                         }.start()
-                    } else {
-                        overlayWindowManager.removeViewSafe(rootContainer)
                     }
                 }, durationMs)
             }
@@ -382,10 +382,10 @@ object TargetHighlightVisualizer {
             mainHandler.postDelayed({
                 if (rootContainer.isAttachedToWindow) {
                     rootContainer.animate().alpha(0f).setDuration(220).withEndAction {
-                        overlayWindowManager.removeViewSafe(rootContainer)
+                        if (rootContainer.isAttachedToWindow) {
+                            overlayWindowManager.removeViewSafe(rootContainer)
+                        }
                     }.start()
-                } else {
-                    overlayWindowManager.removeViewSafe(rootContainer)
                 }
             }, durationMs)
         }.start()
