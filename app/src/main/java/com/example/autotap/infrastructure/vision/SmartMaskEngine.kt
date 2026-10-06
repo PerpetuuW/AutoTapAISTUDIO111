@@ -133,9 +133,23 @@ object SmartMaskEngine {
         val avgPerimeterLum = (bgPerimeterSum / max(1, bgPerimeterCount)).toInt()
         val isCenterBrighter = avgCenterLum > avgPerimeterLum
 
+        // Morphological Edge & Gradient Salience for clean semi-transparent shape isolation
+        val gradMag = IntArray(totalPixels)
+        for (y in 1 until h - 1) {
+            val rowOff = y * w
+            for (x in 1 until w - 1) {
+                val idx = rowOff + x
+                val gx = abs(lum[idx + 1] - lum[idx - 1])
+                val gy = abs(lum[idx + w] - lum[idx - w])
+                gradMag[idx] = gx + gy
+            }
+        }
+
         val binaryFg = BitSet(totalPixels)
         for (i in 0 until totalPixels) {
-            val isFg = if (isCenterBrighter) lum[i] >= otsuThreshold else lum[i] <= otsuThreshold
+            val isOtsuFg = if (isCenterBrighter) lum[i] >= otsuThreshold else lum[i] <= otsuThreshold
+            val isEdgeSalient = gradMag[i] >= 18
+            val isFg = if (isShapeOnly) (isOtsuFg || isEdgeSalient) else isOtsuFg
             if (isFg) binaryFg.set(i)
         }
 

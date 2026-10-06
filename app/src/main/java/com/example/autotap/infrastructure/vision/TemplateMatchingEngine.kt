@@ -821,24 +821,23 @@ class TemplateFeatures(
 
     if (smag > 8.0f) screenTotalEdges++
 
-    if (features.shapeGradMag[k] > 6.0f) {
-    var bestDot = if (smag > 8.0f) {
-    val rawCos = (abs(sgx * features.shapeGradGx[k] + sgy * features.shapeGradGy[k]) / smag).coerceIn(0f, 1f)
-    if (rawCos > 0.60f) {
-    val normVal = (rawCos - 0.60f) / 0.40f
-    normVal * normVal
-    } else 0f
-    } else 0f
+    if (features.shapeGradMag[k] > 5.0f) {
+        val conf = (smag / 20f).coerceIn(0.25f, 1.0f)
+        edgeWeightSum += conf
 
-    val conf = (smag / 24f).coerceIn(0.2f, 1.0f)
-    edgeWeightSum += conf
+        if (smag > 6.0f) {
+            val rawCos = (abs(sgx * features.shapeGradGx[k] + sgy * features.shapeGradGy[k]) / smag).coerceIn(0f, 1f)
+            val shapeAlignment = if (rawCos >= 0.35f) {
+                ((rawCos - 0.35f) / 0.65f).coerceIn(0f, 1f)
+            } else 0f
 
-    if (bestDot > 0.40f) {
-    edgeScoreSum += bestDot.coerceIn(0.0f, 1.0f) * conf
-    when (features.shapeQuadrant[k]) { 0 -> hitQ0++; 1 -> hitQ1++; 2 -> hitQ2++; 3 -> hitQ3++ }
-    }
+            if (shapeAlignment > 0.20f) {
+                edgeScoreSum += shapeAlignment * conf
+                when (features.shapeQuadrant[k]) { 0 -> hitQ0++; 1 -> hitQ1++; 2 -> hitQ2++; 3 -> hitQ3++ }
+            }
+        }
     } else if (smag > 10.0f) {
-    edgeWeightSum += (smag / 24f).coerceIn(0.2f, 1.0f) * 0.6f
+        edgeWeightSum += (smag / 24f).coerceIn(0.2f, 1.0f) * 0.5f
     }
     }
 
@@ -848,7 +847,7 @@ class TemplateFeatures(
     if (!isShapeOnly && evalCount >= 8 && (colorScoreSum / evalCount.toFloat()) < 0.22f) {
     return 0f
     }
-    if (edgeWeightSum > 3f && (edgeScoreSum / edgeWeightSum) < 0.20f) {
+    if (edgeWeightSum > 3f && (edgeScoreSum / edgeWeightSum) < 0.18f) {
     return 0f
     }
     }
@@ -872,8 +871,8 @@ class TemplateFeatures(
     val colScore = if (totalChecks > 0) colorScoreSum / totalChecks.toFloat() else edScore
 
     if (isShapeOnly) {
-        val completeness = if (missingQuadrants >= 3) 0.55f else if (missingQuadrants == 2) 0.85f else 1.0f
-        return (edScore * completeness * clutterPenalty).coerceIn(0f, 1f)
+        val completeness = if (missingQuadrants >= 3) 0.65f else if (missingQuadrants == 2) 0.88f else 1.0f
+        return (edScore * completeness).coerceIn(0f, 1f)
     }
 
     // Мягкая комбинация: если совпадение по цвету высокое (>0.60), не отсекаем из-за размытых границ

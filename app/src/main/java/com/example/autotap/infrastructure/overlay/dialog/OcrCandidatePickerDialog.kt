@@ -89,8 +89,12 @@ class OcrCandidatePickerDialog(
         val highlightView = object : View(context) {
             private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
-                strokeWidth = dpF(2.5f)
+                strokeWidth = dpF(2.2f)
                 color = "#38BDF8".toColorInt()
+            }
+            private val boxFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.FILL
+                color = "#1A38BDF8".toColorInt()
             }
             private val badgeBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.FILL
@@ -108,18 +112,29 @@ class OcrCandidatePickerDialog(
                 textAlign = Paint.Align.CENTER
             }
             private val badgeRect = RectF()
+            private val boxRectF = RectF()
 
             override fun onDraw(canvas: Canvas) {
                 super.onDraw(canvas)
+                val screenW = dm.widthPixels.toFloat()
+                val screenH = dm.heightPixels.toFloat()
+                val scaleX = if (width > 0 && screenW > 0) width / screenW else 1f
+                val scaleY = if (height > 0 && screenH > 0) height / screenH else 1f
+
                 candidates.forEachIndexed { idx, match ->
-                    val r = Rect(match.rectLeft, match.rectTop, match.rectRight, match.rectBottom)
-                    canvas.drawRect(r, boxPaint)
+                    val l = match.rectLeft * scaleX
+                    val t = match.rectTop * scaleY
+                    val r = match.rectRight * scaleX
+                    val b = match.rectBottom * scaleY
+                    boxRectF.set(l, t, r, b)
+                    canvas.drawRoundRect(boxRectF, dpF(4f), dpF(4f), boxFillPaint)
+                    canvas.drawRoundRect(boxRectF, dpF(4f), dpF(4f), boxPaint)
 
                     val badgeText = "#${idx + 1}"
                     val bw = dpF(24f)
                     val bh = dpF(18f)
-                    val bx = (r.left.toFloat()).coerceIn(dpF(4f), width - bw - dpF(4f))
-                    val by = (r.top - bh - dpF(2f)).coerceIn(dpF(4f), height - bh - dpF(4f))
+                    val bx = l.coerceIn(dpF(4f), width - bw - dpF(4f))
+                    val by = (t - bh - dpF(2f)).coerceIn(dpF(4f), height - bh - dpF(4f))
 
                     badgeRect.set(bx, by, bx + bw, by + bh)
                     canvas.drawRoundRect(badgeRect, dpF(4f), dpF(4f), badgeBgPaint)
@@ -130,19 +145,30 @@ class OcrCandidatePickerDialog(
 
             override fun onTouchEvent(event: MotionEvent): Boolean {
                 if (event.action == MotionEvent.ACTION_DOWN) {
-                    val touchX = event.x.toInt()
-                    val touchY = event.y.toInt()
+                    val screenW = dm.widthPixels.toFloat()
+                    val screenH = dm.heightPixels.toFloat()
+                    val scaleX = if (width > 0 && screenW > 0) width / screenW else 1f
+                    val scaleY = if (height > 0 && screenH > 0) height / screenH else 1f
+
+                    val touchX = event.x
+                    val touchY = event.y
 
                     var bestIdx = -1
                     var minDistance = Float.MAX_VALUE
 
                     candidates.forEachIndexed { idx, match ->
-                        val hitBox = Rect(match.rectLeft - dp(12), match.rectTop - dp(12), match.rectRight + dp(12), match.rectBottom + dp(12))
+                        val l = match.rectLeft * scaleX - dp(12)
+                        val t = match.rectTop * scaleY - dp(12)
+                        val r = match.rectRight * scaleX + dp(12)
+                        val b = match.rectBottom * scaleY + dp(12)
+                        val hitBox = RectF(l, t, r, b)
                         if (hitBox.contains(touchX, touchY)) {
                             bestIdx = idx
                             minDistance = 0f
                         } else {
-                            val dist = hypot((touchX - match.clickX).toDouble(), (touchY - match.clickY).toDouble()).toFloat()
+                            val cX = match.clickX * scaleX
+                            val cY = match.clickY * scaleY
+                            val dist = hypot((touchX - cX).toDouble(), (touchY - cY).toDouble()).toFloat()
                             if (dist < minDistance && dist < dpF(80f)) {
                                 minDistance = dist
                                 bestIdx = idx
@@ -371,13 +397,13 @@ class OcrCandidatePickerDialog(
         }
         root.addView(floatingBadge, badgeLp)
 
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
-            overlayWindowManager.getOverlayType(),
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            android.graphics.PixelFormat.TRANSLUCENT
+        val params = overlayWindowManager.createLayoutParams(
+            width = WindowManager.LayoutParams.MATCH_PARENT,
+            height = WindowManager.LayoutParams.MATCH_PARENT,
+            flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            gravity = Gravity.TOP or Gravity.START
         )
         overlayWindowManager.addViewSafe(root, params)
     }

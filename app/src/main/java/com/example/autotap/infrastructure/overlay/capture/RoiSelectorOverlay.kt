@@ -146,11 +146,10 @@ class RoiSelectorOverlay(
                 GradientDrawable.Orientation.TOP_BOTTOM,
                 intArrayOf("#F8161B22".toColorInt(), "#F80D1117".toColorInt())
             ).apply {
-                cornerRadius = dpF(16f)
-                setStroke(dp(1), "#58A6FF".toColorInt())
+                cornerRadius = dpF(10f)
+                setStroke(dp(1), "#38BDF8".toColorInt())
             }
-            val p = dp(5)
-            setPadding(p, p, p, p)
+            setPadding(dp(8), dp(6), dp(8), dp(6))
             elevation = dpF(16f)
         }
 
@@ -158,13 +157,13 @@ class RoiSelectorOverlay(
             dismiss()
             onRoiConfirmed(roi)
         }
-        bar.addView(btnOk, LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(4) })
+        bar.addView(btnOk, LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(6) })
 
         val btnReset = createIconButton(VectorIconDrawer.IconType.SELECT_ALL, "#21262D", "#FFFFFF", dp(36), "RESET") {
             dismiss()
             onRoiConfirmed(null)
         }
-        bar.addView(btnReset, LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(4) })
+        bar.addView(btnReset, LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(6) })
 
         val btnHelp = createIconButton(VectorIconDrawer.IconType.HELP, "#21262D", "#38BDF8", dp(36), "HELP") {
             InteractiveTutorialOverlay(
@@ -174,7 +173,7 @@ class RoiSelectorOverlay(
                 hostViewProvider = { rootView }
             ).show()
         }
-        bar.addView(btnHelp, LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(4) })
+        bar.addView(btnHelp, LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(6) })
 
         val btnCancel = createIconButton(VectorIconDrawer.IconType.CLOSE, "#21262D", "#F04438", dp(36), "CANCEL") {
             dismiss()
