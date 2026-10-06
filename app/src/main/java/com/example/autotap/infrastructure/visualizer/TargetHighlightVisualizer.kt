@@ -60,6 +60,19 @@ object TargetHighlightVisualizer {
         hideTrainingHighlight(overlayWindowManager)
     }
 
+    fun hasActiveHighlights(): Boolean {
+        synchronized(activeHighlightViews) {
+            val iterator = activeHighlightViews.iterator()
+            while (iterator.hasNext()) {
+                val ref = iterator.next()
+                if (ref.get() == null) {
+                    iterator.remove()
+                }
+            }
+            return activeHighlightViews.isNotEmpty()
+        }
+    }
+
     /**
      * Премиальный визуализатор обнаружения цели без лишнего текстового шума.
      * Отображает:

@@ -280,13 +280,20 @@ class MacroExecutionEngine(
                                     val currentSw = dm?.widthPixels ?: 1080
                                     val currentSh = dm?.heightPixels ?: 2400
 
+                                    var hadHighlights = false
                                     withContext(Dispatchers.Main) {
                                         val ctx = service?.applicationContext
                                         if (ctx != null) {
-                                            com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hideAllHighlights(
-                                                com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx)
-                                            )
+                                            if (com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hasActiveHighlights()) {
+                                                hadHighlights = true
+                                                com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hideAllHighlights(
+                                                    com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx)
+                                                )
+                                            }
                                         }
+                                    }
+                                    if (hadHighlights) {
+                                        delay(100L)
                                     }
 
                                     if (MediaProjectionService.isStreaming) {
@@ -913,6 +920,22 @@ class MacroExecutionEngine(
                             val dm = service?.resources?.displayMetrics
                             val currentSw = dm?.widthPixels ?: 1080
                             val currentSh = dm?.heightPixels ?: 2400
+
+                            var hadHighlights = false
+                            withContext(Dispatchers.Main) {
+                                val ctx = service?.applicationContext
+                                if (ctx != null) {
+                                    if (com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hasActiveHighlights()) {
+                                        hadHighlights = true
+                                        com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hideAllHighlights(
+                                            com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx)
+                                        )
+                                    }
+                                }
+                            }
+                            if (hadHighlights) {
+                                delay(100L)
+                            }
 
                             if (MediaProjectionService.isStreaming) {
                                 val sPixels = PixelBufferPool.obtain(currentSw * currentSh)

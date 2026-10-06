@@ -995,6 +995,27 @@ private val targetStepId: Int? = null,
                     setColor(if (isNeuralEngineMode) "#312E81".toColorInt() else "#1A142E".toColorInt())
                     setStroke(dp(1), if (isNeuralEngineMode) "#818CF8".toColorInt() else "#38BDF8".toColorInt())
                 }
+                if (isNeuralEngineMode) {
+                    isShapeOnlyMode = false
+                    btnShapeOnlyToggle?.isEnabled = false
+                    btnShapeOnlyToggle?.text = "ГИБРИД"
+                    btnShapeOnlyToggle?.background = GradientDrawable(
+                        GradientDrawable.Orientation.TOP_BOTTOM,
+                        intArrayOf("#475569".toColorInt(), "#334155".toColorInt())
+                    ).apply {
+                        cornerRadius = dpF(4f)
+                    }
+                } else {
+                    btnShapeOnlyToggle?.isEnabled = true
+                    btnShapeOnlyToggle?.text = if (isShapeOnlyMode) "ФОРМА" else "ГИБРИД"
+                    btnShapeOnlyToggle?.background = GradientDrawable(
+                        GradientDrawable.Orientation.TOP_BOTTOM,
+                        if (isShapeOnlyMode) intArrayOf("#F59E0B".toColorInt(), "#D97706".toColorInt())
+                        else intArrayOf("#38BDF8".toColorInt(), "#0284C7".toColorInt())
+                    ).apply {
+                        cornerRadius = dpF(4f)
+                    }
+                }
                 reevaluateMatching()
             }
         }
@@ -1038,14 +1059,16 @@ private val targetStepId: Int? = null,
         }
 
         btnShapeOnlyToggle = Button(context).apply {
-            text = if (isShapeOnlyMode) "ФОРМА" else "ГИБРИД"
+            isEnabled = !isNeuralEngineMode
+            text = if (isNeuralEngineMode) "ГИБРИД" else (if (isShapeOnlyMode) "ФОРМА" else "ГИБРИД")
             textSize = 8f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
             setTextColor(Color.WHITE)
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                if (isShapeOnlyMode) intArrayOf("#F59E0B".toColorInt(), "#D97706".toColorInt())
+                if (isNeuralEngineMode) intArrayOf("#475569".toColorInt(), "#334155".toColorInt())
+                else if (isShapeOnlyMode) intArrayOf("#F59E0B".toColorInt(), "#D97706".toColorInt())
                 else intArrayOf("#38BDF8".toColorInt(), "#0284C7".toColorInt())
             ).apply {
                 cornerRadius = dpF(4f)
@@ -1053,6 +1076,7 @@ private val targetStepId: Int? = null,
             minHeight = 0; minimumHeight = 0
             setPadding(dp(6), dp(4), dp(6), dp(4))
             setOnClickListener {
+                if (isNeuralEngineMode) return@setOnClickListener
                 isShapeOnlyMode = !isShapeOnlyMode
                 text = if (isShapeOnlyMode) "ФОРМА" else "ГИБРИД"
                 setTextColor(Color.WHITE)
