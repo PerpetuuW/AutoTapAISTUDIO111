@@ -200,31 +200,17 @@ class ScriptsDialog(
             setPadding(dp(6), dp(4), dp(6), dp(4))
 
             setOnClickListener {
-                val checkedItems = booleanArrayOf(true, true, true)
-                val labels = arrayOf("Сценарии и граф (.json)", "Шаблоны (маски + цвета + мета)", "OCR словарь и метаданные поиска")
-
-                val builder = android.app.AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                    .setTitle("Экспорт данных")
-                    .setMultiChoiceItems(labels, checkedItems) { _, which, isChecked ->
-                        checkedItems[which] = isChecked
-                    }
-                    .setPositiveButton("Экспорт") { _, _ ->
-                        val pbm = com.example.autotap.infrastructure.storage.PackageBackupManager(context)
-                        val zip = pbm.exportFullBackupZip(
-                            exportScripts = checkedItems[0],
-                            exportTemplates = checkedItems[1],
-                            exportOcr = checkedItems[2]
-                        )
-                        if (zip != null) {
-                            pbm.shareZipFile(zip, "Экспорт AutoTap")
-                        } else {
-                            Toast.makeText(context, "Нет выбранных данных для экспорта", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                    .setNegativeButton("Отмена", null)
-                    .create()
-                builder.window?.setType(overlayWindowManager.getOverlayType(false))
-                builder.show()
+                val pbm = com.example.autotap.infrastructure.storage.PackageBackupManager(context)
+                val zip = pbm.exportFullBackupZip(
+                    exportScripts = true,
+                    exportTemplates = true,
+                    exportOcr = true
+                )
+                if (zip != null) {
+                    pbm.shareZipFile(zip, "Экспорт AutoTap")
+                } else {
+                    Toast.makeText(context, "Нет данных для экспорта", Toast.LENGTH_SHORT).show()
+                }
             }
             }
             toolsRow.addView(btnExportDialog, LinearLayout.LayoutParams(0, dp(26), 1f).apply { marginEnd = dp(4) })

@@ -400,6 +400,10 @@ class EditActionDialog(
 
         val allTypeButtons = ArrayList<Button>()
         var layoutTimingsRef: View? = null
+        var containerHoldRef: View? = null
+        var tvHoldLabelRef: TextView? = null
+        var containerRadiusRef: View? = null
+        var btnToggleNotifyRef: View? = null
 
         var layoutTriggerCardRef: LinearLayout? = null
         var layoutPinchRef: LinearLayout? = null
@@ -477,16 +481,30 @@ class EditActionDialog(
                 activeTabIndex = 0
             }
 
-            layoutTimingsRef?.visibility = if (!isReturn) View.VISIBLE else View.GONE
+            val hasTimings = !isReturn && selectedType != ActionType.GLOBAL_BACK && selectedType != ActionType.GLOBAL_HOME
+            layoutTimingsRef?.visibility = if (hasTimings) View.VISIBLE else View.GONE
+
+            val hasHold = selectedType !in listOf(ActionType.RETURN, ActionType.GLOBAL_BACK, ActionType.GLOBAL_HOME, ActionType.DELAY)
+            containerHoldRef?.visibility = if (hasHold) View.VISIBLE else View.GONE
+            tvHoldLabelRef?.text = when (selectedType) {
+                ActionType.SWIPE, ActionType.PATH -> "Длительность движения / свайпа (мс):"
+                ActionType.LONG_PRESS -> "Длительность удержания (мс):"
+                else -> "Длительность нажатия (мс):"
+            }
+
+            val hasRadius = selectedType in listOf(ActionType.CLICK, ActionType.LONG_PRESS, ActionType.TRIGGER, ActionType.OCR, ActionType.COLOR_CHECK)
+            containerRadiusRef?.visibility = if (hasRadius) View.VISIBLE else View.GONE
+
+            btnToggleNotifyRef?.visibility = if (isDetection) View.VISIBLE else View.GONE
+            layoutTimeoutRef?.visibility = if (isDetection) View.VISIBLE else View.GONE
+            layoutJumpsRef?.visibility = if (isDetection) View.VISIBLE else View.GONE
 
             layoutTriggerCardRef?.visibility = if (isTrigger) View.VISIBLE else View.GONE
             layoutPinchRef?.visibility = if (isPinch) View.VISIBLE else View.GONE
             layoutPathRef?.visibility = if (selectedType == ActionType.PATH) View.VISIBLE else View.GONE
             layoutSubroutinePickerRef?.visibility = if (isSubroutine) View.VISIBLE else View.GONE
-            layoutTimeoutRef?.visibility = if (isDetection) View.VISIBLE else View.GONE
             layoutOcrRef?.visibility = if (isOcr) View.VISIBLE else View.GONE
             layoutColorRef?.visibility = if (isColor) View.VISIBLE else View.GONE
-            layoutJumpsRef?.visibility = if (isDetection) View.VISIBLE else View.GONE
 
             updateTabStyles()
             }
@@ -1246,7 +1264,9 @@ class EditActionDialog(
         val layoutTimings = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         layoutTimingsRef = layoutTimings
         val (etDelay, _) = createNumericInputWithSteppers(layoutTimings, "Пауза шага (мс):", action.delayMs.toString(), 50L)
-        val (etHold, _) = createNumericInputWithSteppers(layoutTimings, "Длительность нажатия (мс):", action.holdDurationMs.coerceAtMost(action.delayMs).toString(), 20L)
+        val (etHold, containerHold) = createNumericInputWithSteppers(layoutTimings, "Длительность нажатия (мс):", action.holdDurationMs.coerceAtMost(action.delayMs).toString(), 20L)
+        containerHoldRef = containerHold
+        tvHoldLabelRef = containerHold.getChildAt(0) as? TextView
 
         // Инвариант: длительность нажатия не может превышать периодичность шага
         etHold.setOnFocusChangeListener { _, hasFocus ->
@@ -1270,15 +1290,12 @@ class EditActionDialog(
         }
 
         val (etRepeats, _) = createNumericInputWithSteppers(layoutTimings, "Повторения (0 = бесконечно):", action.repeatCount.toString(), 1L)
-        val (etRadius, _) = createNumericInputWithSteppers(layoutTimings, "Разброс радиуса (px):", action.randomRadiusPx.toString(), 1L)
+        val (etRadius, containerRadius) = createNumericInputWithSteppers(layoutTimings, "Разброс радиуса (px):", action.randomRadiusPx.toString(), 1L)
+        containerRadiusRef = containerRadius
         contentLayout.addView(layoutTimings)
-        // АККОРДЕОН РАСШИРЕННЫХ НАСТРОЕК (для шаблонов и сложных условий)
-
-        // [Clean Ergonomics] Пустой аккордеон ликвидирован
-
 
         val btnToggleNotify = Button(context).apply {
-
+            btnToggleNotifyRef = this
             text = if (isNotifyOnMatch) "ОПОВЕЩЕНИЕ ПРИ НАХОЖДЕНИИ: ВКЛ" else "ОПОВЕЩЕНИЕ ПРИ НАХОЖДЕНИИ: ВЫКЛ"
             textSize = 8.5f
             typeface = Typeface.DEFAULT_BOLD
