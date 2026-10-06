@@ -1143,19 +1143,25 @@ class EditActionDialog(
             setPadding(0, dp(4), 0, dp(2))
         }
 
-
-
         val btnCalibDirect = createTextActionButton("КАЛИБРОВКА", "#1F3554", "#38BDF8") {
             dismiss()
             onCalibrate(action.copy(templatePath = boundTemplatePath, isNeuralEngine = isNeuralEngine))
         }
         val btnRecalibRaw = createTextActionButton("РЕДАКТИРОВАТЬ", "#281745", "#A78BFA") {
-
             dismiss()
             onRecapture?.invoke(action.copy(templatePath = boundTemplatePath, isNeuralEngine = isNeuralEngine))
         }
+        cvActionsRow.addView(btnCalibDirect, LinearLayout.LayoutParams(0, dp(32), 1.0f).apply { marginEnd = dp(4) })
+        cvActionsRow.addView(btnRecalibRaw, LinearLayout.LayoutParams(0, dp(32), 1.0f))
+        layoutTriggerCard.addView(cvActionsRow)
+
+        val roiTemplateRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(2), 0, dp(4))
+        }
         val hasRoi = currentRoiLeft != null && currentRoiRight != null
-        val btnRoiSelect = createTextActionButton(if (hasRoi) "ROI: ЗАДАН" else "+ ОБЛАСТЬ ROI", if (hasRoi) "#3D2611" else "#1F2937", if (hasRoi) "#F59E0B" else "#FBBF24") {
+        val btnRoiSelect = createTextActionButton(if (hasRoi) "ОБЛАСТЬ ПОИСКА (ROI): ЗАДАНА" else "+ ВЫБРАТЬ ОБЛАСТЬ ПОИСКА (ROI)", if (hasRoi) "#3D2611" else "#1F2937", if (hasRoi) "#F59E0B" else "#FBBF24") {
             dismiss()
             onSelectRoi?.invoke(action.copy(
                 templatePath = boundTemplatePath,
@@ -1166,10 +1172,35 @@ class EditActionDialog(
                 roiBottom = currentRoiBottom
             ))
         }
-        cvActionsRow.addView(btnCalibDirect, LinearLayout.LayoutParams(0, dp(34), 1.0f).apply { marginEnd = dp(3) })
-        cvActionsRow.addView(btnRecalibRaw, LinearLayout.LayoutParams(0, dp(34), 1.0f).apply { marginEnd = dp(3) })
-        cvActionsRow.addView(btnRoiSelect, LinearLayout.LayoutParams(0, dp(34), 1.2f))
-        layoutTriggerCard.addView(cvActionsRow)
+        roiTemplateRow.addView(btnRoiSelect, LinearLayout.LayoutParams(0, dp(30), 1.0f))
+        if (hasRoi) {
+            val btnRoiReset = Button(context).apply {
+                text = "✕"
+                textSize = 9f
+                typeface = Typeface.DEFAULT_BOLD
+                includeFontPadding = false
+                gravity = Gravity.CENTER
+                minHeight = 0; minimumHeight = 0
+                setTextColor("#EF4444".toColorInt())
+                background = GradientDrawable().apply {
+                    setColor("#2A1215".toColorInt())
+                    cornerRadius = dpF(6f)
+                    setStroke(dp(1), "#EF4444".toColorInt())
+                }
+                setPadding(dp(4), 0, dp(4), 0)
+                setOnClickListener {
+                    currentRoiLeft = null
+                    currentRoiTop = null
+                    currentRoiRight = null
+                    currentRoiBottom = null
+                    Toast.makeText(context, "Область ROI сброшена", Toast.LENGTH_SHORT).show()
+                    dismiss()
+                    show()
+                }
+            }
+            roiTemplateRow.addView(btnRoiReset, LinearLayout.LayoutParams(dp(30), dp(30)).apply { marginStart = dp(4) })
+        }
+        layoutTriggerCard.addView(roiTemplateRow)
 
 
 
@@ -1317,8 +1348,13 @@ class EditActionDialog(
         layoutOcrRef = layoutOcr
         val etOcrQuery = createTextInput(layoutOcr, "Искомый текст / Выражение:", action.targetScriptOrQuery)
 
+        val ocrRoiRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(2), 0, dp(4))
+        }
         val hasRoiOcr = currentRoiLeft != null && currentRoiRight != null
-        val btnRoiOcr = createTextActionButton(if (hasRoiOcr) "ОБЛАСТЬ ПОИСКА: ЗАДАНА" else "+ ВЫБРАТЬ ОБЛАСТЬ ТЕКСТА (ROI)", if (hasRoiOcr) "#3D2611" else "#1F2937", if (hasRoiOcr) "#F59E0B" else "#38BDF8") {
+        val btnRoiOcr = createTextActionButton(if (hasRoiOcr) "ОБЛАСТЬ ПОИСКА ТЕКСТА (ROI): ЗАДАНА" else "+ ВЫБРАТЬ ОБЛАСТЬ ТЕКСТА (ROI)", if (hasRoiOcr) "#3D2611" else "#1F2937", if (hasRoiOcr) "#F59E0B" else "#38BDF8") {
             dismiss()
             onSelectRoi?.invoke(action.copy(
                 targetScriptOrQuery = etOcrQuery.text.toString().trim(),
@@ -1332,10 +1368,35 @@ class EditActionDialog(
                 roiBottom = currentRoiBottom
             ))
         }
-        layoutOcr.addView(btnRoiOcr, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(30)).apply {
-            topMargin = dp(4)
-            bottomMargin = dp(4)
-        })
+        ocrRoiRow.addView(btnRoiOcr, LinearLayout.LayoutParams(0, dp(30), 1.0f))
+        if (hasRoiOcr) {
+            val btnRoiOcrReset = Button(context).apply {
+                text = "✕"
+                textSize = 9f
+                typeface = Typeface.DEFAULT_BOLD
+                includeFontPadding = false
+                gravity = Gravity.CENTER
+                minHeight = 0; minimumHeight = 0
+                setTextColor("#EF4444".toColorInt())
+                background = GradientDrawable().apply {
+                    setColor("#2A1215".toColorInt())
+                    cornerRadius = dpF(6f)
+                    setStroke(dp(1), "#EF4444".toColorInt())
+                }
+                setPadding(dp(4), 0, dp(4), 0)
+                setOnClickListener {
+                    currentRoiLeft = null
+                    currentRoiTop = null
+                    currentRoiRight = null
+                    currentRoiBottom = null
+                    Toast.makeText(context, "Область текста ROI сброшена", Toast.LENGTH_SHORT).show()
+                    dismiss()
+                    show()
+                }
+            }
+            ocrRoiRow.addView(btnRoiOcrReset, LinearLayout.LayoutParams(dp(30), dp(30)).apply { marginStart = dp(4) })
+        }
+        layoutOcr.addView(ocrRoiRow)
 
         // [Порядковый номер совпадения - выбор из найденных на экране]
         val tvOccurrenceStatus = TextView(context).apply {
