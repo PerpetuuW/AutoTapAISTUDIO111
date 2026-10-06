@@ -136,8 +136,20 @@ class TargetOverlayManager(
         val isMovementType = action.type == ActionType.SWIPE || action.type == ActionType.PATH
         val endX = action.endX ?: (validPosX + dp(80f))
         val endY = action.endY ?: (validPosY + dp(80f))
-        val defaultPts = if (action.type == ActionType.PATH && action.pathPoints.isEmpty()) {
-            listOf(Point2D(validPosX, validPosY), Point2D(endX, endY))
+        val defaultPts = if (action.type == ActionType.PATH) {
+            if (action.pathPoints.isEmpty()) {
+                val midX = (validPosX + endX) / 2f + dp(25f)
+                val midY = (validPosY + endY) / 2f - dp(25f)
+                listOf(Point2D(validPosX, validPosY), Point2D(midX, midY), Point2D(endX, endY))
+            } else if (action.pathPoints.size == 2) {
+                val p0 = action.pathPoints[0]
+                val p1 = action.pathPoints[1]
+                val midX = (p0.x + p1.x) / 2f + dp(25f)
+                val midY = (p0.y + p1.y) / 2f - dp(25f)
+                listOf(p0, Point2D(midX, midY), p1)
+            } else {
+                action.pathPoints
+            }
         } else action.pathPoints
         val newAction = action.copy(
             id = nextId, posX = validPosX, posY = validPosY,
@@ -151,7 +163,39 @@ class TargetOverlayManager(
             // [Dual-Overlay Path Architecture] Создание Оверлея 2 (Конечная мишень вектора)
             spawnEndTargetView(newAction, endX, endY)
         }
+        if (newAction.type == ActionType.PATH) {
+            spawnWaypointViews(newAction)
+        }
         updateGraph()
+    }
+
+    fun cloneAction(action: MacroAction) {
+        val shift = dp(20f).toFloat()
+        val isMovement = action.type == ActionType.PATH || action.type == ActionType.SWIPE
+        val newEndX = if (isMovement && action.endX != null) action.endX + shift else action.endX
+        val newEndY = if (isMovement && action.endY != null) action.endY + shift else action.endY
+        val newPts = if (action.type == ActionType.PATH) {
+            if (action.pathPoints.isNotEmpty()) {
+                action.pathPoints.map { Point2D(it.x + shift, it.y + shift, it.timeOffsetMs) }
+            } else {
+                val startX = action.posX + shift
+                val startY = action.posY + shift
+                val ex = newEndX ?: (startX + dp(80f))
+                val ey = newEndY ?: (startY + dp(80f))
+                val midX = (startX + ex) / 2f + dp(25f)
+                val midY = (startY + ey) / 2f - dp(25f)
+                listOf(Point2D(startX, startY), Point2D(midX, midY), Point2D(ex, ey))
+            }
+        } else action.pathPoints
+
+        val cloned = action.copy(
+            posX = action.posX + shift,
+            posY = action.posY + shift,
+            endX = newEndX,
+            endY = newEndY,
+            pathPoints = newPts
+        )
+        addAction(cloned)
     }
 
     fun addActionAt(
@@ -296,6 +340,8 @@ class TargetOverlayManager(
         targetViews.clear()
         endTargetViews.values.forEach { overlayWindowManager.removeViewSafe(it) }
         endTargetViews.clear()
+        waypointViews.values.flatten().forEach { overlayWindowManager.removeViewSafe(it) }
+        waypointViews.clear()
         actionsList.clear()
         if (isGraphAttached) {
             overlayWindowManager.removeViewSafe(graphOverlayView)
@@ -545,7 +591,7 @@ class TargetOverlayManager(
                                     onEdit = { onActionEditRequested?.invoke(it) },
                                     onAddTemplate = { onActionAddTemplateRequested?.invoke(it) },
                                     onCalibrate = { onActionCalibrateRequested?.invoke(it) },
-                                    onClone = { addAction(it.copy(posX = it.posX + 30f, posY = it.posY + 30f)) },
+                                    onClone = { cloneAction(it) },
                                     onDelete = { removeAction(it.id) }
                                 )
                             }

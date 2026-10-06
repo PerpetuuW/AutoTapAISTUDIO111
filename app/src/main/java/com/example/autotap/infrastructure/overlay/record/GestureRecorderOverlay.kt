@@ -220,11 +220,12 @@ class GestureRecorderOverlay(
 
                     if (totalDistance < dpF(12f) && duration < 350L) {
                         if (isDebouncedDuplicate(startPt.x, startPt.y)) {
+                            restoreTouchAfter(40L)
                             currentTouchPoints.clear()
                             canvas.invalidate()
                             return@setOnTouchListener true
                         }
-                        gestureDuration = duration.coerceIn(40L, 120L)
+                        gestureDuration = duration.coerceIn(30L, 120L)
                         isDispatchingSyntheticClick = true
                         // VSYNC Flush: очистка холста и мгновенная инжекция клика без блокировки UI
                         currentTouchPoints.clear()
@@ -355,8 +356,9 @@ class GestureRecorderOverlay(
                                             }
                                             } else {
                                             // Режим обычных жестов: мгновенный вброс и запись
+                                            val orch = com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(context)
                                             dispatcher?.performClick(startPt.x, startPt.y, gestureDuration)
-                                            recordedActions.add(MacroAction(id = nextId, type = ActionType.CLICK, posX = startPt.x, posY = startPt.y, holdDurationMs = gestureDuration, delayMs = 400L))
+                                            recordedActions.add(MacroAction(id = nextId, type = ActionType.CLICK, posX = startPt.x, posY = startPt.y, holdDurationMs = gestureDuration, delayMs = orch.globalClickPauseMs))
                                             canvas.alpha = 1f
                                             restoreTouchAfter(gestureDuration + 40L)
                                             }
@@ -372,17 +374,19 @@ class GestureRecorderOverlay(
                         val compressedPoints = PathCompressionEngine.compressPath(currentTouchPoints.toList(), maxPoints = 80)
                         val instantDuration = duration.coerceIn(100L, 2500L)
                         dispatcher?.performPath(compressedPoints, instantDuration)
-                        val actualDelay = if (lastRecordEventTime > 0L) (touchStartTime - lastRecordEventTime).coerceIn(20L, 60000L) else 250L
+                        val actualDelay = if (lastRecordEventTime > 0L) (touchStartTime - lastRecordEventTime).coerceIn(20L, 60000L) else 100L
                         lastRecordEventTime = System.currentTimeMillis()
                         val defaultPathDur = com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(context).globalPathDurationMs
+                        val isStraightSwipe = compressedPoints.size <= 2 && totalDistance > dpF(20f)
+                        val recordedHoldDuration = if (duration > 30L) duration else defaultPathDur
                         recordedActions.add(MacroAction(
                             id = nextId,
-                            type = ActionType.PATH,
+                            type = if (isStraightSwipe) ActionType.SWIPE else ActionType.PATH,
                             posX = startPt.x,
                             posY = startPt.y,
                             endX = endPt.x,
                             endY = endPt.y,
-                            holdDurationMs = defaultPathDur,
+                            holdDurationMs = recordedHoldDuration,
                             delayMs = actualDelay,
                             pathPoints = compressedPoints
                         ))

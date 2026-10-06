@@ -87,6 +87,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val appScope = CoroutineScope(Dispatchers.Main)
+    private val prefs by lazy { appContext.getSharedPreferences("autotap_prefs", Context.MODE_PRIVATE) }
 
     val quickRingOverlay by lazy { TargetQuickRingOverlay(appContext, overlayWindowManager) }
     val graphOverlayView by lazy { GraphOverlayView(appContext) }
@@ -103,7 +104,8 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         }
     }
 
-    var globalClickDurationMs: Long = 120L
+    var globalClickDurationMs: Long = 30L
+    var globalClickPauseMs: Long = 60L
     var globalSwipeDurationMs: Long = 300L
     var globalPathDurationMs: Long = 5000L
 
@@ -123,6 +125,11 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
 
     init {
         AppLogger.init(appContext)
+        globalClickDurationMs = prefs.getLong("PREF_GLOBAL_CLICK_DURATION", 30L)
+        globalClickPauseMs = prefs.getLong("PREF_GLOBAL_CLICK_PAUSE", 60L)
+        globalSwipeDurationMs = prefs.getLong("PREF_GLOBAL_SWIPE_DURATION", 300L)
+        globalPathDurationMs = prefs.getLong("PREF_GLOBAL_PATH_DURATION", 5000L)
+
         targetManager.onActionEditRequested = { showEditDialog(it) }
         targetManager.onActionTestRequested = { testSingleAction(it) }
         targetManager.onActionAddTemplateRequested = { act -> startCaptureForStep(act) }
@@ -862,7 +869,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         val cx = appContext.resources.displayMetrics.widthPixels / 2f
         val cy = appContext.resources.displayMetrics.heightPixels / 2f
         // [V180.0] Дифференциация таймингов: 1000мс для шаблонов (стабилизация UI), 100мс для обычных шагов
-        val defaultDelay = if (type == ActionType.TRIGGER || type == ActionType.COLOR_CHECK || type == ActionType.OCR) 1000L else 100L
+        val defaultDelay = if (type == ActionType.TRIGGER || type == ActionType.COLOR_CHECK || type == ActionType.OCR) 1000L else if (type == ActionType.CLICK) globalClickPauseMs else 100L
         when (type) {
             ActionType.TRIGGER -> {
                 targetManager.addActionAt(cx, cy, ActionType.TRIGGER, delayMs = defaultDelay)
@@ -1006,11 +1013,31 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
     }
 
     override fun onSettingsClicked() {
-        GlobalSettingsDialog(appContext, overlayWindowManager, globalClickDurationMs, globalSwipeDurationMs, globalPathDurationMs) { c, s, p ->
-            globalClickDurationMs = c
-            globalSwipeDurationMs = s
-            globalPathDurationMs = p
-        }.show()
+        GlobalSettingsDialog(
+            context = appContext,
+            overlayWindowManager = overlayWindowManager,
+            currentClickDuration = globalClickDurationMs,
+            currentSwipeDuration = globalSwipeDurationMs,
+            currentPathDuration = globalPathDurationMs,
+            currentClickPause = globalClickPauseMs,
+            onSaved = { c, s, p ->
+                globalClickDurationMs = c
+                globalSwipeDurationMs = s
+                globalPathDurationMs = p
+            },
+            onSavedFull = { c, s, p, pause ->
+                globalClickDurationMs = c
+                globalSwipeDurationMs = s
+                globalPathDurationMs = p
+                globalClickPauseMs = pause
+                prefs.edit()
+                    .putLong("PREF_GLOBAL_CLICK_DURATION", c)
+                    .putLong("PREF_GLOBAL_SWIPE_DURATION", s)
+                    .putLong("PREF_GLOBAL_PATH_DURATION", p)
+                    .putLong("PREF_GLOBAL_CLICK_PAUSE", pause)
+                    .apply()
+            }
+        ).show()
     }
 
 
@@ -1060,7 +1087,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             context = appContext, overlayWindowManager = overlayWindowManager, templateRepository = templateRepository, scenarioRepository = scenarioRepository,
             action = action, totalActionsCount = targetManager.getActions().size,
             onSave = { updated -> targetManager.updateAction(updated); checkAndPromptGraphGeneration(updated) {} },
-            onClone = { targetManager.addAction(it.copy(posX = it.posX + 30f, posY = it.posY + 30f)) },
+            onClone = { targetManager.cloneAction(it) },
             onDelete = { targetManager.removeAction(it.id) },
             onCalibrate = { act -> 
                 activeEditDialog?.dismiss()

@@ -59,6 +59,10 @@ class GestureDispatcher(
     }
 
     private var activeLiveStroke: android.accessibilityservice.GestureDescription.StrokeDescription? = null
+    private var liveGestureElapsed = 0L
+    private var liveLastX = 0f
+    private var liveLastY = 0f
+    private var lastLiveUpdateTime = 0L
 
     fun sendLivePathStart(startX: Float, startY: Float): Boolean {
         val service = serviceProvider() ?: return false
@@ -66,46 +70,74 @@ class GestureDispatcher(
             moveTo(startX, startY)
             lineTo(startX, startY)
         }
+        liveLastX = startX
+        liveLastY = startY
+        liveGestureElapsed = 0L
+        lastLiveUpdateTime = System.currentTimeMillis()
+        val segDuration = 40L
         val stroke = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            android.accessibilityservice.GestureDescription.StrokeDescription(path, 0L, 35L, true)
+            android.accessibilityservice.GestureDescription.StrokeDescription(path, 0L, segDuration, true)
         } else {
-            android.accessibilityservice.GestureDescription.StrokeDescription(path, 0L, 35L)
+            android.accessibilityservice.GestureDescription.StrokeDescription(path, 0L, segDuration)
         }
         activeLiveStroke = stroke
+        liveGestureElapsed += segDuration
         val gesture = android.accessibilityservice.GestureDescription.Builder().addStroke(stroke).build()
         return service.dispatchGesture(gesture, null, null)
     }
 
     fun sendLivePathUpdate(fromX: Float, fromY: Float, toX: Float, toY: Float): Boolean {
         val service = serviceProvider() ?: return false
+        val now = System.currentTimeMillis()
+        if (now - lastLiveUpdateTime < 25L) {
+            liveLastX = toX
+            liveLastY = toY
+            return true
+        }
+        lastLiveUpdateTime = now
+
+        val startX = if (liveLastX != 0f) liveLastX else fromX
+        val startY = if (liveLastY != 0f) liveLastY else fromY
         val path = android.graphics.Path().apply {
-            moveTo(fromX, fromY)
+            moveTo(startX, startY)
             lineTo(toX, toY)
         }
+        liveLastX = toX
+        liveLastY = toY
         val prev = activeLiveStroke
+        val segDuration = 40L
+        // CRITICAL INVARIANT: continueStroke startTime is measured from the completion of the previous stroke.
+        // For unbroken live control (e.g. virtual joystick in game), delay must be 0L.
+        val nextStart = 0L
         val stroke = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && prev != null) {
-            prev.continueStroke(path, 0L, 35L, true)
+            prev.continueStroke(path, nextStart, segDuration, true)
         } else {
-            android.accessibilityservice.GestureDescription.StrokeDescription(path, 0L, 35L, true)
+            android.accessibilityservice.GestureDescription.StrokeDescription(path, 0L, segDuration, true)
         }
         activeLiveStroke = stroke
+        liveGestureElapsed += segDuration
         val gesture = android.accessibilityservice.GestureDescription.Builder().addStroke(stroke).build()
         return service.dispatchGesture(gesture, null, null)
     }
 
     fun sendLivePathFinish(lastX: Float, lastY: Float): Boolean {
         val service = serviceProvider() ?: return false
+        val startX = if (liveLastX != 0f) liveLastX else lastX
+        val startY = if (liveLastY != 0f) liveLastY else lastY
         val path = android.graphics.Path().apply {
-            moveTo(lastX, lastY)
+            moveTo(startX, startY)
             lineTo(lastX, lastY)
         }
         val prev = activeLiveStroke
+        val segDuration = 30L
+        val nextStart = 0L
         val stroke = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && prev != null) {
-            prev.continueStroke(path, 0L, 35L, false)
+            prev.continueStroke(path, nextStart, segDuration, false)
         } else {
-            android.accessibilityservice.GestureDescription.StrokeDescription(path, 0L, 35L, false)
+            android.accessibilityservice.GestureDescription.StrokeDescription(path, 0L, segDuration, false)
         }
         activeLiveStroke = null
+        liveGestureElapsed = 0L
         val gesture = android.accessibilityservice.GestureDescription.Builder().addStroke(stroke).build()
         return service.dispatchGesture(gesture, null, null)
     }

@@ -29,10 +29,12 @@ import com.example.autotap.infrastructure.overlay.ui.VectorIconDrawer
 class GlobalSettingsDialog(
     private val context: Context,
     private val overlayWindowManager: OverlayWindowManager,
-    private var currentClickDuration: Long,
-    private var currentSwipeDuration: Long,
+    private var currentClickDuration: Long = 30L,
+    private var currentSwipeDuration: Long = 300L,
     private var currentPathDuration: Long = 5000L,
-    private val onSaved: (Long, Long, Long) -> Unit
+    private var currentClickPause: Long = 60L,
+    private val onSaved: (Long, Long, Long) -> Unit = { _, _, _ -> },
+    private val onSavedFull: ((clickDur: Long, swipeDur: Long, pathDur: Long, clickPause: Long) -> Unit)? = null
 ) {
     private var dialogView: View? = null
     private val dm = context.resources.displayMetrics
@@ -136,10 +138,50 @@ class GlobalSettingsDialog(
             setPadding(0, dp(2), 0, dp(4))
         }
         fun applyPreset(ms: Long) { etClick.setText(ms.toString()) }
-        presetRow.addView(createPresetChip("ЧЕЛОВЕК (250мс)") { applyPreset(250L) }, LinearLayout.LayoutParams(0, dp(26), 1f).apply { marginEnd = dp(2) })
-        presetRow.addView(createPresetChip("БЕЗОПАСНО (120мс)") { applyPreset(120L) }, LinearLayout.LayoutParams(0, dp(26), 1.1f).apply { marginEnd = dp(2) })
-        presetRow.addView(createPresetChip("БЫСТРО (60мс)") { applyPreset(60L) }, LinearLayout.LayoutParams(0, dp(26), 1f))
+        presetRow.addView(createPresetChip("ТУРБО (30мс)") { applyPreset(30L) }, LinearLayout.LayoutParams(0, dp(26), 1f).apply { marginEnd = dp(2) })
+        presetRow.addView(createPresetChip("БЫСТРО (60мс)") { applyPreset(60L) }, LinearLayout.LayoutParams(0, dp(26), 1.1f).apply { marginEnd = dp(2) })
+        presetRow.addView(createPresetChip("БЕЗОПАСНО (120мс)") { applyPreset(120L) }, LinearLayout.LayoutParams(0, dp(26), 1.1f))
         scrollContent.addView(presetRow)
+
+        val tvPauseLabel = TextView(context).apply {
+            text = "Пауза клика по умолчанию (мс):"
+            textSize = 9f
+            includeFontPadding = false
+            setTextColor("#8B949E".toColorInt())
+            setPadding(0, dp(4), 0, dp(2))
+        }
+        scrollContent.addView(tvPauseLabel)
+
+        val etClickPause = EditText(context).apply {
+            tag = "PAUSE"
+            setText(currentClickPause.toString())
+            textSize = 11f
+            setTextColor(Color.WHITE)
+            includeFontPadding = false
+            inputType = InputType.TYPE_CLASS_NUMBER
+            background = GradientDrawable().apply {
+                setColor("#1B1430".toColorInt())
+                cornerRadius = dpF(8f)
+                setStroke(dp(1), "#36275E".toColorInt())
+            }
+            val p = dp(6)
+            setPadding(p, p, p, p)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                minHeight = dp(38)
+            }
+        }
+        scrollContent.addView(etClickPause)
+
+        val pausePresetRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(2), 0, dp(4))
+        }
+        fun applyPausePreset(ms: Long) { etClickPause.setText(ms.toString()) }
+        pausePresetRow.addView(createPresetChip("15мс") { applyPausePreset(15L) }, LinearLayout.LayoutParams(0, dp(26), 0.9f).apply { marginEnd = dp(2) })
+        pausePresetRow.addView(createPresetChip("30мс") { applyPausePreset(30L) }, LinearLayout.LayoutParams(0, dp(26), 0.9f).apply { marginEnd = dp(2) })
+        pausePresetRow.addView(createPresetChip("60мс (СТАНДАРТ)") { applyPausePreset(60L) }, LinearLayout.LayoutParams(0, dp(26), 1.3f).apply { marginEnd = dp(2) })
+        pausePresetRow.addView(createPresetChip("100мс") { applyPausePreset(100L) }, LinearLayout.LayoutParams(0, dp(26), 1f))
+        scrollContent.addView(pausePresetRow)
 
         // [V170.0] Переключатель помощника закрытия рекламы
         val adAssistRow = LinearLayout(context).apply {
@@ -309,10 +351,12 @@ class GlobalSettingsDialog(
             tag = "SAVE"
         }
         btnSave.setOnClickListener {
-            val click = etClick.text.toString().trim().replace(',', '.').toDoubleOrNull()?.toLong()?.coerceIn(10L, 5000L) ?: 120L
+            val click = etClick.text.toString().trim().replace(',', '.').toDoubleOrNull()?.toLong()?.coerceIn(10L, 5000L) ?: 30L
+            val pause = etClickPause.text.toString().trim().replace(',', '.').toDoubleOrNull()?.toLong()?.coerceIn(10L, 5000L) ?: 60L
             val swipe = etSwipe.text.toString().trim().replace(',', '.').toDoubleOrNull()?.toLong()?.coerceIn(50L, 10000L) ?: 300L
             val path = etPath.text.toString().trim().replace(',', '.').toDoubleOrNull()?.toLong()?.coerceIn(100L, 30000L) ?: 5000L
             onSaved(click, swipe, path)
+            onSavedFull?.invoke(click, swipe, path, pause)
             dismiss()
             Toast.makeText(context, "Настройки сохранены!", Toast.LENGTH_SHORT).show()
         }

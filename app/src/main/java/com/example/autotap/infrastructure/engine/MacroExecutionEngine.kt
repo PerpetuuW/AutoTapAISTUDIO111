@@ -175,7 +175,7 @@ class MacroExecutionEngine(
                         when (action.type) {
                             ActionType.CLICK -> {
                                 val (gx, gy) = safetyGovernor.computeGaussianOffset(action.randomRadiusPx)
-                                val effHold = action.holdDurationMs.coerceIn(20L, maxOf(20L, action.delayMs))
+                                val effHold = action.holdDurationMs.coerceIn(10L, 10000L)
                                 withContext(Dispatchers.IO) {
                                     gestureGateway.performClick(action.posX + gx, action.posY + gy, effHold)
                                 }
@@ -193,37 +193,26 @@ class MacroExecutionEngine(
                                 val sy = action.posY
                                 val ex = action.endX ?: (sx + 100f)
                                 val ey = action.endY ?: (sy + 100f)
+                                val effHold = if (action.holdDurationMs > 0L) action.holdDurationMs.coerceAtLeast(30L) else 300L
                                 withContext(Dispatchers.IO) {
-                                    gestureGateway.performSwipe(sx, sy, ex, ey, action.holdDurationMs.coerceAtLeast(100L))
+                                    gestureGateway.performSwipe(sx, sy, ex, ey, effHold)
                                 }
                                 totalExecutedSteps++
                             }
                             ActionType.PATH -> {
-                                if (action.pathPoints.isNotEmpty()) {
-                                    val path = android.graphics.Path()
-                                    path.moveTo((action.primaryAnchorPoints.firstOrNull()?.x ?: 0f).toFloat(), (action.primaryAnchorPoints.firstOrNull()?.y ?: 0f).toFloat())
-                                    for (i in 1 until action.pathPoints.size) {
-                                        path.lineTo(action.pathPoints[i].x.toFloat(), action.pathPoints[i].y.toFloat())
-                                    }
-                                    val totalDuration = action.holdDurationMs.coerceAtLeast(250L)
-                                    val stroke = createStrokeCompat(path, 0L, totalDuration, false)
-                                    val gesture = android.accessibilityservice.GestureDescription.Builder().addStroke(stroke).build()
-
-                                    accessibilityServiceProvider()?.dispatchGesture(gesture, null, null)
-                                    kotlinx.coroutines.delay(totalDuration + 50L)
+                                val pts = if (action.pathPoints.isNotEmpty()) {
+                                    action.pathPoints
                                 } else if (action.endX != null && action.endY != null) {
-                                    val path = android.graphics.Path()
-                                    path.moveTo((action.primaryAnchorPoints.firstOrNull()?.x ?: 0f).toFloat(), (action.primaryAnchorPoints.firstOrNull()?.y ?: 0f).toFloat())
-                                    val endX = (action.endX ?: 0f).toFloat()
-                                    val endY = (action.endY ?: 0f).toFloat()
-                                    path.lineTo(endX, endY)
-                                    val totalDuration = action.holdDurationMs.coerceAtLeast(250L)
-                                    val stroke = createStrokeCompat(path, 0L, totalDuration, false)
-                                    val gesture = android.accessibilityservice.GestureDescription.Builder().addStroke(stroke).build()
+                                    listOf(Point2D(action.posX, action.posY), Point2D(action.endX!!, action.endY!!))
+                                } else emptyList()
 
-                                    accessibilityServiceProvider()?.dispatchGesture(gesture, null, null)
-                                    kotlinx.coroutines.delay(totalDuration + 50L)
+                                if (pts.isNotEmpty()) {
+                                    val totalDuration = if (action.holdDurationMs > 0L) action.holdDurationMs.coerceAtLeast(30L) else 300L
+                                    withContext(Dispatchers.IO) {
+                                        gestureGateway.performPath(pts, totalDuration)
+                                    }
                                 }
+                                totalExecutedSteps++
                             }
                             ActionType.PINCH -> {
                                 val startDist = if (action.pinchStartDistance > 0f) action.pinchStartDistance else 300f
@@ -827,30 +816,20 @@ class MacroExecutionEngine(
                                     totalExecutedSteps++
                                 }
                                 ActionType.PATH -> {
-                                if (act.pathPoints.isNotEmpty()) {
-                                    val path = android.graphics.Path()
-                                    path.moveTo(act.pathPoints.first().x.toFloat(), act.pathPoints.first().y.toFloat())
-                                    for (i in 1 until act.pathPoints.size) {
-                                        path.lineTo(act.pathPoints[i].x.toFloat(), act.pathPoints[i].y.toFloat())
+                                    val pts = if (act.pathPoints.isNotEmpty()) {
+                                        act.pathPoints
+                                    } else if (act.endX != null && act.endY != null) {
+                                        listOf(Point2D(act.x, act.y), Point2D(act.endX!!, act.endY!!))
+                                    } else emptyList()
+
+                                    if (pts.isNotEmpty()) {
+                                        val totalDuration = if (act.holdDurationMs > 0L) act.holdDurationMs.coerceAtLeast(30L) else 300L
+                                        withContext(Dispatchers.IO) {
+                                            gestureGateway.performPath(pts, totalDuration)
+                                        }
                                     }
-                                    val totalDuration = act.holdDurationMs.coerceAtLeast(250L)
-                                    val stroke = createStrokeCompat(path, 0L, totalDuration, false)
-                                    val gesture = android.accessibilityservice.GestureDescription.Builder().addStroke(stroke).build()
-
-                                    accessibilityServiceProvider()?.dispatchGesture(gesture, null, null)
-                                    kotlinx.coroutines.delay(totalDuration + 50L)
-                                } else if (act.endX != null && act.endY != null) {
-                                    val path = android.graphics.Path()
-                                    path.moveTo(act.x.toFloat(), act.y.toFloat())
-                                    path.lineTo(act.endX!!.toFloat(), act.endY!!.toFloat())
-                                    val totalDuration = act.holdDurationMs.coerceAtLeast(250L)
-                                    val stroke = createStrokeCompat(path, 0L, totalDuration, false)
-                                    val gesture = android.accessibilityservice.GestureDescription.Builder().addStroke(stroke).build()
-
-                                    accessibilityServiceProvider()?.dispatchGesture(gesture, null, null)
-                                    kotlinx.coroutines.delay(totalDuration + 50L)
+                                    totalExecutedSteps++
                                 }
-                            }
                                 ActionType.PINCH -> {
                                     val startDist = if (act.pinchStartDistance > 0f) act.pinchStartDistance else 300f
                                     val endDist = if (act.pinchEndDistance > 0f) act.pinchEndDistance else 600f
