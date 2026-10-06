@@ -23,13 +23,13 @@ class GestureDispatcher(
 ) : IGestureGateway {
 
     private val mainHandler = Handler(Looper.getMainLooper())
-    var onGesturePassthroughToggle: ((Boolean) -> Unit)? = null
+    var onGesturePassthroughToggle: ((Boolean, Float?, Float?) -> Unit)? = null
 
-    private fun safeTogglePassthrough(enabled: Boolean) {
+    private fun safeTogglePassthrough(enabled: Boolean, clickX: Float? = null, clickY: Float? = null) {
         if (Looper.myLooper() == Looper.getMainLooper()) {
-            onGesturePassthroughToggle?.invoke(enabled)
+            onGesturePassthroughToggle?.invoke(enabled, clickX, clickY)
         } else {
-            mainHandler.post { onGesturePassthroughToggle?.invoke(enabled) }
+            mainHandler.post { onGesturePassthroughToggle?.invoke(enabled, clickX, clickY) }
         }
     }
 
@@ -212,7 +212,7 @@ class GestureDispatcher(
             }
         }
 
-                safeTogglePassthrough(true)
+        safeTogglePassthrough(true, safeX, safeY)
         val renderDelay = 80L
         mainHandler.postDelayed(timeoutRunnable, durationMs + 250L + renderDelay)
 
@@ -280,7 +280,7 @@ class GestureDispatcher(
             }
         }
 
-                safeTogglePassthrough(true)
+        safeTogglePassthrough(true, startX, startY)
         val renderDelay = 80L
         mainHandler.postDelayed(timeoutRunnable, durationMs + 300L + renderDelay)
 
@@ -366,7 +366,7 @@ class GestureDispatcher(
             }
         }
 
-        safeTogglePassthrough(true)
+        safeTogglePassthrough(true, points[0].x, points[0].y)
         val renderDelay = 45L
         mainHandler.postDelayed(timeoutRunnable, durationMs + 350L + renderDelay)
 
@@ -455,7 +455,7 @@ class GestureDispatcher(
             }
         }
 
-        safeTogglePassthrough(true)
+        safeTogglePassthrough(true, centerX, centerY)
         val renderDelay = 45L
         mainHandler.postDelayed(timeoutRunnable, safeDuration + 300L + renderDelay)
 

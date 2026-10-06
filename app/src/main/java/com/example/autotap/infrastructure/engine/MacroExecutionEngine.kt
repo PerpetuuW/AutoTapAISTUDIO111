@@ -200,10 +200,12 @@ class MacroExecutionEngine(
                                 totalExecutedSteps++
                             }
                             ActionType.PATH -> {
+                                val ex = action.endX
+                                val ey = action.endY
                                 val pts = if (action.pathPoints.isNotEmpty()) {
                                     action.pathPoints
-                                } else if (action.endX != null && action.endY != null) {
-                                    listOf(Point2D(action.posX, action.posY), Point2D(action.endX!!, action.endY!!))
+                                } else if (ex != null && ey != null) {
+                                    listOf(Point2D(action.posX, action.posY), Point2D(ex, ey))
                                 } else emptyList()
 
                                 if (pts.isNotEmpty()) {
@@ -833,7 +835,7 @@ class MacroExecutionEngine(
                                     val pts = if (act.pathPoints.isNotEmpty()) {
                                         act.pathPoints
                                     } else if (act.endX != null && act.endY != null) {
-                                        listOf(Point2D(act.x, act.y), Point2D(act.endX!!, act.endY!!))
+                                        listOf(Point2D(act.x, act.y), Point2D(act.endX ?: 0f, act.endY ?: 0f))
                                     } else emptyList()
 
                                     if (pts.isNotEmpty()) {

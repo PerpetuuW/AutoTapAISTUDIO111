@@ -90,6 +90,8 @@ class EditActionDialog(
 
     private var selectedSubroutineScenario: String = action.subroutineTarget.ifEmpty { action.targetScriptOrQuery.ifEmpty { action.subroutineTag } }
     private var selectedTargetOccurrenceIndex = action.targetOccurrenceIndex
+    private var lastRecognizedOcrText: String? = null
+    private var activeOcrPickerDialog: com.example.autotap.infrastructure.overlay.dialog.OcrCandidatePickerDialog? = null
     private var isOcrUseOffset = action.useCustomClickOffset
     private var ocrOffsetX = action.clickOffsetX
     private var ocrOffsetY = action.clickOffsetY
@@ -1442,7 +1444,11 @@ class EditActionDialog(
                         show()
                         return@postDelayed
                     }
-                    val roi = if (currentRoiLeft != null && currentRoiRight != null) android.graphics.Rect(currentRoiLeft!!, currentRoiTop!!, currentRoiRight!!, currentRoiBottom!!) else null
+                    val l = currentRoiLeft
+                    val r = currentRoiRight
+                    val t = currentRoiTop
+                    val b = currentRoiBottom
+                    val roi = if (l != null && r != null && t != null && b != null) android.graphics.Rect(l, t, r, b) else null
                     val matches = com.example.autotap.infrastructure.ocr.OcrEngine.findTextOnScreen(screenshot, q, 3000L, roi)
                     screenshot.recycle()
 
@@ -1455,18 +1461,26 @@ class EditActionDialog(
                         android.widget.Toast.makeText(context, "Найдено 1 совпадение в (${matches[0].clickX}, ${matches[0].clickY})", android.widget.Toast.LENGTH_SHORT).show()
                         show()
                     } else {
-                        com.example.autotap.infrastructure.overlay.dialog.OcrCandidatePickerDialog(
+                        activeOcrPickerDialog?.dismiss()
+                        val picker = com.example.autotap.infrastructure.overlay.dialog.OcrCandidatePickerDialog(
                             context = context,
                             overlayWindowManager = overlayWindowManager,
                             candidates = matches,
                             onRescanRequested = {
                                 performOcrScreenScan()
+                            },
+                            onDismiss = {
+                                show()
                             }
-                        ) { idx, _ ->
+                        ) { idx, selectedMatch ->
                             selectedTargetOccurrenceIndex = idx
+                            lastRecognizedOcrText = selectedMatch.matchedText
+                            etOcrQuery.setText(selectedMatch.matchedText)
+                            com.example.autotap.infrastructure.ocr.OcrQueryMetadataManager.saveOcrQueryToHistory(context, selectedMatch.matchedText)
                             tvOccurrenceStatus.text = "Выбранный вариант совпадения: #${selectedTargetOccurrenceIndex + 1}"
-                            show()
-                        }.show()
+                        }
+                        activeOcrPickerDialog = picker
+                        picker.show()
                     }
                 } catch (e: Exception) {
                     com.example.autotap.core.logger.AppLogger.log(context, "OCR_SCAN_ERROR", "Ошибка сканирования: ${e.message}")
@@ -1573,6 +1587,7 @@ class EditActionDialog(
             ocrHistoryList.take(8).forEach { queryItem ->
                 val displayLabel = if (queryItem.length > 16) queryItem.take(14) + ".." else queryItem
                 val btnChip = createSmallButton(displayLabel) {
+                    lastRecognizedOcrText = queryItem
                     etOcrQuery.setText(queryItem)
                 }.apply {
                     layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(28)).apply {
@@ -1731,6 +1746,14 @@ class EditActionDialog(
                     roiLeft = currentRoiLeft, roiTop = currentRoiTop, roiRight = currentRoiRight, roiBottom = currentRoiBottom,
                     notifyOnMatch = isNotifyOnMatch
                     )
+                if (selectedType == ActionType.OCR) {
+                    val original = lastRecognizedOcrText
+                    val corrected = etOcrQuery.text.toString().trim()
+                    if (original != null && original.isNotBlank() && corrected.isNotBlank() && original != corrected) {
+                        com.example.autotap.infrastructure.ocr.OcrQueryMetadataManager.registerCorrection(context, original, corrected)
+                    }
+                    com.example.autotap.infrastructure.ocr.OcrQueryMetadataManager.saveOcrQueryToHistory(context, corrected)
+                }
                 dismiss()
                 onSave(updated)
             }

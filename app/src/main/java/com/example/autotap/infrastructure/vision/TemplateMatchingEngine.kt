@@ -482,7 +482,7 @@ class TemplateFeatures(
                 }
             }
 
-            val confidentThreshold = (templateThreshold * 0.85f).coerceAtLeast(0.65f)
+            val confidentThreshold = templateThreshold
 
             // TIER 0: Точечная проверка в окрестности опорной точки (+-12 px, < 1 мс)
             for (probe in anchorProbes) {

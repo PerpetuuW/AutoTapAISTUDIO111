@@ -296,7 +296,9 @@ class CaptureFrameOverlay(
                                 cornerRadius = dpF(8f)
                                 setStroke(dp(1), Color.parseColor("#10B981"))
                             }
-                            android.widget.Toast.makeText(context, "Область поиска (ROI) сохранена: ${confirmedRoi!!.width()}x${confirmedRoi.height()} px", android.widget.Toast.LENGTH_SHORT).show()
+                            val widthVal = confirmedRoi?.width() ?: 0
+                            val heightVal = confirmedRoi?.height() ?: 0
+                            android.widget.Toast.makeText(context, "Область поиска (ROI) сохранена: ${widthVal}x${heightVal} px", android.widget.Toast.LENGTH_SHORT).show()
                         } else {
                             background = GradientDrawable(
                                 GradientDrawable.Orientation.TOP_BOTTOM,

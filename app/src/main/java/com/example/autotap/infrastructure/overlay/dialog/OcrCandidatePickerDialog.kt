@@ -29,8 +29,11 @@ class OcrCandidatePickerDialog(
     private val overlayWindowManager: OverlayWindowManager,
     private val candidates: List<OcrMatchResult>,
     private val onRescanRequested: (() -> Unit)? = null,
+    private val onDismiss: (() -> Unit)? = null,
     private val onCandidateSelected: (index: Int, selectedMatch: OcrMatchResult) -> Unit
 ) {
+
+    private var isDismissed = false
 
     private var rootFrameLayout: View? = null
     private val dm = context.resources.displayMetrics
@@ -182,7 +185,7 @@ class OcrCandidatePickerDialog(
                         return true
                     }
                 }
-                return super.onTouchEvent(event)
+                return true
             }
         }
         root.addView(highlightView, FrameLayout.LayoutParams(-1, -1))
@@ -409,9 +412,12 @@ class OcrCandidatePickerDialog(
     }
 
     fun dismiss() {
+        if (isDismissed) return
+        isDismissed = true
         rootFrameLayout?.let {
             overlayWindowManager.removeViewSafe(it)
             rootFrameLayout = null
         }
+        onDismiss?.invoke()
     }
 }

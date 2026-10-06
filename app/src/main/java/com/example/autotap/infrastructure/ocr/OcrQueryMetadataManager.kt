@@ -165,4 +165,37 @@ object OcrQueryMetadataManager {
         }
         return importedCount
     }
+
+    /**
+     * Регистрирует исправление неверно определенного текста с обратной связью.
+     */
+    fun registerCorrection(context: Context, recognized: String, corrected: String) {
+        if (recognized.isBlank() || corrected.isBlank() || recognized.equals(corrected, ignoreCase = true)) return
+        val prefs = context.getSharedPreferences("autotap_ocr_corrections", Context.MODE_PRIVATE)
+        prefs.edit().putString(recognized.trim().lowercase(), corrected.trim()).apply()
+        AppLogger.log(context, "OCR_FEEDBACK", "Добавлена обратная связь к нейросети: '$recognized' -> '$corrected'")
+    }
+
+    /**
+     * Применяет ранее зарегистрированные исправления.
+     */
+    fun applyCorrections(context: Context, text: String): String {
+        val prefs = context.getSharedPreferences("autotap_ocr_corrections", Context.MODE_PRIVATE)
+        val clean = text.trim().lowercase()
+        return prefs.getString(clean, null) ?: text
+    }
+
+    /**
+     * Сохраняет поисковый запрос/значение OCR в историю recent_queries.
+     */
+    fun saveOcrQueryToHistory(context: Context, query: String) {
+        if (query.isBlank()) return
+        val ocrPrefs = context.getSharedPreferences("autotap_recent_ocr", Context.MODE_PRIVATE)
+        val existing = ocrPrefs.getString("recent_queries", "") ?: ""
+        val list = existing.split("|||").filter { it.isNotBlank() }.toMutableList()
+        list.remove(query)
+        list.add(0, query) // Добавляем в начало списка
+        val updated = list.distinct().take(15).joinToString("|||")
+        ocrPrefs.edit().putString("recent_queries", updated).apply()
+    }
 }

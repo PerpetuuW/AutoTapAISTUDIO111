@@ -926,7 +926,7 @@ class InteractiveRoboticArmDemoDialog(
                 handler.postDelayed(this, 25L)
             }
         }
-        handler.post(animRunnable!!)
+        animRunnable?.let { handler.post(it) }
 
         if (context is android.app.Activity && !context.isFinishing) {
             val dialog = android.app.Dialog(context, android.R.style.Theme_Black_NoTitleBar_Fullscreen)

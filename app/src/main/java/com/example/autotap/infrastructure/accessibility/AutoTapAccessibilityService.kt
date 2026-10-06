@@ -105,8 +105,8 @@ class AutoTapAccessibilityService : AccessibilityService() {
 
             // [V21.2] Подключение транзита жестов макроса сквозь экран блокировки
             val orchestrator = com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(this)
-            gestureDispatcher.onGesturePassthroughToggle = { enabled ->
-                orchestrator.screenLockOverlay.setPassthroughEnabled(enabled)
+            gestureDispatcher.onGesturePassthroughToggle = { enabled, x, y ->
+                orchestrator.screenLockOverlay.setPassthroughEnabled(enabled, x, y)
             }
 
             AppLogger.log(this, "ACCESSIBILITY", "Служба кликера успешно подключена и активна")
@@ -309,14 +309,18 @@ class AutoTapAccessibilityService : AccessibilityService() {
                     val cleanText = nodeText.lowercase(java.util.Locale.ROOT).replace('ё', 'е').trim()
                     val textNoSpaces = cleanText.replace(" ", "")
 
-                    val isMatch = cleanQuery.isBlank() ||
+                    val isMatch = cleanQuery.isNotBlank() && (
                             cleanText.contains(cleanQuery) ||
                             (queryNoSpaces.isNotEmpty() && textNoSpaces.contains(queryNoSpaces))
+                    )
 
                     if (isMatch) {
                         val rect = Rect()
                         node.getBoundsInScreen(rect)
-                        if (roi == null || Rect.intersects(rect, roi)) {
+                        val screenW = resources.displayMetrics.widthPixels
+                        val screenH = resources.displayMetrics.heightPixels
+                        val isTooLarge = rect.width() >= screenW * 0.85f && rect.height() >= screenH * 0.35f
+                        if (!isTooLarge && (roi == null || Rect.intersects(rect, roi))) {
                             results.add(
                                 com.example.autotap.domain.model.OcrMatchResult(
                                     matchedText = nodeText,

@@ -90,13 +90,14 @@ object NeuralVisualMatcher {
         val tAvgB = (tBSum / validPixels).toInt()
 
         // 1. Учет зоны интереса (ROI)
-        val hasRoi = actionOverride?.roiLeft != null && actionOverride.roiTop != null &&
-                actionOverride.roiRight != null && actionOverride.roiBottom != null &&
-                actionOverride.roiRight > actionOverride.roiLeft && actionOverride.roiBottom > actionOverride.roiTop
-        val roiL = if (hasRoi) actionOverride!!.roiLeft!!.coerceIn(0, sw - tw) else 0
-        val roiT = if (hasRoi) actionOverride!!.roiTop!!.coerceIn(0, sh - th) else 0
-        val roiR = if (hasRoi) actionOverride!!.roiRight!!.coerceIn(roiL + tw, sw) else sw
-        val roiB = if (hasRoi) actionOverride!!.roiBottom!!.coerceIn(roiT + th, sh) else sh
+        val override = actionOverride
+        val hasRoi = override?.roiLeft != null && override.roiTop != null &&
+                override.roiRight != null && override.roiBottom != null &&
+                override.roiRight > override.roiLeft && override.roiBottom > override.roiTop
+        val roiL = if (hasRoi && override != null) (override.roiLeft ?: 0).coerceIn(0, sw - tw) else 0
+        val roiT = if (hasRoi && override != null) (override.roiTop ?: 0).coerceIn(0, sh - th) else 0
+        val roiR = if (hasRoi && override != null) (override.roiRight ?: sw).coerceIn(roiL + tw, sw) else sw
+        val roiB = if (hasRoi && override != null) (override.roiBottom ?: sh).coerceIn(roiT + th, sh) else sh
 
         // [V180.0] Защитный запас сходимости AI +5% против ложных срабатываний на рекламе
         val effectiveSimilarity = (minSimilarityPercent + 5).coerceAtMost(99)

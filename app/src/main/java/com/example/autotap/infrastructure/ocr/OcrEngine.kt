@@ -351,7 +351,16 @@ object OcrEngine {
                             val origR = (unclipR / scaleW).toInt().coerceIn(origL + 1, origW)
                             val origB = (unclipB / scaleH).toInt().coerceIn(origT + 1, origH)
 
-                            detectedBoxes.add(Rect(origL, origT, origR, origB))
+                            val bhOrig = origB - origT
+                            val extraPadW = (bhOrig * 0.55f).toInt().coerceIn(12, 45)
+                            val extraPadH = (bhOrig * 0.10f).toInt().coerceIn(3, 8)
+
+                            val expandedL = (origL - extraPadW).coerceAtLeast(0)
+                            val expandedT = (origT - extraPadH).coerceAtLeast(0)
+                            val expandedR = (origR + extraPadW).coerceAtMost(origW)
+                            val expandedB = (origB + extraPadH).coerceAtMost(origH)
+
+                            detectedBoxes.add(Rect(expandedL, expandedT, expandedR, expandedB))
                         }
                     }
                 }
@@ -401,7 +410,7 @@ object OcrEngine {
     private fun fallbackTextBoundingBoxes(bmp: Bitmap): List<Rect> {
         val w = bmp.width
         val h = bmp.height
-        if (w < 16 || h < 16) return listOf(Rect(0, 0, w, h))
+        if (w < 16 || h < 16) return emptyList()
 
         val scale = if (max(w, h) > 720) 720f / max(w, h).toFloat() else 1f
         val sw = (w * scale).toInt().coerceAtLeast(16)
@@ -495,14 +504,24 @@ object OcrEngine {
                         val origT = ((minY - 3) * invScale).toInt().coerceIn(0, h - 1)
                         val origR = ((maxX + 5) * invScale).toInt().coerceIn(origL + 1, w)
                         val origB = ((maxY + 4) * invScale).toInt().coerceIn(origT + 1, h)
-                        rawBoxes.add(Rect(origL, origT, origR, origB))
+
+                        val bhOrig = origB - origT
+                        val extraPadW = (bhOrig * 0.55f).toInt().coerceIn(12, 45)
+                        val extraPadH = (bhOrig * 0.10f).toInt().coerceIn(3, 8)
+
+                        val expandedL = (origL - extraPadW).coerceAtLeast(0)
+                        val expandedT = (origT - extraPadH).coerceAtLeast(0)
+                        val expandedR = (origR + extraPadW).coerceAtMost(w)
+                        val expandedB = (origB + extraPadH).coerceAtMost(h)
+
+                        rawBoxes.add(Rect(expandedL, expandedT, expandedR, expandedB))
                     }
                 }
             }
         }
 
         rawBoxes.sortBy { it.top * 10000 + it.left }
-        return if (rawBoxes.isNotEmpty()) rawBoxes else listOf(Rect(0, 0, w, h))
+        return rawBoxes
     }
 
     /**
@@ -575,7 +594,9 @@ object OcrEngine {
                 lastIndex = maxIdx
             }
             val rawDecoded = sb.toString().trim()
-            return postProcessRussianText(rawDecoded)
+            val processed = postProcessRussianText(rawDecoded)
+            val ctx = explicitContext
+            return if (ctx != null) OcrQueryMetadataManager.applyCorrections(ctx, processed) else processed
         } catch (e: Throwable) {
             AppLogger.logError(null, "ONNX_INFER", e)
             return null
@@ -839,9 +860,9 @@ object OcrEngine {
             for (box in filteredBoxes) {
                 val f = threadPool.submit(java.util.concurrent.Callable {
                     val bH = box.height()
-                    // Добавляем горизонтальный и вертикальный паддинг (25% высоты строки), чтобы предотвратить "проглатывание" первых и последних букв
-                    val padX = (bH * 0.25f).toInt().coerceAtLeast(8)
-                    val padY = (bH * 0.15f).toInt().coerceAtLeast(4)
+                    // Добавляем горизонтальный и вертикальный паддинг, чтобы предотвратить "проглатывание" первых и последних букв
+                    val padX = (bH * 0.45f).toInt().coerceAtLeast(16)
+                    val padY = (bH * 0.25f).toInt().coerceAtLeast(8)
 
                     val cropL = (box.left - padX).coerceIn(0, localBmp.width - 1)
                     val cropT = (box.top - padY).coerceIn(0, localBmp.height - 1)

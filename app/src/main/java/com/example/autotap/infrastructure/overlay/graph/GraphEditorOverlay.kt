@@ -485,7 +485,8 @@ class GraphEditorOverlay(
             scrollContent.addView(tvTemplateHeader)
 
             val currentTrig = node.triggers.firstOrNull()
-            val templateName = if (currentTrig?.templatePath.isNullOrBlank()) "Шаблон не привязан" else File(currentTrig!!.templatePath).nameWithoutExtension
+            val tPath = currentTrig?.templatePath
+            val templateName = if (tPath.isNullOrBlank()) "Шаблон не привязан" else File(tPath).nameWithoutExtension
 
             val tvCurrentTpl = TextView(context).apply {
                 text = "Текущий: $templateName"
@@ -917,8 +918,9 @@ class GraphEditorOverlay(
         val curTrig = node.triggers.getOrNull(trigIdx)
         val selectedPaths = LinkedHashSet<String>()
         curTrig?.multiTemplatePaths?.filter { it.isNotBlank() }?.let { selectedPaths.addAll(it) }
-        if (selectedPaths.isEmpty() && !curTrig?.templatePath.isNullOrBlank()) {
-            selectedPaths.add(curTrig!!.templatePath)
+        val path = curTrig?.templatePath
+        if (selectedPaths.isEmpty() && !path.isNullOrBlank()) {
+            selectedPaths.add(path)
         }
 
         val headerRow = LinearLayout(context).apply {
