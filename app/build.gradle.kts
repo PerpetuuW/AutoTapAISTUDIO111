@@ -8,7 +8,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.aistudio.autotap.x89ka2"
+        applicationId = "com.example.autotap"
         minSdk = 24
         targetSdk = 34
         versionCode = 34
