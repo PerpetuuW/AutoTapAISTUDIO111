@@ -30,20 +30,12 @@ import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.math.sqrt
 
 /**
  * Высокодетализированная интерактивная демонстрация работы AutoTap.
- * Показывает реальную работу с плавающими меню и оверлеями AutoTap:
- * 1. Главный плавающий пульт AutoTap (ControlPanel).
- * 2. Видоискатель захвата (CaptureFrameOverlay) и интерактивное вычерчивание рамки ROI пальцем/стилусом.
- * 3. Реальный диалог настройки шага (EditActionDialog) с калибровкой формы, маской и порогом 85%.
- * 4. Настройка текстового поиска OCR с распознаванием кнопки 'CLAIM 500x'.
- * 5. Размещение нумерованных бейджей шагов (#1, #2, #3, #4) прямо на экране.
- * 6. Нажатие кнопки ПУСК на пульте и автоматическое исполнение макроса (ИИ-сканирование внутри ROI, наложение градиентного шаблона, тапы и свайп).
- *
- * Кисть манипулятора детально проработана: анатомический кибер-кулак с вытянутым указательным пальцем/стилусом,
- * фалангами, шарнирами, неоновыми световодами и реакторным свечением.
+ * Использует узнаваемую аккуратную указательную кисть (Cyber Pointing Hand) без загромождающих стрел.
+ * Выделенная контрастная плашка подсказок с крупным шрифтом (13.5dp).
+ * Включает демонстрацию простых кликов по списку наград, прокрутки и пояснения про ROI.
  */
 @SuppressLint("SetTextI18n", "ClickableViewAccessibility")
 class InteractiveRoboticArmDemoDialog(
@@ -57,9 +49,9 @@ class InteractiveRoboticArmDemoDialog(
     private fun dpF(v: Float): Float = v * dm.density
 
     private var isPlaying = true
-    private var playbackSpeed = 0.5f // Базовая комфортная скорость 0.5x
+    private var playbackSpeed = 0.5f // Комфортная демонстрационная скорость по умолчанию 0.5x
     private var animProgress = 0f
-    private var selectedManualStage: Int? = null // null = полный цикл, 0..4 = выбор конкретной стадии
+    private var selectedManualStage: Int? = null
 
     private val handler = Handler(Looper.getMainLooper())
     private var animRunnable: Runnable? = null
@@ -115,14 +107,27 @@ class InteractiveRoboticArmDemoDialog(
             }
             private val textTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.WHITE
-                textSize = dpF(10f)
+                textSize = dpF(11f)
                 typeface = Typeface.DEFAULT_BOLD
             }
             private val textSubPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = "#94A3B8".toColorInt()
-                textSize = dpF(8f)
+                textSize = dpF(8.5f)
                 typeface = Typeface.MONOSPACE
             }
+
+            // Крупный высококонтрастный шрифт подсказок
+            private val bannerTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                textSize = dpF(13.5f)
+                typeface = Typeface.DEFAULT_BOLD
+            }
+            private val stageTagPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = "#38BDF8".toColorInt()
+                textSize = dpF(11.5f)
+                typeface = Typeface.DEFAULT_BOLD
+            }
+
             private val highlightBoxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
                 strokeWidth = dpF(2f)
@@ -134,7 +139,7 @@ class InteractiveRoboticArmDemoDialog(
             }
             private val roiDashedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
-                strokeWidth = dpF(1.8f)
+                strokeWidth = dpF(2f)
                 pathEffect = DashPathEffect(floatArrayOf(dpF(6f), dpF(4f)), 0f)
                 color = "#F59E0B".toColorInt()
             }
@@ -145,12 +150,12 @@ class InteractiveRoboticArmDemoDialog(
             }
             private val ocrBoxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
-                strokeWidth = dpF(1.8f)
+                strokeWidth = dpF(2f)
                 color = "#818CF8".toColorInt()
             }
             private val swipeTrajectoryPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
-                strokeWidth = dpF(3f)
+                strokeWidth = dpF(3.5f)
                 color = "#F59E0B".toColorInt()
                 strokeCap = Paint.Cap.ROUND
                 pathEffect = DashPathEffect(floatArrayOf(dpF(8f), dpF(5f)), 0f)
@@ -160,65 +165,31 @@ class InteractiveRoboticArmDemoDialog(
             }
             private val badgeTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.WHITE
-                textSize = dpF(9f)
+                textSize = dpF(9.5f)
                 typeface = Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.CENTER
             }
 
-            // --- Paints for Ultra-Detailed Cybernetic Hand & Arm ---
-            private val armChassisPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-            private val armBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            // Paints for Cybernetic Pointing Hand
+            private val handChassisPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+            private val handBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
                 strokeWidth = dpF(1.6f)
                 color = "#38BDF8".toColorInt()
             }
-            private val neonConduitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE
-                strokeWidth = dpF(2f)
-                color = "#00F0FF".toColorInt()
-            }
-            private val neonGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE
-                strokeWidth = dpF(5f)
-                color = "#4000F0FF".toColorInt()
-            }
-            private val jointBasePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.FILL
-                color = "#0F172A".toColorInt()
-            }
-            private val jointBevelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE
-                strokeWidth = dpF(2f)
-                color = "#64748B".toColorInt()
-            }
-            private val jointCorePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.FILL
-                color = "#00F0FF".toColorInt()
-            }
-            private val fingerChassisPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
             private val fingerJointPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.FILL
                 color = "#CBD5E1".toColorInt()
             }
-            private val pistonCylinderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE
-                strokeWidth = dpF(5f)
-                color = "#334155".toColorInt()
-            }
-            private val pistonRodPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE
-                strokeWidth = dpF(3f)
-                color = "#E2E8F0".toColorInt()
-            }
             private val laserScanPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
             private val laserLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
-                strokeWidth = dpF(1.8f)
+                strokeWidth = dpF(2f)
                 color = "#00F0FF".toColorInt()
             }
             private val tapPulsePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
-                strokeWidth = dpF(2.8f)
+                strokeWidth = dpF(3f)
                 color = "#00F0FF".toColorInt()
             }
             private val tapCorePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -237,7 +208,7 @@ class InteractiveRoboticArmDemoDialog(
                 val h = height.toFloat()
                 val now = System.currentTimeMillis()
 
-                // 1. Futuristic Circuit Grid Background
+                // 1. Сетка фонового интерфейса
                 val step = dpF(28f)
                 var gx = 0f
                 while (gx < w) {
@@ -250,8 +221,8 @@ class InteractiveRoboticArmDemoDialog(
                     gy += step
                 }
 
-                // 2. Симулируемый экран целевой игры / приложения (Центральная область)
-                val gameRect = RectF(w * 0.04f, h * 0.15f, w * 0.96f, h * 0.77f)
+                // 2. Игровой экран (Центральная симулируемая область)
+                val gameRect = RectF(w * 0.04f, h * 0.14f, w * 0.96f, h * 0.74f)
                 generalItemBg.shader = LinearGradient(
                     gameRect.left, gameRect.top, gameRect.right, gameRect.bottom,
                     intArrayOf("#111827".toColorInt(), "#0B0F19".toColorInt()), null, Shader.TileMode.CLAMP
@@ -266,14 +237,13 @@ class InteractiveRoboticArmDemoDialog(
                 canvas.drawRoundRect(gameHeader, dpF(12f), dpF(12f), generalItemBg)
                 canvas.drawText("⚔️ QUEST REWARDS · ИГРОВАЯ СЦЕНА", gameHeader.left + dpF(14f), gameHeader.centerY() + dpF(4f), textTitlePaint)
 
-                // Игровые элементы на экране:
-                // Элемент 1: Сундук и полупрозрачная стрелка ▶ (Цель Шаблона)
-                val chestArea = RectF(gameRect.left + dpF(14f), gameHeader.bottom + dpF(14f), gameRect.left + dpF(130f), gameHeader.bottom + dpF(100f))
+                // Элемент 1: Сундук и стрелка ▶ (Цель Шаблона)
+                val chestArea = RectF(gameRect.left + dpF(12f), gameHeader.bottom + dpF(12f), gameRect.left + dpF(125f), gameHeader.bottom + dpF(95f))
                 generalItemBg.color = "#1A2234".toColorInt()
                 canvas.drawRoundRect(chestArea, dpF(8f), dpF(8f), generalItemBg)
                 canvas.drawText("СУНДУК x1", chestArea.left + dpF(8f), chestArea.top + dpF(16f), textSubPaint)
 
-                val arrowTarget = RectF(chestArea.centerX() - dpF(18f), chestArea.centerY() - dpF(10f), chestArea.centerX() + dpF(18f), chestArea.centerY() + dpF(18f))
+                val arrowTarget = RectF(chestArea.centerX() - dpF(18f), chestArea.centerY() - dpF(8f), chestArea.centerX() + dpF(18f), chestArea.centerY() + dpF(20f))
                 generalItemBg.color = "#3538BDF8".toColorInt()
                 canvas.drawRoundRect(arrowTarget, dpF(4f), dpF(4f), generalItemBg)
                 reusablePath.rewind()
@@ -285,29 +255,36 @@ class InteractiveRoboticArmDemoDialog(
                 canvas.drawPath(reusablePath, generalItemBg)
 
                 // Элемент 2: Кнопка "CLAIM 500x" (Цель OCR)
-                val ocrClaimBtn = RectF(gameRect.right - dpF(140f), gameHeader.bottom + dpF(24f), gameRect.right - dpF(14f), gameHeader.bottom + dpF(68f))
+                val ocrClaimBtn = RectF(gameRect.right - dpF(135f), gameHeader.bottom + dpF(20f), gameRect.right - dpF(12f), gameHeader.bottom + dpF(64f))
                 generalItemBg.color = "#064E3B".toColorInt()
                 canvas.drawRoundRect(ocrClaimBtn, dpF(6f), dpF(6f), generalItemBg)
                 gameScreenBorderPaint.color = "#10B981".toColorInt()
                 canvas.drawRoundRect(ocrClaimBtn, dpF(6f), dpF(6f), gameScreenBorderPaint)
-                canvas.drawText("CLAIM 500x", ocrClaimBtn.left + dpF(20f), ocrClaimBtn.centerY() + dpF(4f), textTitlePaint)
+                canvas.drawText("CLAIM 500x", ocrClaimBtn.left + dpF(18f), ocrClaimBtn.centerY() + dpF(4f), textTitlePaint)
 
-                // Элемент 3: Список наград (Цель свайпа)
-                val listArea = RectF(gameRect.left + dpF(14f), chestArea.bottom + dpF(14f), gameRect.right - dpF(14f), gameRect.bottom - dpF(14f))
+                // Элемент 3: Список наград (Цель простых кликов и свайпа)
+                val listArea = RectF(gameRect.left + dpF(12f), chestArea.bottom + dpF(12f), gameRect.right - dpF(12f), gameRect.bottom - dpF(12f))
                 generalItemBg.color = "#131C2E".toColorInt()
                 canvas.drawRoundRect(listArea, dpF(8f), dpF(8f), generalItemBg)
-                canvas.drawText("СПИСОК НАГРАД (ПРОКРУТКА СВАЙПОМ)", listArea.left + dpF(10f), listArea.top + dpF(16f), textSubPaint)
+                canvas.drawText("СПИСОК НАГРАД (КЛИКИ И ПРОКРУТКА)", listArea.left + dpF(10f), listArea.top + dpF(16f), textSubPaint)
 
-                for (i in 0..2) {
-                    val itemY = listArea.top + dpF(24f) + i * dpF(26f)
-                    val itm = RectF(listArea.left + dpF(8f), itemY, listArea.right - dpF(8f), itemY + dpF(22f))
-                    generalItemBg.color = "#1E293B".toColorInt()
-                    canvas.drawRoundRect(itm, dpF(4f), dpF(4f), generalItemBg)
-                    canvas.drawText("Награда #0${i + 1} — Золото +${(i + 1) * 250}", itm.left + dpF(10f), itm.centerY() + dpF(3.5f), textSubPaint)
-                }
+                // Кнопки наград для демонстрации кликов
+                val rewardBtn1 = RectF(listArea.left + dpF(8f), listArea.top + dpF(24f), listArea.right - dpF(8f), listArea.top + dpF(46f))
+                val rewardBtn2 = RectF(listArea.left + dpF(8f), listArea.top + dpF(50f), listArea.right - dpF(8f), listArea.top + dpF(72f))
+                val rewardBtn3 = RectF(listArea.left + dpF(8f), listArea.top + dpF(76f), listArea.right - dpF(8f), listArea.top + dpF(98f))
 
-                // 3. Плавающий реальный пульт AutoTap (ControlPanel внизу экрана)
-                val panelRect = RectF(w * 0.06f, h * 0.79f, w * 0.94f, h * 0.88f)
+                generalItemBg.color = "#1E293B".toColorInt()
+                canvas.drawRoundRect(rewardBtn1, dpF(4f), dpF(4f), generalItemBg)
+                canvas.drawText("Награда #1 — [ЗАБРАТЬ +250]", rewardBtn1.left + dpF(10f), rewardBtn1.centerY() + dpF(4f), textSubPaint)
+
+                canvas.drawRoundRect(rewardBtn2, dpF(4f), dpF(4f), generalItemBg)
+                canvas.drawText("Награда #2 — [ЗАБРАТЬ +500]", rewardBtn2.left + dpF(10f), rewardBtn2.centerY() + dpF(4f), textSubPaint)
+
+                canvas.drawRoundRect(rewardBtn3, dpF(4f), dpF(4f), generalItemBg)
+                canvas.drawText("Награда #3 — [ЗАБРАТЬ +1000]", rewardBtn3.left + dpF(10f), rewardBtn3.centerY() + dpF(4f), textSubPaint)
+
+                // 3. Плавающий пульт AutoTap (ControlPanel)
+                val panelRect = RectF(w * 0.06f, h * 0.76f, w * 0.94f, h * 0.85f)
                 canvas.drawRoundRect(panelRect, dpF(10f), dpF(10f), panelBgPaint)
                 canvas.drawRoundRect(panelRect, dpF(10f), dpF(10f), panelBorderPaint)
 
@@ -324,7 +301,7 @@ class InteractiveRoboticArmDemoDialog(
                 iconBounds.set(pBtnPlay.centerX() - dpF(8f), pBtnPlay.centerY() - dpF(8f), pBtnPlay.centerX() + dpF(8f), pBtnPlay.centerY() + dpF(8f))
                 VectorIconDrawer.drawIcon(canvas, if (animProgress >= 0.75f) VectorIconDrawer.IconType.PAUSE else VectorIconDrawer.IconType.PLAY, iconBounds, "#34D399".toColorInt(), dpF(1.5f))
 
-                // Кнопка + Клик (Синяя)
+                // Кнопка + Клик (Голубая)
                 val pBtnClick = RectF(pBtnPlay.right + dpF(4f), btnY, pBtnPlay.right + dpF(4f) + btnW, btnY + btnH)
                 generalItemBg.color = "#1E293B".toColorInt()
                 canvas.drawRoundRect(pBtnClick, dpF(6f), dpF(6f), generalItemBg)
@@ -361,15 +338,12 @@ class InteractiveRoboticArmDemoDialog(
                 VectorIconDrawer.drawIcon(canvas, VectorIconDrawer.IconType.ACTION_SWIPE, iconBounds, "#F59E0B".toColorInt(), dpF(1.5f))
 
                 // 4. Логика интерактивных стадий сценария (CUJ)
-                val armBaseX = w * 0.92f
-                val armBaseY = h * 0.08f
-
                 val currentStage = selectedManualStage ?: when {
-                    animProgress < 0.22f -> 0 // 1. Видоискатель и вычерчивание ROI пальцем
-                    animProgress < 0.40f -> 1 // 2. Всплывающий диалог настройки Шаблона (#1)
-                    animProgress < 0.58f -> 2 // 3. Всплывающий диалог OCR текста (#2)
-                    animProgress < 0.72f -> 3 // 4. Добавление шага клика (#3) и свайпа (#4) + Нажатие ПУСК
-                    else -> 4                 // 5. Автоматическое исполнение макроса по шагам
+                    animProgress < 0.22f -> 0 // 1. Вырезка шаблона и ROI
+                    animProgress < 0.40f -> 1 // 2. Настройка шаблона
+                    animProgress < 0.58f -> 2 // 3. Настройка OCR
+                    animProgress < 0.72f -> 3 // 4. Клики и добавление шагов
+                    else -> 4                 // 5. Исполнение макроса
                 }
 
                 var targetX = 0f
@@ -377,111 +351,111 @@ class InteractiveRoboticArmDemoDialog(
                 var isScanning = false
                 var isTapping = false
                 var isSwiping = false
+                var stageTagText = ""
                 var statusText = ""
-                var pointingAngle = 0f
 
-                // Позиции модальных карточек и элементов
-                val tplDialogRect = RectF(w * 0.12f, h * 0.28f, w * 0.88f, h * 0.58f)
-                val ocrDialogRect = RectF(w * 0.12f, h * 0.28f, w * 0.88f, h * 0.58f)
+                val tplDialogRect = RectF(w * 0.10f, h * 0.25f, w * 0.90f, h * 0.58f)
+                val ocrDialogRect = RectF(w * 0.10f, h * 0.25f, w * 0.90f, h * 0.58f)
 
                 when (currentStage) {
                     0 -> {
-                        // Роборука нажимает +ШАБЛОН, появляется видоискатель, и палец чертит рамку ROI
+                        stageTagText = "[ШАГ 1/5 · АВТО-КАДРИРОВАНИЕ И ROI]"
                         val p = if (selectedManualStage != null) (now % 3500) / 3500f else (animProgress / 0.22f)
                         if (p < 0.30f) {
                             targetX = pBtnTpl.centerX()
                             targetY = pBtnTpl.centerY()
                             isTapping = p in 0.18f..0.28f
-                            statusText = "1.1 ПУЛЬТ: Нажатие [+ ШАБЛОН] для открытия видоискателя"
+                            statusText = "Нажатие [+ ШАБЛОН]. Авто-кадрирование создается сразу!"
                         } else {
-                            // Прорисовка рамки ROI вокруг сундука
                             val drawP = ((p - 0.30f) / 0.70f).coerceIn(0f, 1f)
                             targetX = chestArea.left + drawP * chestArea.width()
                             targetY = chestArea.top + drawP * chestArea.height()
                             isTapping = true
-                            statusText = "1.2 ВИДОИСКАТЕЛЬ: Черчение области поиска ROI вокруг стрелки"
+                            statusText = "ROI служит для ДОПОЛНИТЕЛЬНОЙ точной настройки и ускорения поиска!"
                         }
                     }
                     1 -> {
-                        // Всплывает реальный диалог настройки шага EditActionDialog, рука нажимает [СОХРАНИТЬ ШАГ]
+                        stageTagText = "[ШАГ 2/5 · НАСТРОЙКА ШАБЛОНА]"
                         val p = if (selectedManualStage != null) (now % 3000) / 3000f else ((animProgress - 0.22f) / 0.18f)
-                        val btnSaveX = tplDialogRect.centerX()
-                        val btnSaveY = tplDialogRect.bottom - dpF(24f)
-                        targetX = btnSaveX
-                        targetY = btnSaveY
+                        targetX = tplDialogRect.centerX()
+                        targetY = tplDialogRect.bottom - dpF(24f)
                         isTapping = p > 0.65f
-                        statusText = "2. ДИАЛОГ ШАБЛОНА: Выбор маски формы (85%), ROI и сохранение шага #1"
+                        statusText = "Выбор порога (85%), маски формы и сохранение шага #1"
                     }
                     2 -> {
-                        // Роборука жмет +OCR на пульте, открывается диалог OCR, рука жмет [СКАНИРОВАТЬ]
+                        stageTagText = "[ШАГ 3/5 · НАСТРОЙКА OCR ТЕКСТА]"
                         val p = if (selectedManualStage != null) (now % 3000) / 3000f else ((animProgress - 0.40f) / 0.18f)
                         if (p < 0.35f) {
                             targetX = pBtnOcr.centerX()
                             targetY = pBtnOcr.centerY()
                             isTapping = p in 0.22f..0.32f
-                            statusText = "3.1 ПУЛЬТ: Нажатие [+ OCR] для добавления поиска текста"
+                            statusText = "Нажатие [+ OCR] для поиска текстовых кнопок"
                         } else {
-                            val btnOcrScanX = ocrDialogRect.centerX()
-                            val btnOcrScanY = ocrDialogRect.bottom - dpF(24f)
-                            targetX = btnOcrScanX
-                            targetY = btnOcrScanY
+                            targetX = ocrDialogRect.centerX()
+                            targetY = ocrDialogRect.bottom - dpF(24f)
                             isTapping = p > 0.75f
-                            statusText = "3.2 ДИАЛОГ OCR: Ввод строки 'CLAIM 500x' и сохранение шага #2"
+                            statusText = "Ввод текста 'CLAIM 500x' и сохранение шага #2"
                         }
                     }
                     3 -> {
-                        // Добавление клика (#3), свайпа (#4) и нажатие зеленой кнопки [▶ ПУСК]
-                        val p = if (selectedManualStage != null) (now % 3000) / 3000f else ((animProgress - 0.58f) / 0.14f)
-                        if (p < 0.33f) {
+                        stageTagText = "[ШАГ 4/5 · ПРОСТЫЕ КЛИКИ И СВАЙП]"
+                        val p = if (selectedManualStage != null) (now % 3500) / 3500f else ((animProgress - 0.58f) / 0.14f)
+                        if (p < 0.25f) {
                             targetX = pBtnClick.centerX()
                             targetY = pBtnClick.centerY()
-                            isTapping = p in 0.18f..0.28f
-                            statusText = "4.1 ПУЛЬТ: Добавление простого клика (#3)"
-                        } else if (p < 0.66f) {
-                            targetX = pBtnSwipe.centerX()
-                            targetY = pBtnSwipe.centerY()
-                            isTapping = p in 0.48f..0.58f
-                            statusText = "4.2 ПУЛЬТ: Добавление кинематического свайпа (#4)"
+                            isTapping = p in 0.12f..0.22f
+                            statusText = "Добавление точки клика для сбора Награды #1 (#3)"
+                        } else if (p < 0.50f) {
+                            targetX = rewardBtn1.centerX()
+                            targetY = rewardBtn1.centerY()
+                            isTapping = p in 0.38f..0.48f
+                            statusText = "Клик по Кнопке Награда #1"
+                        } else if (p < 0.75f) {
+                            targetX = rewardBtn2.centerX()
+                            targetY = rewardBtn2.centerY()
+                            isTapping = p in 0.62f..0.72f
+                            statusText = "Клик по Кнопке Награда #2 (#4)"
                         } else {
                             targetX = pBtnPlay.centerX()
                             targetY = pBtnPlay.centerY()
-                            isTapping = p > 0.85f
-                            statusText = "4.3 ЗАПУСК: Нажатие [▶ ПУСК] на пульте управления"
+                            isTapping = p > 0.88f
+                            statusText = "Нажатие [▶ ПУСК] для запуска макроса!"
                         }
                     }
                     else -> {
-                        // Реальное исполнение макроса: ИИ скан внутри ROI -> клик по стрелке -> клик по OCR -> свайп
-                        val p = if (selectedManualStage != null) (now % 4000) / 4000f else ((animProgress - 0.72f) / 0.28f)
-                        if (p < 0.35f) {
-                            // Тап по стрелке
+                        stageTagText = "[ШАГ 5/5 · АВТОМАТИЧЕСКИЙ МАКРОС]"
+                        val p = if (selectedManualStage != null) (now % 4500) / 4500f else ((animProgress - 0.72f) / 0.28f)
+                        if (p < 0.25f) {
                             targetX = arrowTarget.centerX()
                             targetY = arrowTarget.centerY()
-                            isScanning = p < 0.18f
-                            isTapping = p >= 0.18f
-                            statusText = "5.1 ШАГ #1: Мгновенный скан ROI, маска формы (98%) и клик по стрелке"
-                        } else if (p < 0.70f) {
-                            // Клик по кнопке OCR
+                            isScanning = p < 0.12f
+                            isTapping = p >= 0.12f
+                            statusText = "ИИ-скан внутри ROI (98%) -> Клик по стрелке сундука"
+                        } else if (p < 0.50f) {
                             targetX = ocrClaimBtn.centerX()
                             targetY = ocrClaimBtn.centerY()
-                            isScanning = p < 0.50f
-                            isTapping = p >= 0.50f
-                            statusText = "5.2 ШАГ #2: Обнаружение OCR бокса 'CLAIM 500x' (100%) и клик"
+                            isScanning = p < 0.38f
+                            isTapping = p >= 0.38f
+                            statusText = "OCR детекция 'CLAIM 500x' (100%) -> Нажатие кнопки"
+                        } else if (p < 0.75f) {
+                            targetX = rewardBtn1.centerX()
+                            targetY = rewardBtn1.centerY()
+                            isTapping = p in 0.62f..0.72f
+                            statusText = "Простой клик по списку Награда #1"
                         } else {
-                            // Свайп по списку
-                            val swipeProg = (p - 0.70f) / 0.30f
+                            val swipeProg = (p - 0.75f) / 0.25f
                             targetX = listArea.centerX()
-                            targetY = (listArea.bottom - dpF(20f)) - swipeProg * dpF(50f)
+                            targetY = (listArea.bottom - dpF(15f)) - swipeProg * dpF(55f)
                             isSwiping = true
-                            statusText = "5.3 ШАГИ #3-4: Тап и плавный свайп списка вверх. Макрос завершен!"
+                            statusText = "Плавный свайп списка вверх. Демонстрация завершена!"
                         }
                     }
                 }
 
-                // --- 5. Отрисовка интерактивных окон оверлея ---
+                // 5. Отрисовка интерактивных окон оверлея
 
-                // 5.1 Видоискатель и начерченная рамка ROI (Стадия 0 или исполнение)
+                // 5.1 Видоискатель и начерченная рамка ROI (Стадия 0)
                 if (currentStage == 0) {
-                    // Уголки видоискателя вокруг сундука
                     val vW = chestArea.width() + dpF(12f)
                     val vH = chestArea.height() + dpF(12f)
                     val vLeft = chestArea.left - dpF(6f)
@@ -490,7 +464,6 @@ class InteractiveRoboticArmDemoDialog(
                     val vBottom = vTop + vH
                     val cLen = dpF(12f)
 
-                    // 4 угловые скобки видоискателя
                     canvas.drawLine(vLeft, vTop, vLeft + cLen, vTop, captureCrosshairPaint)
                     canvas.drawLine(vLeft, vTop, vLeft, vTop + cLen, captureCrosshairPaint)
                     canvas.drawLine(vRight, vTop, vRight - cLen, vTop, captureCrosshairPaint)
@@ -500,26 +473,23 @@ class InteractiveRoboticArmDemoDialog(
                     canvas.drawLine(vRight, vBottom, vRight - cLen, vBottom, captureCrosshairPaint)
                     canvas.drawLine(vRight, vBottom, vRight, vBottom - cLen, captureCrosshairPaint)
 
-                    // Начерченная пальцем золотая пунктирная рамка ROI
                     val roiBox = RectF(chestArea.left - dpF(2f), chestArea.top - dpF(2f), chestArea.right + dpF(2f), chestArea.bottom + dpF(2f))
                     canvas.drawRoundRect(roiBox, dpF(6f), dpF(6f), roiDashedPaint)
-                    canvas.drawText("ROI: 240x160 px", roiBox.left + dpF(4f), roiBox.top - dpF(4f), textSubPaint)
+                    canvas.drawText("ДОПОЛНИТЕЛЬНАЯ ROI ЗОНА: 240x160 px", roiBox.left + dpF(2f), roiBox.top - dpF(4f), textSubPaint)
                 }
 
-                // 5.2 Реальный диалог настройки шага (EditActionDialog)
+                // 5.2 Диалог настройки Шаблона (EditActionDialog)
                 if (currentStage == 1) {
                     dialogBorderPaint.color = "#A78BFA".toColorInt()
                     canvas.drawRoundRect(tplDialogRect, dpF(10f), dpF(10f), dialogBgPaint)
                     canvas.drawRoundRect(tplDialogRect, dpF(10f), dpF(10f), dialogBorderPaint)
 
-                    // Заголовок диалога
-                    canvas.drawText("⚙️ НАСТРОЙКА ШАГА #1 (ШАБЛОН)", tplDialogRect.left + dpF(14f), tplDialogRect.top + dpF(20f), textTitlePaint)
+                    canvas.drawText("⚙️ НАСТРОЙКА ШАГА #1 (ШАБЛОН)", tplDialogRect.left + dpF(14f), tplDialogRect.top + dpF(22f), textTitlePaint)
 
-                    // Карточка шаблона
-                    val thumbCard = RectF(tplDialogRect.left + dpF(14f), tplDialogRect.top + dpF(30f), tplDialogRect.left + dpF(74f), tplDialogRect.top + dpF(90f))
+                    val thumbCard = RectF(tplDialogRect.left + dpF(14f), tplDialogRect.top + dpF(32f), tplDialogRect.left + dpF(74f), tplDialogRect.top + dpF(92f))
                     generalItemBg.color = "#1E1A33".toColorInt()
                     canvas.drawRoundRect(thumbCard, dpF(6f), dpF(6f), generalItemBg)
-                    // Стрелка внутри карточки
+
                     reusablePath.rewind()
                     reusablePath.moveTo(thumbCard.left + dpF(16f), thumbCard.centerY() - dpF(10f))
                     reusablePath.lineTo(thumbCard.right - dpF(16f), thumbCard.centerY())
@@ -528,27 +498,24 @@ class InteractiveRoboticArmDemoDialog(
                     generalItemBg.color = "#38BDF8".toColorInt()
                     canvas.drawPath(reusablePath, generalItemBg)
 
-                    // Параметры калибровки
                     canvas.drawText("Детекция: МАСКА ФОРМЫ (ИИ)", thumbCard.right + dpF(10f), thumbCard.top + dpF(18f), textTitlePaint)
-                    canvas.drawText("Порог: 85% · Шумоподавление: ВКЛ", thumbCard.right + dpF(10f), thumbCard.top + dpF(34f), textSubPaint)
-                    canvas.drawText("Область поиска: ROI ЗАДАНА (0мс)", thumbCard.right + dpF(10f), thumbCard.top + dpF(48f), textSubPaint)
+                    canvas.drawText("Порог: 85% · Авто-кадрирование: ВКЛ", thumbCard.right + dpF(10f), thumbCard.top + dpF(34f), textSubPaint)
+                    canvas.drawText("ROI: Доп. ускорение (0мс)", thumbCard.right + dpF(10f), thumbCard.top + dpF(48f), textSubPaint)
 
-                    // Большая зеленая кнопка [СОХРАНИТЬ ШАГ]
                     val btnSave = RectF(tplDialogRect.left + dpF(14f), tplDialogRect.bottom - dpF(36f), tplDialogRect.right - dpF(14f), tplDialogRect.bottom - dpF(10f))
                     generalItemBg.color = "#059669".toColorInt()
                     canvas.drawRoundRect(btnSave, dpF(6f), dpF(6f), generalItemBg)
                     canvas.drawText("СОХРАНИТЬ ШАГ #1", btnSave.centerX() - dpF(44f), btnSave.centerY() + dpF(4f), textTitlePaint)
                 }
 
-                // 5.3 Реальный диалог OCR (EditActionDialog OCR)
+                // 5.3 Диалог OCR текста
                 if (currentStage == 2) {
                     dialogBorderPaint.color = "#818CF8".toColorInt()
                     canvas.drawRoundRect(ocrDialogRect, dpF(10f), dpF(10f), dialogBgPaint)
                     canvas.drawRoundRect(ocrDialogRect, dpF(10f), dpF(10f), dialogBorderPaint)
 
-                    canvas.drawText("🔤 НАСТРОЙКА ШАГА #2 (OCR ТЕКСТ)", ocrDialogRect.left + dpF(14f), ocrDialogRect.top + dpF(20f), textTitlePaint)
+                    canvas.drawText("🔤 НАСТРОЙКА ШАГА #2 (OCR ТЕКСТ)", ocrDialogRect.left + dpF(14f), ocrDialogRect.top + dpF(22f), textTitlePaint)
 
-                    // Поле ввода текста
                     val etField = RectF(ocrDialogRect.left + dpF(14f), ocrDialogRect.top + dpF(34f), ocrDialogRect.right - dpF(14f), ocrDialogRect.top + dpF(66f))
                     generalItemBg.color = "#161B22".toColorInt()
                     canvas.drawRoundRect(etField, dpF(6f), dpF(6f), generalItemBg)
@@ -556,16 +523,14 @@ class InteractiveRoboticArmDemoDialog(
                     canvas.drawRoundRect(etField, dpF(6f), dpF(6f), dialogBorderPaint)
                     canvas.drawText("Искомый текст: 'CLAIM 500x'", etField.left + dpF(10f), etField.centerY() + dpF(4f), textTitlePaint)
 
-                    // Кнопка [СКАНИРОВАТЬ И СОХРАНИТЬ]
                     val btnOcrSave = RectF(ocrDialogRect.left + dpF(14f), ocrDialogRect.bottom - dpF(36f), ocrDialogRect.right - dpF(14f), ocrDialogRect.bottom - dpF(10f))
                     generalItemBg.color = "#4338CA".toColorInt()
                     canvas.drawRoundRect(btnOcrSave, dpF(6f), dpF(6f), generalItemBg)
                     canvas.drawText("СКАН И СОХРАНИТЬ ШАГ #2", btnOcrSave.centerX() - dpF(54f), btnOcrSave.centerY() + dpF(4f), textTitlePaint)
                 }
 
-                // 5.4 Плавающие бейджи созданных шагов на экране (#1, #2, #3, #4)
+                // 5.4 Плавающие бейджи созданных шагов (#1, #2, #3, #4)
                 if (currentStage >= 1) {
-                    // Бейдж #1 (Шаблон над стрелкой)
                     val b1X = arrowTarget.left - dpF(4f)
                     val b1Y = arrowTarget.top - dpF(16f)
                     badgeCirclePaint.color = "#A78BFA".toColorInt()
@@ -573,7 +538,6 @@ class InteractiveRoboticArmDemoDialog(
                     canvas.drawText("#1", b1X + dpF(8f), b1Y + dpF(11.5f), badgeTextPaint)
                 }
                 if (currentStage >= 2) {
-                    // Бейдж #2 (OCR над кнопкой CLAIM)
                     val b2X = ocrClaimBtn.left - dpF(4f)
                     val b2Y = ocrClaimBtn.top - dpF(16f)
                     badgeCirclePaint.color = "#818CF8".toColorInt()
@@ -581,27 +545,24 @@ class InteractiveRoboticArmDemoDialog(
                     canvas.drawText("#2", b2X + dpF(8f), b2Y + dpF(11.5f), badgeTextPaint)
                 }
                 if (currentStage >= 3) {
-                    // Бейдж #3 (Клик) и #4 (Свайп)
-                    val b3X = chestArea.centerX()
-                    val b3Y = chestArea.centerY()
+                    val b3X = rewardBtn1.right - dpF(16f)
+                    val b3Y = rewardBtn1.centerY()
                     badgeCirclePaint.color = "#38BDF8".toColorInt()
-                    canvas.drawCircle(b3X, b3Y, dpF(8f), badgeCirclePaint)
+                    canvas.drawCircle(b3X, b3Y, dpF(8.5f), badgeCirclePaint)
                     canvas.drawText("#3", b3X, b3Y + dpF(3f), badgeTextPaint)
 
-                    val b4X = listArea.centerX()
-                    val b4Y = listArea.bottom - dpF(16f)
+                    val b4X = rewardBtn2.right - dpF(16f)
+                    val b4Y = rewardBtn2.centerY()
                     badgeCirclePaint.color = "#F59E0B".toColorInt()
-                    canvas.drawCircle(b4X, b4Y, dpF(8f), badgeCirclePaint)
+                    canvas.drawCircle(b4X, b4Y, dpF(8.5f), badgeCirclePaint)
                     canvas.drawText("#4", b4X, b4Y + dpF(3f), badgeTextPaint)
                 }
 
-                // 5.5 Во время реального исполнения (Стадия 4): подсветка, скан и оверлеи
+                // 5.5 Во время реального исполнения (Стадия 4)
                 if (currentStage == 4) {
-                    // Рамка ROI вокруг сундука
                     val roiBox = RectF(chestArea.left - dpF(2f), chestArea.top - dpF(2f), chestArea.right + dpF(2f), chestArea.bottom + dpF(2f))
                     canvas.drawRoundRect(roiBox, dpF(6f), dpF(6f), roiDashedPaint)
 
-                    // Градиентное наложение шаблона на стрелку
                     highlightFillPaint.shader = LinearGradient(
                         arrowTarget.left, arrowTarget.top, arrowTarget.right, arrowTarget.bottom,
                         intArrayOf("#5038BDF8".toColorInt(), "#2000F0FF".toColorInt()), null, Shader.TileMode.CLAMP
@@ -609,118 +570,130 @@ class InteractiveRoboticArmDemoDialog(
                     canvas.drawRoundRect(arrowTarget, dpF(4f), dpF(4f), highlightFillPaint)
                     canvas.drawRoundRect(arrowTarget, dpF(4f), dpF(4f), highlightBoxPaint)
 
-                    // OCR бокс вокруг кнопки CLAIM
                     canvas.drawRoundRect(ocrClaimBtn, dpF(6f), dpF(6f), ocrBoxPaint)
 
                     if (isSwiping) {
-                        canvas.drawLine(listArea.centerX(), listArea.bottom - dpF(20f), listArea.centerX(), listArea.top + dpF(20f), swipeTrajectoryPaint)
+                        canvas.drawLine(listArea.centerX(), listArea.bottom - dpF(15f), listArea.centerX(), listArea.top + dpF(15f), swipeTrajectoryPaint)
                     }
                 }
 
-                // 6. Отрисовка высокоточной роботизированной руки с анатомической кистью (КАК В ИКОНКЕ)
-                val dist = sqrt(((targetX - armBaseX) * (targetX - armBaseX) + (targetY - armBaseY) * (targetY - armBaseY)).toDouble()).toFloat()
-                val midX = (armBaseX + targetX) / 2f
-                val midY = (armBaseY + targetY) / 2f
-                val angle = atan2((targetY - armBaseY).toDouble(), (targetX - armBaseX).toDouble()).toFloat()
-                val perpAngle = angle + (PI / 2f).toFloat()
-                val bendOffset = dpF(45f).coerceAtMost(dist * 0.28f)
-                val elbowX = midX + cos(perpAngle.toDouble()).toFloat() * bendOffset
-                val elbowY = midY + sin(perpAngle.toDouble()).toFloat() * bendOffset
-
-                val wristX = targetX + cos((angle + PI).toDouble()).toFloat() * dpF(28f)
-                val wristY = targetY + sin((angle + PI).toDouble()).toFloat() * dpF(28f)
-
-                // 6.1 Гидравлический поршень
-                val pMidX = (armBaseX + elbowX) / 2f - dpF(8f)
-                val pMidY = (armBaseY + elbowY) / 2f - dpF(8f)
-                canvas.drawLine(armBaseX, armBaseY, pMidX, pMidY, pistonCylinderPaint)
-                canvas.drawLine(pMidX, pMidY, elbowX, elbowY, pistonRodPaint)
-
-                // 6.2 Плечевой сегмент с титановым металлическим градиентом
-                armChassisPaint.shader = LinearGradient(
-                    armBaseX, armBaseY, elbowX, elbowY,
-                    intArrayOf("#475569".toColorInt(), "#0F172A".toColorInt(), "#1E293B".toColorInt()),
-                    null, Shader.TileMode.CLAMP
-                )
-                drawArmSegment(canvas, armBaseX, armBaseY, elbowX, elbowY, dpF(19f), dpF(14f))
-
-                neonConduitPaint.color = if (isScanning) "#EC4899".toColorInt() else "#00F0FF".toColorInt()
-                canvas.drawLine(armBaseX, armBaseY, elbowX, elbowY, neonGlowPaint)
-                canvas.drawLine(armBaseX, armBaseY, elbowX, elbowY, neonConduitPaint)
-
-                // 6.3 Предплечье
-                armChassisPaint.shader = LinearGradient(
-                    elbowX, elbowY, wristX, wristY,
-                    intArrayOf("#1E293B".toColorInt(), "#0B132B".toColorInt(), "#334155".toColorInt()),
-                    null, Shader.TileMode.CLAMP
-                )
-                drawArmSegment(canvas, elbowX, elbowY, wristX, wristY, dpF(14f), dpF(10f))
-                canvas.drawLine(elbowX, elbowY, wristX, wristY, neonGlowPaint)
-                canvas.drawLine(elbowX, elbowY, wristX, wristY, neonConduitPaint)
-
-                // 6.4 Серво-шарниры
-                // База
-                canvas.drawCircle(armBaseX, armBaseY, dpF(18f), jointBasePaint)
-                canvas.drawCircle(armBaseX, armBaseY, dpF(18f), jointBevelPaint)
-                canvas.drawCircle(armBaseX, armBaseY, dpF(7f), jointCorePaint)
-
-                // Локоть
-                canvas.drawCircle(elbowX, elbowY, dpF(14f), jointBasePaint)
-                canvas.drawCircle(elbowX, elbowY, dpF(14f), jointBevelPaint)
-                canvas.drawCircle(elbowX, elbowY, dpF(5f), jointCorePaint)
-
-                // Запястье
-                canvas.drawCircle(wristX, wristY, dpF(11f), jointBasePaint)
-                canvas.drawCircle(wristX, wristY, dpF(11f), jointBevelPaint)
-
-                // 6.5 Анатомическая кисть роборуки в режиме указания (Pointing Cybernetic Hand)
-                pointingAngle = atan2((targetY - wristY).toDouble(), (targetX - wristX).toDouble()).toFloat()
-                drawDetailedPointingHand(canvas, wristX, wristY, targetX, targetY, pointingAngle, isTapping, isScanning)
+                // 6. Аккуратная узнаваемая указательная кибер-кисть (Pointing Cybernetic Hand)
+                drawPointingCyberGlove(canvas, targetX, targetY, isTapping, isScanning)
 
                 // 7. Лазерный радар сканирования
                 if (isScanning) {
                     laserScanPaint.shader = RadialGradient(
-                        targetX, targetY, dpF(80f),
+                        targetX, targetY, dpF(75f),
                         intArrayOf("#5000F0FF".toColorInt(), "#1000F0FF".toColorInt(), Color.TRANSPARENT),
                         floatArrayOf(0f, 0.6f, 1f),
                         Shader.TileMode.CLAMP
                     )
-                    canvas.drawCircle(targetX, targetY, dpF(75f), laserScanPaint)
+                    canvas.drawCircle(targetX, targetY, dpF(70f), laserScanPaint)
 
                     val scanAngle = (now % 1000) / 1000f * (2 * PI.toFloat())
-                    val scanLineX = targetX + cos(scanAngle.toDouble()).toFloat() * dpF(65f)
-                    val scanLineY = targetY + sin(scanAngle.toDouble()).toFloat() * dpF(65f)
+                    val scanLineX = targetX + cos(scanAngle.toDouble()).toFloat() * dpF(60f)
+                    val scanLineY = targetY + sin(scanAngle.toDouble()).toFloat() * dpF(60f)
                     canvas.drawLine(targetX, targetY, scanLineX, scanLineY, laserLinePaint)
                 }
 
-                // 8. Импульсные кольца и тактильная волна на клик
+                // 8. Импульсные волны касания (Pulse Circles)
                 if (isTapping) {
                     val pulsePhase = (now % 500) / 500f
-                    val r1 = pulsePhase * dpF(38f)
+                    val r1 = pulsePhase * dpF(36f)
                     val alpha1 = ((1f - pulsePhase) * 255).toInt().coerceIn(0, 255)
                     tapPulsePaint.alpha = alpha1
                     canvas.drawCircle(targetX, targetY, r1, tapPulsePaint)
 
-                    val r2 = (pulsePhase * 0.6f) * dpF(38f)
+                    val r2 = (pulsePhase * 0.6f) * dpF(36f)
                     val alpha2 = ((1f - pulsePhase * 0.6f) * 255).toInt().coerceIn(0, 255)
                     tapPulsePaint.alpha = alpha2
                     canvas.drawCircle(targetX, targetY, r2, tapPulsePaint)
 
-                    canvas.drawCircle(targetX, targetY, dpF(4f), tapCorePaint)
+                    canvas.drawCircle(targetX, targetY, dpF(4.5f), tapCorePaint)
                 }
 
-                // 9. Нижняя информационная плашка
-                val bannerH = dpF(32f)
-                val bannerY = h - bannerH - dpF(8f)
+                // 9. Высококонтрастная плашка подсказок внизу экрана
+                val bannerH = dpF(46f)
+                val bannerY = h - bannerH - dpF(12f)
                 reusableRectF.set(dpF(10f), bannerY, w - dpF(10f), bannerY + bannerH)
-                generalItemBg.color = "#E60F172A".toColorInt()
-                canvas.drawRoundRect(reusableRectF, dpF(8f), dpF(8f), generalItemBg)
-                panelBorderPaint.color = "#38BDF8".toColorInt()
-                canvas.drawRoundRect(reusableRectF, dpF(8f), dpF(8f), panelBorderPaint)
-                canvas.drawText(statusText, dpF(20f), bannerY + dpF(20f), textTitlePaint)
+
+                generalItemBg.color = "#F50F172A".toColorInt()
+                canvas.drawRoundRect(reusableRectF, dpF(10f), dpF(10f), generalItemBg)
+                panelBorderPaint.color = "#8B5CF6".toColorInt()
+                canvas.drawRoundRect(reusableRectF, dpF(10f), dpF(10f), panelBorderPaint)
+
+                // Текстовая плашка фазы
+                canvas.drawText(stageTagText, dpF(18f), bannerY + dpF(17f), stageTagPaint)
+                // Основная подсказка крупным жирным шрифтом 13.5dp
+                canvas.drawText(statusText, dpF(18f), bannerY + dpF(36f), bannerTextPaint)
             }
 
-            private fun drawArmSegment(canvas: Canvas, x1: Float, y1: Float, x2: Float, y2: Float, w1: Float, w2: Float) {
+            /**
+             * Узнаваемая аккуратная указательная перчатка/кисть с ровной фалангой
+             */
+            private fun drawPointingCyberGlove(
+                canvas: Canvas,
+                tx: Float,
+                ty: Float,
+                isTapping: Boolean,
+                isScanning: Boolean
+            ) {
+                val handAngle = -PI.toFloat() / 3.8f // Легкий узнаваемый наклон кисти (35 градусов)
+                val handLen = dpF(42f)
+                val palmX = tx - cos(handAngle.toDouble()).toFloat() * handLen
+                val palmY = ty - sin(handAngle.toDouble()).toFloat() * handLen
+
+                val perp = handAngle + (PI / 2f).toFloat()
+                val palmW = dpF(22f)
+
+                // Корпус ладони
+                reusablePath.rewind()
+                reusablePath.moveTo(palmX + cos(perp.toDouble()).toFloat() * (palmW / 2f), palmY + sin(perp.toDouble()).toFloat() * (palmW / 2f))
+                reusablePath.lineTo(palmX - cos(perp.toDouble()).toFloat() * (palmW / 2f), palmY - sin(perp.toDouble()).toFloat() * (palmW / 2f))
+                reusablePath.lineTo(
+                    palmX + cos(handAngle.toDouble()).toFloat() * dpF(18f) - cos(perp.toDouble()).toFloat() * (palmW * 0.4f),
+                    palmY + sin(handAngle.toDouble()).toFloat() * dpF(18f) - sin(perp.toDouble()).toFloat() * (palmW * 0.4f)
+                )
+                reusablePath.lineTo(
+                    palmX + cos(handAngle.toDouble()).toFloat() * dpF(18f) + cos(perp.toDouble()).toFloat() * (palmW * 0.4f),
+                    palmY + sin(handAngle.toDouble()).toFloat() * dpF(18f) + sin(perp.toDouble()).toFloat() * (palmW * 0.4f)
+                )
+                reusablePath.close()
+
+                handChassisPaint.shader = LinearGradient(
+                    palmX, palmY, tx, ty,
+                    intArrayOf("#334155".toColorInt(), "#0F172A".toColorInt(), "#1E293B".toColorInt()), null, Shader.TileMode.CLAMP
+                )
+                canvas.drawPath(reusablePath, handChassisPaint)
+                canvas.drawPath(reusablePath, handBorderPaint)
+
+                // Суставы согнутых пальцев кулака
+                val k1X = palmX + cos(handAngle.toDouble()).toFloat() * dpF(10f) - cos(perp.toDouble()).toFloat() * dpF(7f)
+                val k1Y = palmY + sin(handAngle.toDouble()).toFloat() * dpF(10f) - sin(perp.toDouble()).toFloat() * dpF(7f)
+                canvas.drawCircle(k1X, k1Y, dpF(4f), fingerJointPaint)
+
+                val k2X = palmX + cos(handAngle.toDouble()).toFloat() * dpF(6f) - cos(perp.toDouble()).toFloat() * dpF(10f)
+                val k2Y = palmY + sin(handAngle.toDouble()).toFloat() * dpF(6f) - sin(perp.toDouble()).toFloat() * dpF(10f)
+                canvas.drawCircle(k2X, k2Y, dpF(3.5f), fingerJointPaint)
+
+                // Указательный палец
+                val fMidX = (palmX + tx) / 2f
+                val fMidY = (palmY + ty) / 2f
+
+                // Фаланга 1
+                drawSegment(canvas, palmX, palmY, fMidX, fMidY, dpF(7f), dpF(5.5f))
+                canvas.drawCircle(fMidX, fMidY, dpF(4f), fingerJointPaint)
+
+                // Фаланга 2 (указывающая точно в кончик касания)
+                drawSegment(canvas, fMidX, fMidY, tx, ty, dpF(5.5f), dpF(4f))
+
+                // Светящийся наконечник стилуса
+                val tipColor = if (isTapping || isScanning) "#00F0FF".toColorInt() else "#10B981".toColorInt()
+                tapCorePaint.color = tipColor
+                canvas.drawCircle(tx, ty, dpF(6f), tapCorePaint)
+            }
+
+            private fun drawSegment(canvas: Canvas, x1: Float, y1: Float, x2: Float, y2: Float, w1: Float, w2: Float) {
                 val angle = atan2((y2 - y1).toDouble(), (x2 - x1).toDouble()).toFloat()
                 val perp = angle + (PI / 2f).toFloat()
 
@@ -736,81 +709,8 @@ class InteractiveRoboticArmDemoDialog(
                 reusablePath.lineTo(x1 - dx1, y1 - dy1)
                 reusablePath.close()
 
-                canvas.drawPath(reusablePath, armChassisPaint)
-                canvas.drawPath(reusablePath, armBorderPaint)
-            }
-
-            /**
-             * Высокодетализированная кибернетическая кисть руки:
-             * ладонь с карбоновой текстурой, закругленный кулак из 3 согнутых пальцев,
-             * и анатомически вытянутый указательный палец/стилус с суставами и неоновым ядром.
-             */
-            private fun drawDetailedPointingHand(
-                canvas: Canvas,
-                wx: Float,
-                wy: Float,
-                tx: Float,
-                ty: Float,
-                angle: Float,
-                isTapping: Boolean,
-                isScanning: Boolean
-            ) {
-                val perp = angle + (PI / 2f).toFloat()
-
-                // 1. Корпус кисти (Ладонь)
-                val palmW = dpF(16f)
-                val palmL = dpF(14f)
-                val palmCenterX = wx + cos(angle.toDouble()).toFloat() * (palmL / 2f)
-                val palmCenterY = wy + sin(angle.toDouble()).toFloat() * (palmL / 2f)
-
-                reusablePath.rewind()
-                reusablePath.moveTo(wx + cos(perp.toDouble()).toFloat() * (palmW / 2f), wy + sin(perp.toDouble()).toFloat() * (palmW / 2f))
-                reusablePath.lineTo(wx - cos(perp.toDouble()).toFloat() * (palmW / 2f), wy - sin(perp.toDouble()).toFloat() * (palmW / 2f))
-                reusablePath.lineTo(
-                    wx + cos(angle.toDouble()).toFloat() * palmL - cos(perp.toDouble()).toFloat() * (palmW * 0.4f),
-                    wy + sin(angle.toDouble()).toFloat() * palmL - sin(perp.toDouble()).toFloat() * (palmW * 0.4f)
-                )
-                reusablePath.lineTo(
-                    wx + cos(angle.toDouble()).toFloat() * palmL + cos(perp.toDouble()).toFloat() * (palmW * 0.4f),
-                    wy + sin(angle.toDouble()).toFloat() * palmL + sin(perp.toDouble()).toFloat() * (palmW * 0.4f)
-                )
-                reusablePath.close()
-
-                fingerChassisPaint.shader = LinearGradient(
-                    wx, wy, palmCenterX, palmCenterY,
-                    intArrayOf("#334155".toColorInt(), "#0F172A".toColorInt(), "#1E293B".toColorInt()), null, Shader.TileMode.CLAMP
-                )
-                canvas.drawPath(reusablePath, fingerChassisPaint)
-                canvas.drawPath(reusablePath, armBorderPaint)
-
-                // 2. Согнутые пальцы кулака (боковые фаланги)
-                val knuckle1X = wx + cos(angle.toDouble()).toFloat() * dpF(10f) - cos(perp.toDouble()).toFloat() * dpF(6f)
-                val knuckle1Y = wy + sin(angle.toDouble()).toFloat() * dpF(10f) - sin(perp.toDouble()).toFloat() * dpF(6f)
-                canvas.drawCircle(knuckle1X, knuckle1Y, dpF(3.5f), fingerJointPaint)
-
-                val knuckle2X = wx + cos(angle.toDouble()).toFloat() * dpF(7f) - cos(perp.toDouble()).toFloat() * dpF(8f)
-                val knuckle2Y = wy + sin(angle.toDouble()).toFloat() * dpF(7f) - sin(perp.toDouble()).toFloat() * dpF(8f)
-                canvas.drawCircle(knuckle2X, knuckle2Y, dpF(3.2f), fingerJointPaint)
-
-                // 3. Вытянутый указательный палец (3 сегмента с суставами)
-                val fBaseX = wx + cos(angle.toDouble()).toFloat() * palmL + cos(perp.toDouble()).toFloat() * dpF(3f)
-                val fBaseY = wy + sin(angle.toDouble()).toFloat() * palmL + sin(perp.toDouble()).toFloat() * dpF(3f)
-
-                // Сустав фаланги 1
-                val fMidX = (fBaseX + tx) / 2f
-                val fMidY = (fBaseY + ty) / 2f
-
-                // Фаланга 1 (Проксимальная)
-                drawArmSegment(canvas, fBaseX, fBaseY, fMidX, fMidY, dpF(6.5f), dpF(5f))
-                canvas.drawCircle(fMidX, fMidY, dpF(3.5f), fingerJointPaint)
-
-                // Фаланга 2 (Дистальная - указывает прямо в точку клика)
-                drawArmSegment(canvas, fMidX, fMidY, tx, ty, dpF(5f), dpF(3.5f))
-
-                // Светящийся наконечник стилуса
-                val tipColor = if (isTapping || isScanning) "#00F0FF".toColorInt() else "#10B981".toColorInt()
-                jointCorePaint.color = tipColor
-                canvas.drawCircle(tx, ty, dpF(5.5f), jointCorePaint)
+                canvas.drawPath(reusablePath, handChassisPaint)
+                canvas.drawPath(reusablePath, handBorderPaint)
             }
         }
         root.addView(demoCanvasView, FrameLayout.LayoutParams(-1, -1))
@@ -824,7 +724,7 @@ class InteractiveRoboticArmDemoDialog(
 
         val tvTitleHeader = TextView(context).apply {
             text = "🤖 ДЕМО AUTOTAP"
-            textSize = 10f
+            textSize = 10.5f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
             setTextColor("#38BDF8".toColorInt())
@@ -874,7 +774,7 @@ class InteractiveRoboticArmDemoDialog(
 
         val btnClose = Button(context).apply {
             text = "✕"
-            textSize = 11f
+            textSize = 11.5f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
             minHeight = 0; minimumHeight = 0
@@ -893,7 +793,7 @@ class InteractiveRoboticArmDemoDialog(
         }
         val chipRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
 
-        val chipTitles = listOf("⚡ ПОЛНЫЙ ЦИКЛ", "1. ВИДОИСКАТЕЛЬ ROI", "2. ДИАЛОГ ШАБЛОНА", "3. ДИАЛОГ OCR", "4. ДОБАВЛЕНИЕ ШАГОВ", "5. ИСПОЛНЕНИЕ")
+        val chipTitles = listOf("⚡ ПОЛНЫЙ ЦИКЛ", "1. КАДРИРОВАНИЕ & ROI", "2. ДИАЛОГ ШАБЛОНА", "3. ДИАЛОГ OCR", "4. КЛИКИ НАГРАД", "5. ИСПОЛНЕНИЕ")
         val chipButtons = mutableListOf<Button>()
 
         chipTitles.forEachIndexed { idx, title ->
