@@ -873,7 +873,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         val cx = appContext.resources.displayMetrics.widthPixels / 2f
         val cy = appContext.resources.displayMetrics.heightPixels / 2f
         // [V180.0] Дифференциация таймингов: 1000мс для шаблонов (стабилизация UI), 100мс для обычных шагов
-        val defaultDelay = if (type == ActionType.TRIGGER || type == ActionType.COLOR_CHECK || type == ActionType.OCR) 1000L else if (type == ActionType.CLICK) globalClickPauseMs else 100L
+        val defaultDelay = if (type == ActionType.TRIGGER || type == ActionType.COLOR_CHECK || type == ActionType.OCR) 1000L else 100L
         when (type) {
             ActionType.TRIGGER -> {
                 targetManager.addActionAt(cx, cy, ActionType.TRIGGER, delayMs = defaultDelay)

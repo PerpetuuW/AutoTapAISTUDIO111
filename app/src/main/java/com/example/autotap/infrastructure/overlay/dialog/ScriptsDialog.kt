@@ -209,7 +209,7 @@ class ScriptsDialog(
                 if (zip != null) {
                     pbm.shareZipFile(zip, "Экспорт AutoTap")
                 } else {
-                    Toast.makeText(context, "Нет данных для экспорта", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Нет сценариев и шаблонов для экспорта", Toast.LENGTH_SHORT).show()
                 }
             }
             }

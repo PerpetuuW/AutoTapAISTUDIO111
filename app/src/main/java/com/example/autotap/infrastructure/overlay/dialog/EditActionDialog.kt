@@ -1193,7 +1193,7 @@ class EditActionDialog(
         roiTemplateRow.addView(btnRoiSelect, LinearLayout.LayoutParams(0, dp(30), 1.0f))
         if (hasRoi) {
             val btnRoiReset = Button(context).apply {
-                text = "✕"
+                text = "X"
                 textSize = 9f
                 typeface = Typeface.DEFAULT_BOLD
                 includeFontPadding = false
@@ -1388,7 +1388,7 @@ class EditActionDialog(
         ocrRoiRow.addView(btnRoiOcr, LinearLayout.LayoutParams(0, dp(30), 1.0f))
         if (hasRoiOcr) {
             val btnRoiOcrReset = Button(context).apply {
-                text = "✕"
+                text = "X"
                 textSize = 9f
                 typeface = Typeface.DEFAULT_BOLD
                 includeFontPadding = false

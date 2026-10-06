@@ -236,7 +236,7 @@ class InteractiveRoboticArmDemoDialog(
                 generalItemBg.shader = null
                 generalItemBg.color = "#1E293B".toColorInt()
                 canvas.drawRoundRect(gameHeader, dpF(12f), dpF(12f), generalItemBg)
-                canvas.drawText("⚔️ QUEST REWARDS · ИГРОВАЯ СЦЕНА", gameHeader.left + dpF(14f), gameHeader.centerY() + dpF(4f), textTitlePaint)
+                canvas.drawText("QUEST REWARDS * ИГРОВАЯ СЦЕНА", gameHeader.left + dpF(14f), gameHeader.centerY() + dpF(4f), textTitlePaint)
 
                 // Элемент 1: Сундук и стрелка ▶ (Цель Шаблона)
                 val chestArea = RectF(gameRect.left + dpF(12f), gameHeader.bottom + dpF(12f), gameRect.left + dpF(125f), gameHeader.bottom + dpF(95f))
@@ -527,7 +527,7 @@ class InteractiveRoboticArmDemoDialog(
                     canvas.drawRoundRect(tplDialogRect, dpF(10f), dpF(10f), dialogBgPaint)
                     canvas.drawRoundRect(tplDialogRect, dpF(10f), dpF(10f), dialogBorderPaint)
 
-                    canvas.drawText("⚙️ НАСТРОЙКА ШАГА #1 (ШАБЛОН)", tplDialogRect.left + dpF(14f), tplDialogRect.top + dpF(22f), textTitlePaint)
+                    canvas.drawText("НАСТРОЙКА ШАГА #1 (ШАБЛОН)", tplDialogRect.left + dpF(14f), tplDialogRect.top + dpF(22f), textTitlePaint)
 
                     val thumbCard = RectF(tplDialogRect.left + dpF(14f), tplDialogRect.top + dpF(32f), tplDialogRect.left + dpF(74f), tplDialogRect.top + dpF(92f))
                     generalItemBg.color = "#1E1A33".toColorInt()
@@ -557,7 +557,7 @@ class InteractiveRoboticArmDemoDialog(
                     canvas.drawRoundRect(ocrDialogRect, dpF(10f), dpF(10f), dialogBgPaint)
                     canvas.drawRoundRect(ocrDialogRect, dpF(10f), dpF(10f), dialogBorderPaint)
 
-                    canvas.drawText("🔤 НАСТРОЙКА ШАГА #2 (OCR ТЕКСТ)", ocrDialogRect.left + dpF(14f), ocrDialogRect.top + dpF(22f), textTitlePaint)
+                    canvas.drawText("НАСТРОЙКА ШАГА #2 (OCR ТЕКСТ)", ocrDialogRect.left + dpF(14f), ocrDialogRect.top + dpF(22f), textTitlePaint)
 
                     val etField = RectF(ocrDialogRect.left + dpF(14f), ocrDialogRect.top + dpF(34f), ocrDialogRect.right - dpF(14f), ocrDialogRect.top + dpF(66f))
                     generalItemBg.color = "#161B22".toColorInt()
@@ -804,7 +804,7 @@ class InteractiveRoboticArmDemoDialog(
         }
 
         val tvTitleHeader = TextView(context).apply {
-            text = "🤖 ДЕМО AUTOTAP"
+            text = "ДЕМО AUTOTAP"
             textSize = 10.5f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
@@ -854,7 +854,7 @@ class InteractiveRoboticArmDemoDialog(
         headerRow.addView(btnPlayPause, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(24)).apply { marginEnd = dp(4) })
 
         val btnClose = Button(context).apply {
-            text = "✕"
+            text = "X"
             textSize = 11.5f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
@@ -874,7 +874,7 @@ class InteractiveRoboticArmDemoDialog(
         }
         val chipRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
 
-        val chipTitles = listOf("⚡ ПОЛНЫЙ ЦИКЛ", "1. КАДРИРОВАНИЕ & ROI", "2. ДИАЛОГ ШАБЛОНА", "3. ДИАЛОГ OCR", "4. КЛИКИ НАГРАД", "5. ИСПОЛНЕНИЕ")
+        val chipTitles = listOf("ПОЛНЫЙ ЦИКЛ", "1. КАДРИРОВАНИЕ & ROI", "2. ДИАЛОГ ШАБЛОНА", "3. ДИАЛОГ OCR", "4. КЛИКИ НАГРАД", "5. ИСПОЛНЕНИЕ")
         val chipButtons = mutableListOf<Button>()
 
         chipTitles.forEachIndexed { idx, title ->
