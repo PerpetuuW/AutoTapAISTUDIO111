@@ -44,6 +44,7 @@ class InteractiveRoboticArmDemoDialog(
 ) {
 
     private var rootFrameLayout: View? = null
+    private var appDialog: android.app.Dialog? = null
     private val dm = context.resources.displayMetrics
     private fun dp(v: Int): Int = (v * dm.density).toInt()
     private fun dpF(v: Float): Float = v * dm.density
@@ -870,19 +871,33 @@ class InteractiveRoboticArmDemoDialog(
         }
         handler.post(animRunnable!!)
 
-        val params = overlayWindowManager.createLayoutParams(
-            width = WindowManager.LayoutParams.MATCH_PARENT,
-            height = WindowManager.LayoutParams.MATCH_PARENT,
-            flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            gravity = Gravity.TOP or Gravity.START
-        )
-        overlayWindowManager.addViewSafe(root, params)
+        if (context is android.app.Activity && !context.isFinishing) {
+            val dialog = android.app.Dialog(context, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+            dialog.setContentView(root)
+            dialog.setOnDismissListener {
+                animRunnable?.let { handler.removeCallbacks(it) }
+            }
+            appDialog = dialog
+            dialog.show()
+        } else {
+            val params = overlayWindowManager.createLayoutParams(
+                width = WindowManager.LayoutParams.MATCH_PARENT,
+                height = WindowManager.LayoutParams.MATCH_PARENT,
+                flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                gravity = Gravity.TOP or Gravity.START
+            )
+            overlayWindowManager.addViewSafe(root, params)
+        }
     }
 
     fun dismiss() {
         animRunnable?.let { handler.removeCallbacks(it) }
+        appDialog?.let {
+            if (it.isShowing) it.dismiss()
+            appDialog = null
+        }
         rootFrameLayout?.let {
             overlayWindowManager.removeViewSafe(it)
             rootFrameLayout = null

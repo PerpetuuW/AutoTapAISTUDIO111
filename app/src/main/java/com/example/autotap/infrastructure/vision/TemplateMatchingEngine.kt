@@ -148,7 +148,12 @@ class TemplateFeatures(
                     metaClickY = meta.optDouble("clickOffsetY", 0.0).toFloat()
                     metaUseOffset = meta.optBoolean("useCustomClickOffset", false)
                     if (meta.has("calibratedX")) metaCalibX = meta.getInt("calibratedX")
+                    else if (meta.has("cropLeft")) metaCalibX = meta.getInt("cropLeft") + tw / 2
+                    else if (meta.has("originalX")) metaCalibX = meta.getInt("originalX")
+
                     if (meta.has("calibratedY")) metaCalibY = meta.getInt("calibratedY")
+                    else if (meta.has("cropTop")) metaCalibY = meta.getInt("cropTop") + th / 2
+                    else if (meta.has("originalY")) metaCalibY = meta.getInt("originalY")
                 }
             } catch (_: Exception) {}
         }

@@ -280,6 +280,15 @@ class MacroExecutionEngine(
                                     val currentSw = dm?.widthPixels ?: 1080
                                     val currentSh = dm?.heightPixels ?: 2400
 
+                                    withContext(Dispatchers.Main) {
+                                        val ctx = service?.applicationContext
+                                        if (ctx != null) {
+                                            com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hideAllHighlights(
+                                                com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx)
+                                            )
+                                        }
+                                    }
+
                                     if (MediaProjectionService.isStreaming) {
                                         val sPixels = PixelBufferPool.obtain(currentSw * currentSh)
                                         try {

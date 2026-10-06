@@ -153,23 +153,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnPermStream.setOnClickListener {
-        if (MediaProjectionService.isStreaming) {
-        val serviceIntent = Intent(this, MediaProjectionService::class.java).apply {
-        action = MediaProjectionService.ACTION_STOP
-        }
-        startService(serviceIntent)
-        updateStatus()
-        } else {
-        val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as? MediaProjectionManager
-        mpm?.let { manager ->
-        val captureIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-        manager.createScreenCaptureIntent(android.media.projection.MediaProjectionConfig.createConfigForDefaultDisplay())
-        } else {
-        manager.createScreenCaptureIntent()
-        }
-        projectionLauncher.launch(captureIntent)
-        }
-        }
+            if (MediaProjectionService.isStreaming) {
+                val serviceIntent = Intent(this, MediaProjectionService::class.java).apply {
+                    action = MediaProjectionService.ACTION_STOP
+                }
+                startService(serviceIntent)
+                updateStatus()
+            } else {
+                showMediaProjectionRecommendationDialog()
+            }
         }
 
                 btnMainLogs.setOnClickListener {
@@ -665,7 +657,39 @@ class MainActivity : AppCompatActivity() {
             dialog.show()
             }
 
-            private fun showAccessibilitySafetyDialog() {
+            private fun showMediaProjectionRecommendationDialog() {
+        val title = "РЕКОМЕНДАЦИЯ ПО РЕЖИМУ РАБОТЫ"
+        val msg = """
+            Рекомендуется использовать СТАНДАРТНЫЙ режим (AccessibilityService).
+
+            • Все ИИ-детекторы (шаблоны, OCR текст, поиск цвета) отлично работают в ОБЫЧНОМ режиме.
+
+            • Режим захвата экрана 60 FPS (MediaProjection) нужен главным образом для динамичных сцен с БЫСТРЫМИ АНИМАЦИЯМИ и в играх с высокой частотой кадров.
+
+            • Захват 60 FPS расходует дополнительный заряд батареи.
+
+            Включить режим захвата экрана 60 FPS?
+        """.trimIndent()
+
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(msg)
+            .setPositiveButton("Включить (60 FPS)") { _, _ ->
+                val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as? MediaProjectionManager
+                mpm?.let { manager ->
+                    val captureIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        manager.createScreenCaptureIntent(android.media.projection.MediaProjectionConfig.createConfigForDefaultDisplay())
+                    } else {
+                        manager.createScreenCaptureIntent()
+                    }
+                    projectionLauncher.launch(captureIntent)
+                }
+            }
+            .setNegativeButton("Отмена (Обычный режим)", null)
+            .show()
+    }
+
+    private fun showAccessibilitySafetyDialog() {
         val msg = """
 Служба спец. возможностей (Accessibility Service) требуется ИСКЛЮЧИТЕЛЬНО для выполнения кликов и жестов по вашим сценариям.
 
