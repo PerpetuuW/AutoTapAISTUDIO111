@@ -243,16 +243,27 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             return
         }
         val allActions = targetManager.getActions()
-        val isComplex = allActions.size >= 3
+        val isComplex = allActions.size > 3
+        if (!isComplex) {
+            onCompleted()
+            return
+        }
+        val sessionHash = allActions.map { "${it.id}_${it.type}_${it.posX.toInt()}_${it.posY.toInt()}" }.hashCode()
+        val lastPromptedHash = prefs.getInt("LAST_PROMPTED_GRAPH_SESSION_HASH", 0)
+        if (lastPromptedHash == sessionHash) {
+            onCompleted()
+            return
+        }
+
         val currentScenarioName = prefs.getString("LAST_ACTIVE_SCRIPT", "ActiveSession") ?: "ActiveSession"
         val hasGraph = scenarioRepository.hasGraphScenario(currentScenarioName)
         val dm = appContext.resources.displayMetrics
         val dp = { v: Int -> (v * dm.density).toInt() }
         val dpF = { v: Float -> v * dm.density }
-        if (isComplex && !hasGraph) {
+        if (!hasGraph) {
             targetManager.setOverlaysVisible(false)
             controlPanelOverlay.hide()
-            val msg = "Обнаружено ${allActions.size} действий/шаблонов. Сгенерировать визуальный ГРАФ логики? Он свяжет все шаги, условия и переходы в наглядную схему принятия решений."
+            val msg = "Обнаружено ${allActions.size} действий/шаблонов в сессии (>3). Сгенерировать визуальный ГРАФ логики? Он свяжет все шаги, условия и переходы в наглядную схему принятия решений."
             val root = android.widget.FrameLayout(appContext).apply {
                 setBackgroundColor(android.graphics.Color.parseColor("#99000000"))
             }
@@ -266,6 +277,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 setPadding(dp(16), dp(16), dp(16), dp(16))
             }
             val dismissPrompt = {
+                prefs.edit().putInt("LAST_PROMPTED_GRAPH_SESSION_HASH", sessionHash).apply()
                 overlayWindowManager.removeViewSafe(root)
             }
             root.setOnClickListener {
@@ -928,7 +940,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 controlPanelOverlay.show()
                 targetManager.setOverlaysVisible(true)
                 actions.forEach { act -> targetManager.addAction(act) }
-                if (targetManager.getActions().size >= 3 || actions.size >= 3) {
+                if (targetManager.getActions().size > 3 || actions.size > 3) {
                     checkAndPromptGraphGeneration(targetManager.getActions().lastOrNull() ?: actions.last()) {}
                 }
             },
@@ -1173,7 +1185,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                         val specs = DeviceDisplaySpecs(dm.widthPixels, dm.heightPixels, dm.densityDpi, dm.density, dm.widthPixels > dm.heightPixels)
                         scenarioRepository.saveScenario(MacroScenario("_last_active_session", 1, specs, currentActions, globalClickDurationMs, globalSwipeDurationMs))
                     }
-                    if (wasRunning && currentActions.size >= 3) {
+                    if (wasRunning && currentActions.size > 3) {
                         mainHandler.postDelayed({
                             checkAndPromptGraphGeneration(currentActions.first()) {}
                         }, 350L)
@@ -1186,7 +1198,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     controlPanelOverlay.show(); controlPanelOverlay.setPlayState(false); targetManager.setOverlaysVisible(true); targetManager.setTargetsTouchable(true)
                     if (wasRunning && state is ExecutionState.Idle) {
                         val currentActions = targetManager.getActions()
-                        if (currentActions.size >= 3) {
+                        if (currentActions.size > 3) {
                             mainHandler.postDelayed({
                                 checkAndPromptGraphGeneration(currentActions.first()) {}
                             }, 350L)

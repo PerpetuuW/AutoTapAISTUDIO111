@@ -54,6 +54,9 @@ class TargetOverlayManager(
 
     private var isGraphAttached = false
 
+    var isOverlaysVisibleState: Boolean = true
+        private set
+
     var visibilityMode: OverlayVisibilityMode = OverlayVisibilityMode.FULL
         private set
 
@@ -386,6 +389,7 @@ class TargetOverlayManager(
     }
 
     override fun setOverlaysVisible(visible: Boolean) {
+        isOverlaysVisibleState = visible
         mainHandler.post {
             val vis = if (visible) View.VISIBLE else View.GONE
             val currentAlpha = when (visibilityMode) {
@@ -394,37 +398,37 @@ class TargetOverlayManager(
             }
             val isHidden = (visibilityMode == OverlayVisibilityMode.HIDDEN)
 
-            targetViews.values.forEach {
-                it.visibility = vis
-                it.alpha = currentAlpha
-                if (isHidden) {
-                    it.circleContainer.visibility = View.INVISIBLE
-                    it.tvNumber.visibility = View.INVISIBLE
-                    it.tvCornerBadge.visibility = View.GONE
-                    it.ivTemplate.visibility = View.GONE
-                } else {
-                    it.circleContainer.visibility = View.VISIBLE
-                    it.tvNumber.visibility = View.VISIBLE
-                    it.tvCornerBadge.visibility = if (it.tvCornerBadge.text.isNullOrBlank()) View.GONE else View.VISIBLE
+            targetViews.values.forEach { tv ->
+                tv.visibility = vis
+                tv.alpha = currentAlpha
+                val actId = tv.tag as? Int
+                val act = actionsList.find { it.id == actId }
+                if (act != null) {
+                    tv.bindAction(act, visibilityMode)
+                } else if (isHidden) {
+                    tv.circleContainer.visibility = View.INVISIBLE
+                    tv.tvNumber.visibility = View.INVISIBLE
+                    tv.tvCornerBadge.visibility = View.GONE
+                    tv.ivTemplate.visibility = View.GONE
                 }
             }
 
-            endTargetViews.values.forEach {
-                it.visibility = vis
-                it.alpha = currentAlpha
-                if (isHidden) {
-                    it.circleContainer.visibility = View.INVISIBLE
-                    it.tvNumber.visibility = View.INVISIBLE
-                    it.tvCornerBadge.visibility = View.GONE
-                } else {
-                    it.circleContainer.visibility = View.VISIBLE
-                    it.tvNumber.visibility = View.VISIBLE
-                    it.tvCornerBadge.visibility = View.VISIBLE
+            endTargetViews.values.forEach { etv ->
+                etv.visibility = vis
+                etv.alpha = currentAlpha
+                val actId = etv.tag as? Int
+                val act = actionsList.find { it.id == actId }
+                if (act != null) {
+                    etv.bindAction(act, visibilityMode)
+                } else if (isHidden) {
+                    etv.circleContainer.visibility = View.INVISIBLE
+                    etv.tvNumber.visibility = View.INVISIBLE
+                    etv.tvCornerBadge.visibility = View.GONE
                 }
             }
-            waypointViews.values.flatten().forEach {
-                it.visibility = if (isHidden) View.GONE else vis
-                it.alpha = currentAlpha
+            waypointViews.values.flatten().forEach { wp ->
+                wp.visibility = if (isHidden) View.GONE else vis
+                wp.alpha = currentAlpha
             }
             graphOverlayView.visibility = if (visible && !isHidden) View.VISIBLE else View.GONE
             graphOverlayView.alpha = currentAlpha
@@ -530,8 +534,9 @@ class TargetOverlayManager(
         val targetY = (safePosY - halfSz - safePad).toInt().coerceIn(minSafeY, maxSafeY)
 
         val targetView = TargetOverlayView(context, isEndTarget = false) { templateRepository.getTemplate(it) }.apply {
-            bindAction(action, isNumbersHidden)
+            bindAction(action, visibilityMode)
             tag = action.id
+            visibility = if (isOverlaysVisibleState) View.VISIBLE else View.GONE
         }
 
         val lp = overlayWindowManager.createLayoutParams(
@@ -660,8 +665,9 @@ class TargetOverlayManager(
         val safeEndY = if (endY <= 10f || endY >= screenH.toFloat() - 10f) (action.posY + dp(80f)).coerceIn(0f, screenH.toFloat()) else endY.coerceIn(0f, screenH.toFloat())
 
         val endView = TargetOverlayView(context, isEndTarget = true).apply {
-            bindAction(action, isNumbersHidden)
+            bindAction(action, visibilityMode)
             tag = action.id
+            visibility = if (isOverlaysVisibleState) View.VISIBLE else View.GONE
         }
 
         val lp = overlayWindowManager.createLayoutParams(
@@ -742,6 +748,7 @@ class TargetOverlayManager(
 
             val wpView = android.widget.FrameLayout(context).apply {
                 tag = action.id
+                visibility = if (isOverlaysVisibleState && visibilityMode != OverlayVisibilityMode.HIDDEN) View.VISIBLE else View.GONE
                 background = android.graphics.drawable.GradientDrawable().apply {
                     shape = android.graphics.drawable.GradientDrawable.OVAL
                     setColor(android.graphics.Color.parseColor("#F59E0B"))
