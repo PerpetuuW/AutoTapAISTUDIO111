@@ -226,6 +226,18 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         val specs = DeviceDisplaySpecs(dm.widthPixels, dm.heightPixels, dm.densityDpi, dm.density, dm.widthPixels > dm.heightPixels)
         val scenario = MacroScenario("ActiveSession", 1, specs, actions, globalClickDurationMs, globalSwipeDurationMs)
         scenarioRepository.saveScenario(scenario)
+
+        // [V152.0] Граф активной сессии обновляется новой сессией, удовлетворяющей условиям (наличие действий/триггеров/мультипоиска)
+        if (actions.isNotEmpty()) {
+            val hasMultiSearch = actions.any { it.multiTemplatePaths.size > 1 }
+            val hasDetection = actions.any { it.type == ActionType.TRIGGER || it.type == ActionType.OCR || it.type == ActionType.COLOR_CHECK }
+            val isEligible = actions.size >= 2 || hasMultiSearch || hasDetection
+            if (isEligible || scenarioRepository.hasGraphScenario("ActiveSession")) {
+                val graph = LinearToGraphMigrator.linearToGraph(scenario)
+                scenarioRepository.saveGraphScenario(graph)
+            }
+        }
+
         appContext.getSharedPreferences("autotap_prefs", Context.MODE_PRIVATE)
             .edit()
             .putString("last_active_scenario_name", if (actions.isNotEmpty()) "ActiveSession" else "")
@@ -350,6 +362,12 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             lp.dimAmount = 0.6f
             overlayWindowManager.addViewSafe(root, lp)
         } else {
+            // [V152.0] Если граф сценария уже существует и сессия удовлетворяет условиям,
+            // актуализируем граф активной сессии новой конфигурацией шагов
+            val linearScenario = scenarioRepository.loadScenario(currentScenarioName) ?: com.example.autotap.domain.model.MacroScenario(currentScenarioName, 1, com.example.autotap.domain.model.DeviceDisplaySpecs(1080, 2400, 480, 3f, false), allActions, globalClickDurationMs, globalSwipeDurationMs)
+            val updatedGraph = com.example.autotap.core.math.LinearToGraphMigrator.linearToGraph(linearScenario)
+            scenarioRepository.saveGraphScenario(updatedGraph)
+            prefs.edit().putInt("LAST_PROMPTED_GRAPH_SESSION_HASH", sessionHash).apply()
             onCompleted()
         }
     }
