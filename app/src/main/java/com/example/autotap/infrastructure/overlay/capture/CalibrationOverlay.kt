@@ -91,6 +91,8 @@ private val targetStepId: Int? = null,
     private var isShapeOnlyMode: Boolean = existingAction?.isShapeOnlyMode ?: com.example.autotap.infrastructure.vision.TemplateMorphologyClassifier.analyze(rawTemplateBitmap).isShapeOnlyRecommended
     private var isCircleShape: Boolean = existingAction?.isCircleShape ?: false
     private var isNeuralEngineMode: Boolean = existingAction?.isNeuralEngine ?: false
+    private var isSmartColorMode: Boolean = existingAction?.colorDeltaEMode ?: false
+    private var btnSmartColorToggle: Button? = null
 
     private var useCustomClickOffset: Boolean = existingAction?.useCustomClickOffset ?: false
     private var clickOffsetX: Float = existingAction?.clickOffsetX ?: 0f
@@ -165,6 +167,19 @@ private val targetStepId: Int? = null,
         currentCandidates.addAll(initialCandidates)
         if (existingTemplatePath != null) {
             templateRepository.getTemplateMetadata(existingTemplatePath)?.let { meta ->
+                (meta["colorDeltaEMode"] as? Boolean ?: meta["isSmartColorMode"] as? Boolean)?.let {
+                    isSmartColorMode = it
+                }
+                (meta["roiZones"] as? org.json.JSONArray)?.let { arr ->
+                    if (activeRoiZones.isEmpty()) {
+                        for (i in 0 until arr.length()) {
+                            val z = arr.optJSONObject(i)
+                            if (z != null) {
+                                activeRoiZones.add(Rect(z.getInt("left"), z.getInt("top"), z.getInt("right"), z.getInt("bottom")))
+                            }
+                        }
+                    }
+                }
                 (meta["coVerificationTemplates"] as? List<*>)?.forEach { pathObj ->
                     val pStr = pathObj.toString()
                     if (pStr.isNotBlank() && !coVerificationTemplates.contains(pStr)) {
@@ -269,11 +284,16 @@ private val targetStepId: Int? = null,
 
                                                                     // Плашка точного процента сходимости над рамкой без аллокаций
                                                                     val pct = (cand.score * 100f).toInt()
-                                                                    val scoreBadgeText = "$pct%"
+                                                                    val badgeSuffix = if (isSmartColorMode) " ΔE" else "%"
+                                                                    val scoreBadgeText = "$pct$badgeSuffix"
                                                                     val textW = textScorePaint.measureText(scoreBadgeText)
                                                                     val badgeH = dpF(16f)
                                                                     val badgeTop = (top - badgeH - dpF(2f)).coerceAtLeast(0f)
-                                                                    badgeBgPaint.color = if (idx == 0) "#E610B981".toColorInt() else "#E60284C7".toColorInt()
+                                                                    badgeBgPaint.color = if (isSmartColorMode) {
+                                                                        if (idx == 0) "#E64F46E5".toColorInt() else "#E6312E81".toColorInt()
+                                                                    } else {
+                                                                        if (idx == 0) "#E610B981".toColorInt() else "#E60284C7".toColorInt()
+                                                                    }
                                                                     cachedBadgeRect.set(left, badgeTop, left + textW + dpF(10f), badgeTop + badgeH)
                                                                     canvas.drawRoundRect(cachedBadgeRect, dpF(4f), dpF(4f), badgeBgPaint)
                                                                     canvas.drawText(scoreBadgeText, left + dpF(5f), badgeTop + dpF(12f), textScorePaint)
@@ -531,7 +551,11 @@ private val targetStepId: Int? = null,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         for (dx in -16..16) {
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             val fx = (originX + dx).coerceIn(0, sw - currentMask.width)
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             val fy = (originY + dy).coerceIn(0, sh - currentMask.height)
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            val score = TemplateMatchingEngine.evaluateCandidateScore(sPixels, sw, sh, fx, fy, features, isShapeOnlyMode)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            val score = TemplateMatchingEngine.evaluateCandidateScore(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             sPixels, sw, sh, fx, fy, features, isShapeOnlyMode,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             useDeltaE = isSmartColorMode,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             selectedZones = activeRoiZones
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         )
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             if (score > peakScore) {
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 peakScore = score
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 peakX = fx
@@ -560,20 +584,29 @@ private val targetStepId: Int? = null,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // [V33.4] Реальный расчет NeuralVisualMatcher при переключении на AI
 
                     // [V33.5] Реальный расчет NeuralVisualMatcher при переключении на AI
+                    val effectiveActionOverride = (existingAction ?: MacroAction(id = targetStepId ?: 1)).copy(
+                        colorDeltaEMode = isSmartColorMode,
+                        isShapeOnlyMode = isShapeOnlyMode,
+                        roiLeft = activeRoiZones.firstOrNull()?.left,
+                        roiTop = activeRoiZones.firstOrNull()?.top,
+                        roiRight = activeRoiZones.firstOrNull()?.right,
+                        roiBottom = activeRoiZones.firstOrNull()?.bottom,
+                        primaryAnchorPoints = activeRoiZones.map { com.example.autotap.domain.model.Point2D(it.centerX().toFloat(), it.centerY().toFloat()) }
+                    )
                     val cascadeMatches = if (isNeuralEngineMode) {
                         try {
                             com.example.autotap.infrastructure.vision.NeuralVisualMatcher.findMatches(
                                 screenshot = screenshot,
                                 template = currentMask,
                                 minSimilarityPercent = currentSimilarity.coerceAtLeast(40),
-                                actionOverride = existingAction
+                                actionOverride = effectiveActionOverride
                             )
                         } catch (_: Throwable) { emptyList() }
                     } else {
                         TemplateMatchingEngine.findTemplateFastCascade(
                             sPixels = sPixels, sw = sw, sh = sh, template = currentMask,
                             minSimilarityPercent = 60, templatePath = existingTemplatePath ?: "",
-                            actionOverride = existingAction, enableL0Cache = false, findAllMatches = true
+                            actionOverride = effectiveActionOverride, enableL0Cache = false, findAllMatches = true
                         ) { evalJob?.isCancelled == true }
                     }
 
@@ -595,6 +628,17 @@ private val targetStepId: Int? = null,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 }
 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // Сортировка по убыванию сходимости
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                if (activeRoiZones.isNotEmpty()) {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    for (cIdx in candidateList.indices) {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        val cCand = candidateList[cIdx]
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        val minDistToZone = activeRoiZones.minOf { z ->
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            kotlin.math.hypot((cCand.clickX - z.centerX()).toDouble(), (cCand.clickY - z.centerY()).toDouble()).toFloat()
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        val isInsideZone = activeRoiZones.any { z -> z.contains(cCand.clickX, cCand.clickY) }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        val distFactor = if (isInsideZone) 1.05f else (1.0f - (minDistToZone / (sw * 0.75f)).coerceIn(0f, 0.40f))
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        candidateList[cIdx] = cCand.copy(score = (cCand.score * distFactor).coerceIn(0f, 1f))
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                }
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 candidateList.sortByDescending { it.score }
 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 val bestMatch = candidateList.firstOrNull()
@@ -1082,6 +1126,14 @@ private val targetStepId: Int? = null,
                 ).apply {
                     cornerRadius = dpF(4f)
                 }
+                if (isShapeOnlyMode) {
+                    isSmartColorMode = false
+                    btnSmartColorToggle?.text = "ЦВЕТ: СТАНДАРТ"
+                    btnSmartColorToggle?.background = GradientDrawable(
+                        GradientDrawable.Orientation.TOP_BOTTOM,
+                        intArrayOf("#334155".toColorInt(), "#1E293B".toColorInt())
+                    ).apply { cornerRadius = dpF(4f) }
+                }
                 reevaluateMatching()
             }
         }
@@ -1118,6 +1170,52 @@ private val targetStepId: Int? = null,
         }
         modesRow2.addView(btnCircleToggle, LinearLayout.LayoutParams(0, dp(30), 1f))
         modesContainer.addView(modesRow2)
+
+        val modesRow3 = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(4), 0, 0)
+        }
+
+        btnSmartColorToggle = Button(context).apply {
+            text = if (isSmartColorMode) "ЦВЕТ: CIELAB ΔE (УМНЫЙ)" else "ЦВЕТ: СТАНДАРТ"
+            textSize = 8f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            setTextColor(Color.WHITE)
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                if (isSmartColorMode) intArrayOf("#4F46E5".toColorInt(), "#3730A3".toColorInt())
+                else intArrayOf("#334155".toColorInt(), "#1E293B".toColorInt())
+            ).apply {
+                cornerRadius = dpF(4f)
+                if (isSmartColorMode) setStroke(dp(1), "#818CF8".toColorInt())
+            }
+            minHeight = 0; minimumHeight = 0
+            setPadding(dp(6), dp(4), dp(6), dp(4))
+            setOnClickListener {
+                isSmartColorMode = !isSmartColorMode
+                text = if (isSmartColorMode) "ЦВЕТ: CIELAB ΔE (УМНЫЙ)" else "ЦВЕТ: СТАНДАРТ"
+                if (isSmartColorMode) {
+                    isShapeOnlyMode = false
+                    btnShapeOnlyToggle?.text = "ГИБРИД"
+                    btnShapeOnlyToggle?.background = GradientDrawable(
+                        GradientDrawable.Orientation.TOP_BOTTOM,
+                        intArrayOf("#38BDF8".toColorInt(), "#0284C7".toColorInt())
+                    ).apply { cornerRadius = dpF(4f) }
+                }
+                background = GradientDrawable(
+                    GradientDrawable.Orientation.TOP_BOTTOM,
+                    if (isSmartColorMode) intArrayOf("#4F46E5".toColorInt(), "#3730A3".toColorInt())
+                    else intArrayOf("#334155".toColorInt(), "#1E293B".toColorInt())
+                ).apply {
+                    cornerRadius = dpF(4f)
+                    if (isSmartColorMode) setStroke(dp(1), "#818CF8".toColorInt())
+                }
+                reevaluateMatching()
+            }
+        }
+        modesRow3.addView(btnSmartColorToggle, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(30)))
+        modesContainer.addView(modesRow3)
         modesContainer.tag = "MODES"
         card.addView(modesContainer)
 
@@ -1506,6 +1604,8 @@ private val targetStepId: Int? = null,
                     put("isContourMode", isAutoContourMode)
                     put("isShapeOnlyMode", isShapeOnlyMode)
                     put("isCircleShape", isCircleShape)
+                    put("colorDeltaEMode", isSmartColorMode)
+                    put("isSmartColorMode", isSmartColorMode)
                     put("useCustomClickOffset", useCustomClickOffset)
                     put("clickOffsetX", clickOffsetX.toDouble())
                     put("clickOffsetY", clickOffsetY.toDouble())
@@ -1521,6 +1621,18 @@ private val targetStepId: Int? = null,
                     val verifArr = org.json.JSONArray()
                     coVerificationTemplates.forEach { verifArr.put(it) }
                     put("coVerificationTemplates", verifArr)
+                    if (activeRoiZones.isNotEmpty()) {
+                        val rArr = org.json.JSONArray()
+                        activeRoiZones.forEach { z ->
+                            rArr.put(JSONObject().apply {
+                                put("left", z.left)
+                                put("top", z.top)
+                                put("right", z.right)
+                                put("bottom", z.bottom)
+                            })
+                        }
+                        put("roiZones", rArr)
+                    }
                     }
 
                                 // [V12.1] Синхронный кроп сырого кадра для 100% совпадения габаритов с маской
@@ -1564,6 +1676,7 @@ private val targetStepId: Int? = null,
                     isShapeOnlyMode = isShapeOnlyMode,
                     isCircleShape = isCircleShape,
                     isNeuralEngine = isNeuralEngineMode,
+                    colorDeltaEMode = isSmartColorMode,
                     useCustomClickOffset = useCustomClickOffset,
                     clickOffsetX = clickOffsetX,
                     clickOffsetY = clickOffsetY,

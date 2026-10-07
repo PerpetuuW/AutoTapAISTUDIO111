@@ -1,6 +1,7 @@
 package com.example.autotap.infrastructure.vision
 
 import android.graphics.Bitmap
+import android.graphics.Rect
 import com.example.autotap.core.logger.AppLogger
 import com.example.autotap.domain.model.MacroAction
 import com.example.autotap.domain.model.MatchCandidate
@@ -55,12 +56,19 @@ class TemplateFeatures(
         val analysis: com.example.autotap.domain.model.TemplateAnalysisResult,
         val individualThreshold: Float,
                 val isShapeOnlyFromMeta: Boolean = false,
+        val isSmartColorFromMeta: Boolean = false,
         val clickOffsetXFromMeta: Float = 0f,
         val clickOffsetYFromMeta: Float = 0f,
         val useCustomOffsetFromMeta: Boolean = false,
         val calibratedX: Int? = null,
         val calibratedY: Int? = null,
-        val optimalGridStepFromMeta: Int = 0
+        val optimalGridStepFromMeta: Int = 0,
+        val shapeLabL: FloatArray = FloatArray(0),
+        val shapeLabA: FloatArray = FloatArray(0),
+        val shapeLabB: FloatArray = FloatArray(0),
+        val l1LabL: FloatArray = FloatArray(0),
+        val l1LabA: FloatArray = FloatArray(0),
+        val l1LabB: FloatArray = FloatArray(0)
     )
 
     val lastMatchedPositions = ConcurrentHashMap<String, Pair<Int, Int>>()
@@ -130,6 +138,7 @@ class TemplateFeatures(
 
         var templateSim = defaultSim
         var metaShapeOnly = false
+        var metaSmartColor = false
         var metaClickX = 0f
         var metaClickY = 0f
         var metaUseOffset = false
@@ -146,6 +155,7 @@ class TemplateFeatures(
                     val rawSim = meta.optInt("similarityPercent", defaultSim)
                     templateSim = rawSim.coerceIn(60, 98)
                     metaShapeOnly = meta.optBoolean("isShapeOnlyMode", false)
+                    metaSmartColor = meta.optBoolean("colorDeltaEMode", false) || meta.optBoolean("isSmartColorMode", false)
                     metaClickX = meta.optDouble("clickOffsetX", 0.0).toFloat()
                     metaClickY = meta.optDouble("clickOffsetY", 0.0).toFloat()
                     metaUseOffset = meta.optBoolean("useCustomClickOffset", false)
@@ -371,6 +381,29 @@ class TemplateFeatures(
 
         val analysis = TemplateMorphologyClassifier.analyze(tPixels, tw, th)
 
+        val shapeLabL = FloatArray(shapeCount)
+        val shapeLabA = FloatArray(shapeCount)
+        val shapeLabB = FloatArray(shapeCount)
+        val tempLab = FloatArray(3)
+        for (i in 0 until shapeCount) {
+            val c = (shapeR[i] shl 16) or (shapeG[i] shl 8) or shapeB[i]
+            ColorDetector.colorToLabFast(c, tempLab)
+            shapeLabL[i] = tempLab[0]
+            shapeLabA[i] = tempLab[1]
+            shapeLabB[i] = tempLab[2]
+        }
+
+        val l1LabL = FloatArray(l1Count)
+        val l1LabA = FloatArray(l1Count)
+        val l1LabB = FloatArray(l1Count)
+        for (i in 0 until l1Count) {
+            val c = (l1R[i] shl 16) or (l1G[i] shl 8) or l1B[i]
+            ColorDetector.colorToLabFast(c, tempLab)
+            l1LabL[i] = tempLab[0]
+            l1LabA[i] = tempLab[1]
+            l1LabB[i] = tempLab[2]
+        }
+
         val features = TemplateFeatures(
             tw = tw, th = th, shapeCount = shapeCount,
             shapeDx = shapeDx.copyOf(shapeCount), shapeDy = shapeDy.copyOf(shapeCount),
@@ -384,13 +417,20 @@ class TemplateFeatures(
             centroidX = cX, centroidY = cY, shapeEdgeCount = shapeEdgeCount,
             isMicroIcon = isMicro, isThinLine = isThin, isRawImage = isRawImage,
             analysis = analysis, individualThreshold = templateSim / 100f,
-                        isShapeOnlyFromMeta = metaShapeOnly,
+            isShapeOnlyFromMeta = metaShapeOnly,
+            isSmartColorFromMeta = metaSmartColor,
             clickOffsetXFromMeta = metaClickX,
             clickOffsetYFromMeta = metaClickY,
             useCustomOffsetFromMeta = metaUseOffset,
             calibratedX = metaCalibX,
             calibratedY = metaCalibY,
-            optimalGridStepFromMeta = metaGridStep
+            optimalGridStepFromMeta = metaGridStep,
+            shapeLabL = shapeLabL,
+            shapeLabA = shapeLabA,
+            shapeLabB = shapeLabB,
+            l1LabL = l1LabL,
+            l1LabA = l1LabA,
+            l1LabB = l1LabB
         )
         templateFeatureCache[dynamicKey] = features
         return features
@@ -444,6 +484,9 @@ class TemplateFeatures(
         val roiMaxY = if (hasRoi) (actionOverride?.roiBottom ?: sh).coerceIn(roiMinY + 1, sh) else sh
 
         val primaryPath = actionOverride?.templatePath ?: ""
+        val isDeltaEMode = actionOverride?.colorDeltaEMode ?: false
+        val selectedRoiZones = if (hasRoi) listOf(Rect(roiMinX, roiMinY, roiMaxX, roiMaxY)) else emptyList<Rect>()
+        val selectedAnchors = actionOverride?.primaryAnchorPoints ?: emptyList()
 
         for ((tPath, tBmp) in templates) {
             if (isCancelled() || tBmp.isRecycled) continue
@@ -497,7 +540,7 @@ class TemplateFeatures(
                     val qy = (expTop + dy).coerceIn(roiMinY, scanLimitY)
                     for (dx in -12..12) {
                         val qx = (expLeft + dx).coerceIn(roiMinX, scanLimitX)
-                        val score = evaluateCandidateScore(sPixels, sw, sh, qx, qy, features, isShapeDriven)
+                        val score = evaluateCandidateScore(sPixels, sw, sh, qx, qy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
                         if (score > bestMicroScore) {
                             bestMicroScore = score
                             bestMicroX = qx
@@ -549,7 +592,7 @@ class TemplateFeatures(
                     val qy = (expTop + dy).coerceIn(roiMinY, scanLimitY)
                     for (dx in -localRange..localRange step 2) {
                         val qx = (expLeft + dx).coerceIn(roiMinX, scanLimitX)
-                        val score = evaluateCandidateScore(sPixels, sw, sh, qx, qy, features, isShapeDriven)
+                        val score = evaluateCandidateScore(sPixels, sw, sh, qx, qy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
                         if (score > bestLocalScore) {
                             bestLocalScore = score
                             bestLocalX = qx
@@ -564,7 +607,7 @@ class TemplateFeatures(
                     val fqy = (peakY + fdy).coerceIn(roiMinY, scanLimitY)
                     for (fdx in -1..1) {
                         val fqx = (peakX + fdx).coerceIn(roiMinX, scanLimitX)
-                        val score = evaluateCandidateScore(sPixels, sw, sh, fqx, fqy, features, isShapeDriven)
+                        val score = evaluateCandidateScore(sPixels, sw, sh, fqx, fqy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
                         if (score > bestLocalScore) {
                             bestLocalScore = score
                             bestLocalX = fqx
@@ -619,6 +662,29 @@ class TemplateFeatures(
                     scanPoints.add(Pair(gx, gy))
                 }
             }
+            // [V88.0] Умная пространственная оптимизация поиска с учетом расстояний на выбранных участках
+            if (selectedRoiZones.isNotEmpty() || selectedAnchors.isNotEmpty()) {
+                scanPoints.sortBy { pt ->
+                    val cx = pt.first + features.centroidX
+                    val cy = pt.second + features.centroidY
+                    var minD = Float.MAX_VALUE
+                    for (z in selectedRoiZones) {
+                        if (z.contains(cx, cy)) {
+                            minD = 0f
+                            break
+                        }
+                        val zX = z.centerX().toFloat()
+                        val zY = z.centerY().toFloat()
+                        val d = kotlin.math.hypot((cx - zX).toDouble(), (cy - zY).toDouble()).toFloat()
+                        if (d < minD) minD = d
+                    }
+                    for (a in selectedAnchors) {
+                        val d = kotlin.math.hypot((cx - a.x).toDouble(), (cy - a.y).toDouble()).toFloat()
+                        if (d < minD) minD = d
+                    }
+                    minD
+                }
+            }
             val coarseStep = maxOf(gridStepX, gridStepY)
 
             for (pt in scanPoints) {
@@ -638,10 +704,24 @@ class TemplateFeatures(
 
                     if (!isShapeDriven && sIdx in sPixels.indices) {
                         val sc = sPixels[sIdx]
-                        val totalDiff = abs(((sc ushr 16) and 0xFF) - features.l1R[i]) +
-                            abs(((sc ushr 8) and 0xFF) - features.l1G[i]) +
-                            abs((sc and 0xFF) - features.l1B[i])
-                        colorScoreSum += if (totalDiff <= 25) 1.0f else (1.0f - (totalDiff - 25) / 125.0f).coerceIn(0.0f, 1.0f)
+                        if (isDeltaEMode || features.isSmartColorFromMeta) {
+                            val dE = if (features.l1LabL.isNotEmpty()) {
+                                ColorDetector.computeDeltaEFast(sc, features.l1LabL[i], features.l1LabA[i], features.l1LabB[i])
+                            } else {
+                                val expColor = (features.l1R[i] shl 16) or (features.l1G[i] shl 8) or features.l1B[i]
+                                ColorDetector.computeDeltaE(sc, expColor).toFloat()
+                            }
+                            colorScoreSum += when {
+                                dE <= 10.0f -> 1.0f
+                                dE <= 30.0f -> (1.0f - ((dE - 10.0f) / 20.0f))
+                                else -> 0.0f
+                            }
+                        } else {
+                            val totalDiff = abs(((sc ushr 16) and 0xFF) - features.l1R[i]) +
+                                abs(((sc ushr 8) and 0xFF) - features.l1G[i]) +
+                                abs((sc and 0xFF) - features.l1B[i])
+                            colorScoreSum += if (totalDiff <= 25) 1.0f else (1.0f - (totalDiff - 25) / 125.0f).coerceIn(0.0f, 1.0f)
+                        }
                     }
 
 
@@ -691,7 +771,7 @@ class TemplateFeatures(
 
                     // Быстрая локальная доводка при высоком coarse скоре
                     if (coarseScore >= 0.70f) {
-                        val fineScore = evaluateCandidateScore(sPixels, sw, sh, x, y, features, isShapeDriven)
+                        val fineScore = evaluateCandidateScore(sPixels, sw, sh, x, y, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
                         if (fineScore >= 0.88f) {
                             val candidate = MatchCandidate(
                                 x + features.centroidX, y + features.centroidY,
@@ -716,7 +796,26 @@ class TemplateFeatures(
             if (!findAllMatches && earlyExitFound) continue
 
             statL1Sectors += spatialSectors.size
-            val sectorsToScan = if (findAllMatches) {
+            val sectorsToScan = if (selectedRoiZones.isNotEmpty() || selectedAnchors.isNotEmpty()) {
+                spatialSectors.values.sortedByDescending { spot ->
+                    val sX = spot.first + features.centroidX
+                    val sY = spot.second + features.centroidY
+                    var minDist = Float.MAX_VALUE
+                    var inside = false
+                    for (z in selectedRoiZones) {
+                        if (z.contains(sX, sY)) { inside = true; minDist = 0f; break }
+                        val d = kotlin.math.hypot((sX - z.centerX()).toDouble(), (sY - z.centerY()).toDouble()).toFloat()
+                        if (d < minDist) minDist = d
+                    }
+                    for (a in selectedAnchors) {
+                        val d = kotlin.math.hypot((sX - a.x).toDouble(), (sY - a.y).toDouble()).toFloat()
+                        if (d < minDist) minDist = d
+                        if (d < 30f) inside = true
+                    }
+                    val distWeight = if (inside) 1.25f else (1.0f - (minDist / (sw * 0.75f)).coerceIn(0f, 0.40f))
+                    spot.third * distWeight
+                }.take(if (findAllMatches) 24 else 10)
+            } else if (findAllMatches) {
                 spatialSectors.values.sortedByDescending { it.third }.take(24)
             } else {
                 spatialSectors.values.sortedByDescending { it.third }.take(10)
@@ -730,7 +829,7 @@ class TemplateFeatures(
                 for (fy in max(roiMinY, spot.second - coarseStep)..min(scanLimitY, spot.second + coarseStep)) {
                     for (fx in max(roiMinX, spot.first - coarseStep)..min(scanLimitX, spot.first + coarseStep)) {
                         statL2Evals++
-                        val score = evaluateCandidateScore(sPixels, sw, sh, fx, fy, features, isShapeDriven)
+                        val score = evaluateCandidateScore(sPixels, sw, sh, fx, fy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
                         if (score > bestScore) {
                             bestScore = score
                             bestX = fx
@@ -782,12 +881,19 @@ class TemplateFeatures(
         return nmsList.take(32)
     }
 
-        fun evaluateCandidateScore(sPixels: IntArray, sw: Int, sh: Int, fx: Int, fy: Int, features: TemplateFeatures, isShapeOnly: Boolean = false): Float {
+        fun evaluateCandidateScore(
+        sPixels: IntArray, sw: Int, sh: Int, fx: Int, fy: Int,
+        features: TemplateFeatures, isShapeOnly: Boolean = false,
+        useDeltaE: Boolean = false,
+        selectedZones: List<Rect> = emptyList(),
+        selectedAnchors: List<com.example.autotap.domain.model.Point2D> = emptyList()
+    ): Float {
     if (fx < 0 || fy < 0 || fx + features.tw > sw || fy + features.th > sh) return 0f
 
-    var colorScoreSum = 0f; var edgeScoreSum = 0f; var edgeWeightSum = 0f
+    var colorScoreSum = 0f; var colorWeightSum = 0f; var edgeScoreSum = 0f; var edgeWeightSum = 0f
     var hitQ0 = 0; var hitQ1 = 0; var hitQ2 = 0; var hitQ3 = 0; var screenTotalEdges = 0
     val evalStride = if (features.isMicroIcon || features.isThinLine || features.tw <= 36) 1 else max(1, features.shapeCount / 90)
+    val isDeltaEActive = useDeltaE || features.isSmartColorFromMeta
 
     for (k in 0 until features.shapeCount step evalStride) {
     val px = fx + features.shapeDx[k]
@@ -796,14 +902,37 @@ class TemplateFeatures(
     val sColor = sPixels[sIdx]
 
     if (!isShapeOnly) {
-    val dr = abs(((sColor ushr 16) and 0xFF) - features.shapeR[k])
-    val dg = abs(((sColor ushr 8) and 0xFF) - features.shapeG[k])
-    val db = abs((sColor and 0xFF) - features.shapeB[k])
-    colorScoreSum += when {
-    (dr + dg + db) <= 25 -> 1.0f
-    (dr + dg + db) <= 150 -> 1.0f - ((dr + dg + db) - 25) / 125.0f
-    else -> 0.0f
-    }
+        if (isDeltaEActive) {
+            val dE = if (features.shapeLabL.isNotEmpty()) {
+                ColorDetector.computeDeltaEFast(sColor, features.shapeLabL[k], features.shapeLabA[k], features.shapeLabB[k])
+            } else {
+                val expColor = (features.shapeR[k] shl 16) or (features.shapeG[k] shl 8) or features.shapeB[k]
+                ColorDetector.computeDeltaE(sColor, expColor).toFloat()
+            }
+            val ptColor = when {
+                dE <= 8.0f -> 1.0f
+                dE <= 28.0f -> (1.0f - ((dE - 8.0f) / 20.0f))
+                else -> 0.0f
+            }
+            // Пространственная оптимизация внутри шаблона: точки ближе к центроиду имеют максимальный вес
+            val dxCenter = features.shapeDx[k] - features.centroidX
+            val dyCenter = features.shapeDy[k] - features.centroidY
+            val distCenter = kotlin.math.sqrt((dxCenter * dxCenter + dyCenter * dyCenter).toDouble()).toFloat()
+            val maxR = max(features.tw, features.th) / 2f
+            val spatialWeight = 1.0f + 0.5f * (1.0f - (distCenter / maxR).coerceIn(0f, 1f))
+            colorScoreSum += ptColor * spatialWeight
+            colorWeightSum += spatialWeight
+        } else {
+            val dr = abs(((sColor ushr 16) and 0xFF) - features.shapeR[k])
+            val dg = abs(((sColor ushr 8) and 0xFF) - features.shapeG[k])
+            val db = abs((sColor and 0xFF) - features.shapeB[k])
+            colorScoreSum += when {
+                (dr + dg + db) <= 25 -> 1.0f
+                (dr + dg + db) <= 150 -> 1.0f - ((dr + dg + db) - 25) / 125.0f
+                else -> 0.0f
+            }
+            colorWeightSum += 1.0f
+        }
     }
 
     if (px in 1 until sw - 1 && py in 1 until sh - 1) {
@@ -855,7 +984,8 @@ class TemplateFeatures(
 
     if (k >= features.shapeCount / 3) {
     val evalCount = (k / evalStride) + 1
-    if (!isShapeOnly && evalCount >= 8 && (colorScoreSum / evalCount.toFloat()) < 0.22f) {
+    val currentNormColor = if (colorWeightSum > 0f) (colorScoreSum / colorWeightSum) else 0f
+    if (!isShapeOnly && evalCount >= 8 && currentNormColor < 0.22f) {
     return 0f
     }
     if (edgeWeightSum > 3f && (edgeScoreSum / edgeWeightSum) < 0.18f) {
@@ -878,8 +1008,7 @@ class TemplateFeatures(
         (clutterThreshold / normalizedScreenEdges.toFloat()).coerceIn(0.35f, 1.0f)
     } else 1.0f
 
-    val totalChecks = features.shapeCount / evalStride
-    val colScore = if (totalChecks > 0) colorScoreSum / totalChecks.toFloat() else edScore
+    val colScore = if (colorWeightSum > 0f) (colorScoreSum / colorWeightSum) else edScore
 
     if (isShapeOnly) {
         val completeness = if (missingQuadrants >= 3) 0.65f else if (missingQuadrants == 2) 0.88f else 1.0f
@@ -890,7 +1019,39 @@ class TemplateFeatures(
     val effectiveEdgeWeight = if (features.shapeEdgeCount >= 6 && edScore >= 0.60f) 0.40f else if (edgeWeightSum > 0f) 0.25f else 0.05f
     val completenessFactor = if (missingQuadrants >= 3) 0.80f else if (missingQuadrants == 2) 0.90f else 1.0f
 
-    val combinedScore = (colScore * (1f - effectiveEdgeWeight) + edScore * effectiveEdgeWeight) * completenessFactor * clutterPenalty
+    var spatialFactor = 1.0f
+    if (selectedZones.isNotEmpty() || selectedAnchors.isNotEmpty()) {
+        val candCenterX = fx + features.centroidX
+        val candCenterY = fy + features.centroidY
+        var minDistance = Float.MAX_VALUE
+        var isInsideSelected = false
+
+        for (zone in selectedZones) {
+            if (zone.contains(candCenterX, candCenterY)) {
+                isInsideSelected = true
+                minDistance = 0f
+                break
+            }
+            val zX = zone.centerX().toFloat()
+            val zY = zone.centerY().toFloat()
+            val d = kotlin.math.hypot((candCenterX - zX).toDouble(), (candCenterY - zY).toDouble()).toFloat()
+            if (d < minDistance) minDistance = d
+        }
+
+        for (pt in selectedAnchors) {
+            val d = kotlin.math.hypot((candCenterX - pt.x).toDouble(), (candCenterY - pt.y).toDouble()).toFloat()
+            if (d < minDistance) minDistance = d
+            if (d < 30f) isInsideSelected = true
+        }
+
+        val bonus = if (isDeltaEActive) 1.08f else 1.06f
+        val maxPenalty = if (isDeltaEActive) 0.50f else 0.40f
+        val distanceScale = if (isDeltaEActive) 0.65f else 0.75f
+        spatialFactor = if (isInsideSelected) bonus
+        else (1.0f - (minDistance / (sw * distanceScale)).coerceIn(0f, maxPenalty))
+    }
+
+    val combinedScore = (colScore * (1f - effectiveEdgeWeight) + edScore * effectiveEdgeWeight) * completenessFactor * clutterPenalty * spatialFactor
     return combinedScore.coerceIn(0f, 1f)
     }
 }
