@@ -1564,6 +1564,32 @@ private val targetStepId: Int? = null,
             }
         }
         folderRow.addView(etFolder)
+
+        val btnSelectFolder = Button(context).apply {
+            text = "▼"
+            textSize = 9f
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                setColor("#21262D".toColorInt())
+                cornerRadius = dpF(4f)
+                setStroke(dp(1), "#30363D".toColorInt())
+            }
+            minHeight = 0; minimumHeight = 0
+            setPadding(dp(6), 0, dp(6), 0)
+            setOnClickListener {
+                val folders = (templateRepository as? com.example.autotap.infrastructure.storage.TemplateRepositoryImpl)?.listFolders() ?: listOf("default")
+                val popup = android.widget.PopupMenu(context, this)
+                for (folder in folders) {
+                    popup.menu.add(folder)
+                }
+                popup.setOnMenuItemClickListener { item ->
+                    etFolder.setText(item.title)
+                    true
+                }
+                popup.show()
+            }
+        }
+        folderRow.addView(btnSelectFolder, LinearLayout.LayoutParams(dp(28), dp(28)).apply {marginStart = dp(4)})
         card.addView(folderRow)
 
         val actionRow = LinearLayout(context).apply {
