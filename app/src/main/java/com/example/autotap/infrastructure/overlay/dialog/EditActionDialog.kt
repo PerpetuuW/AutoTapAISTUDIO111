@@ -960,6 +960,37 @@ class EditActionDialog(
                             currentCarouselFolder = folderName
                             renderCarouselItems()
                         }
+                        setOnLongClickListener {
+                            val repoImpl = templateRepository as? com.example.autotap.infrastructure.storage.TemplateRepositoryImpl
+                            val folderDir = java.io.File(context.filesDir, "templates/$folderName")
+                            val filesCount = folderDir.listFiles()?.size ?: 0
+                            if (filesCount == 0) {
+                                android.app.AlertDialog.Builder(context)
+                                    .setTitle("Удаление папки")
+                                    .setMessage("Удалить пустую папку «$folderName»?")
+                                    .setPositiveButton("Удалить") { _, _ ->
+                                        repoImpl?.deleteFolder(folderName, false)
+                                        renderCarouselItems()
+                                    }
+                                    .setNegativeButton("Отмена", null)
+                                    .show()
+                            } else {
+                                android.app.AlertDialog.Builder(context)
+                                    .setTitle("Удаление папки «$folderName»")
+                                    .setMessage("В папке содержится шаблонов: $filesCount. Что сделать с ними?")
+                                    .setPositiveButton("Удалить с шаблонами") { _, _ ->
+                                        repoImpl?.deleteFolder(folderName, true)
+                                        renderCarouselItems()
+                                    }
+                                    .setNeutralButton("Перенести в default") { _, _ ->
+                                        repoImpl?.deleteFolder(folderName, false)
+                                        renderCarouselItems()
+                                    }
+                                    .setNegativeButton("Отмена", null)
+                                    .show()
+                            }
+                            true
+                        }
                     }
                     libraryRow.addView(folderCard)
                 }
