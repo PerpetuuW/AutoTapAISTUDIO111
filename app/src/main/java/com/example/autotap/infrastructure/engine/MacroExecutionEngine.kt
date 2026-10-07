@@ -74,6 +74,8 @@ class MacroExecutionEngine(
     @Volatile
     private var isStepByStepDebug = false
 
+    override val isDebugRunning: Boolean get() = isStepByStepDebug
+
     @Volatile
     private var isPaused = false
 

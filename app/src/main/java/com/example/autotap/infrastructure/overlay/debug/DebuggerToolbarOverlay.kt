@@ -67,10 +67,11 @@ class DebuggerToolbarOverlay(
             textSize = 9.5f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
-            setTextColor(Color.WHITE)
+            setTextColor("#A78BFA".toColorInt())
             background = GradientDrawable().apply {
-                setColor("#8B5CF6".toColorInt())
+                setColor("#1E1B4B".toColorInt())
                 cornerRadius = dpF(6f)
+                setStroke(dp(1), "#8B5CF6".toColorInt())
             }
             minHeight = 0
             minimumHeight = 0
@@ -84,10 +85,11 @@ class DebuggerToolbarOverlay(
             textSize = 9.5f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
-            setTextColor(Color.WHITE)
+            setTextColor("#F43F5E".toColorInt())
             background = GradientDrawable().apply {
-                setColor("#F43F5E".toColorInt())
+                setColor("#3A1016".toColorInt())
                 cornerRadius = dpF(6f)
+                setStroke(dp(1), "#F43F5E".toColorInt())
             }
             minHeight = 0
             minimumHeight = 0

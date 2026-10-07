@@ -1189,9 +1189,13 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     if (state.isDebugPaused) {
                         debuggerToolbarOverlay.updateStepInfo(state.currentStepIndex, state.totalSteps, state.stepType.name)
                     }
-                    runningBadgeOverlay.show(onLockClick = { screenLockOverlay.show() }, onStopClick = { macroEngine.stop() })
-                    runningBadgeOverlay.forceVisible() // Гарантирует появление кнопки СТОП
-                    runningBadgeOverlay.updateState(state)
+                    if (!macroEngine.isDebugRunning) {
+                        runningBadgeOverlay.show(onLockClick = { screenLockOverlay.show() }, onStopClick = { macroEngine.stop() })
+                        runningBadgeOverlay.forceVisible() // Гарантирует появление кнопки СТОП
+                        runningBadgeOverlay.updateState(state)
+                    } else {
+                        runningBadgeOverlay.dismiss()
+                    }
                 }
 
                 is ExecutionState.Completed -> {

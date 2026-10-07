@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 interface IMacroEngine {
     val executionState: StateFlow<ExecutionState>
+    val isDebugRunning: Boolean
     fun start(scenario: MacroScenario, templates: Map<String, Bitmap>, isDebug: Boolean = false)
     fun startGraph(scenario: GraphMacroScenario, templates: Map<String, Bitmap>, isDebug: Boolean = false)
     fun stop()
