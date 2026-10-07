@@ -128,7 +128,18 @@ object OcrEngine {
      */
     private fun mergeAdjacentLineBoxes(boxes: List<Rect>): List<Rect> {
         if (boxes.size <= 1) return boxes
-        val sorted = boxes.sortedWith(compareBy({ it.top / 12 }, { it.left }))
+        // Сортировка: слова на одной высоте (высокий vOverlap) упорядочиваются слева направо
+        val sorted = boxes.sortedWith { a, b ->
+            val vOverlapMin = maxOf(a.top, b.top)
+            val vOverlapMax = minOf(a.bottom, b.bottom)
+            val vOverlap = vOverlapMax - vOverlapMin
+            val minH = minOf(a.height(), b.height()).coerceAtLeast(1)
+            if (vOverlap >= minH * 0.45f) {
+                a.left.compareTo(b.left)
+            } else {
+                a.top.compareTo(b.top)
+            }
+        }
         val merged = mutableListOf<Rect>()
 
         var current = Rect(sorted[0])
@@ -139,10 +150,11 @@ object OcrEngine {
             val vOverlap = vOverlapMax - vOverlapMin
             val minH = minOf(current.height(), next.height()).coerceAtLeast(1)
 
-            val isSameLine = vOverlap >= minH * 0.45f
+            val isSameLine = vOverlap >= minH * 0.40f
             val hGap = next.left - current.right
+            val maxAllowedGap = (minH * 1.5f).toInt().coerceIn(16, 48)
 
-            if (isSameLine && hGap in -10..32) {
+            if (isSameLine && hGap in -12..maxAllowedGap) {
                 // Объединяем близкие боксы в единую текстовую строку
                 current.left = minOf(current.left, next.left)
                 current.top = minOf(current.top, next.top)
@@ -351,16 +363,7 @@ object OcrEngine {
                             val origR = (unclipR / scaleW).toInt().coerceIn(origL + 1, origW)
                             val origB = (unclipB / scaleH).toInt().coerceIn(origT + 1, origH)
 
-                            val bhOrig = origB - origT
-                            val extraPadW = (bhOrig * 0.55f).toInt().coerceIn(12, 45)
-                            val extraPadH = (bhOrig * 0.10f).toInt().coerceIn(3, 8)
-
-                            val expandedL = (origL - extraPadW).coerceAtLeast(0)
-                            val expandedT = (origT - extraPadH).coerceAtLeast(0)
-                            val expandedR = (origR + extraPadW).coerceAtMost(origW)
-                            val expandedB = (origB + extraPadH).coerceAtMost(origH)
-
-                            detectedBoxes.add(Rect(expandedL, expandedT, expandedR, expandedB))
+                            detectedBoxes.add(Rect(origL, origT, origR, origB))
                         }
                     }
                 }
@@ -381,7 +384,9 @@ object OcrEngine {
                     if (inter.setIntersect(m, box)) {
                         val interArea = inter.width() * inter.height()
                         val boxArea = box.width() * box.height()
-                        if (interArea >= boxArea * 0.75f) {
+                        val mArea = m.width() * m.height()
+                        val minArea = minOf(boxArea, mArea)
+                        if (interArea >= minArea * 0.85f) {
                             isDuplicate = true
                             break
                         }
@@ -500,21 +505,12 @@ object OcrEngine {
                     val bw = maxX - minX + 1
                     val bh = maxY - minY + 1
                     if (bw in 8..600 && bh in 6..120 && compPixels >= 6) {
-                        val origL = ((minX - 4) * invScale).toInt().coerceIn(0, w - 1)
-                        val origT = ((minY - 3) * invScale).toInt().coerceIn(0, h - 1)
-                        val origR = ((maxX + 5) * invScale).toInt().coerceIn(origL + 1, w)
-                        val origB = ((maxY + 4) * invScale).toInt().coerceIn(origT + 1, h)
+                        val origL = ((minX - 2) * invScale).toInt().coerceIn(0, w - 1)
+                        val origT = ((minY - 2) * invScale).toInt().coerceIn(0, h - 1)
+                        val origR = ((maxX + 3) * invScale).toInt().coerceIn(origL + 1, w)
+                        val origB = ((maxY + 3) * invScale).toInt().coerceIn(origT + 1, h)
 
-                        val bhOrig = origB - origT
-                        val extraPadW = (bhOrig * 0.55f).toInt().coerceIn(12, 45)
-                        val extraPadH = (bhOrig * 0.10f).toInt().coerceIn(3, 8)
-
-                        val expandedL = (origL - extraPadW).coerceAtLeast(0)
-                        val expandedT = (origT - extraPadH).coerceAtLeast(0)
-                        val expandedR = (origR + extraPadW).coerceAtMost(w)
-                        val expandedB = (origB + extraPadH).coerceAtMost(h)
-
-                        rawBoxes.add(Rect(expandedL, expandedT, expandedR, expandedB))
+                        rawBoxes.add(Rect(origL, origT, origR, origB))
                     }
                 }
             }
@@ -860,9 +856,9 @@ object OcrEngine {
             for (box in filteredBoxes) {
                 val f = threadPool.submit(java.util.concurrent.Callable {
                     val bH = box.height()
-                    // Добавляем горизонтальный и вертикальный паддинг, чтобы предотвратить "проглатывание" первых и последних букв
-                    val padX = (bH * 0.45f).toInt().coerceAtLeast(16)
-                    val padY = (bH * 0.25f).toInt().coerceAtLeast(8)
+                    // Умеренный паддинг исключительно при кропе для нейросети распознавания, не искажающий координаты бокса
+                    val padX = (bH * 0.25f).toInt().coerceIn(4, 16)
+                    val padY = (bH * 0.12f).toInt().coerceIn(2, 6)
 
                     val cropL = (box.left - padX).coerceIn(0, localBmp.width - 1)
                     val cropT = (box.top - padY).coerceIn(0, localBmp.height - 1)
