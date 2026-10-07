@@ -237,18 +237,17 @@ object OcrEngine {
 
         // Высокое разрешение для полноэкранного детектирования мелких шрифтов HUD/иконок (до 1280px)
         val maxSide = maxOf(960, minOf(1280, max(origW, origH)))
-        val ratio = maxSide.toFloat() / max(origW, origH).toFloat()
-        var targetW = (origW * ratio).toInt()
-        var targetH = (origH * ratio).toInt()
-        targetW = maxOf(32, ((targetW + 31) / 32) * 32)
-        targetH = maxOf(32, ((targetH + 31) / 32) * 32)
+        val scale = maxSide.toFloat() / max(origW, origH).toFloat()
+        val scaledW = (origW * scale).toInt().coerceAtLeast(16)
+        val scaledH = (origH * scale).toInt().coerceAtLeast(16)
 
-        val scaleW = targetW.toFloat() / origW.toFloat()
-        val scaleH = targetH.toFloat() / origH.toFloat()
+        // Размеры тензора с выравниванием по кратности 32 без искажения пропорций (zero padding)
+        val targetW = maxOf(32, ((scaledW + 31) / 32) * 32)
+        val targetH = maxOf(32, ((scaledH + 31) / 32) * 32)
 
-        val scaledBmp = Bitmap.createScaledBitmap(bmp, targetW, targetH, true)
-        val pixels = IntArray(targetW * targetH)
-        scaledBmp.getPixels(pixels, 0, targetW, 0, 0, targetW, targetH)
+        val scaledBmp = Bitmap.createScaledBitmap(bmp, scaledW, scaledH, true)
+        val pixels = IntArray(scaledW * scaledH)
+        scaledBmp.getPixels(pixels, 0, scaledW, 0, 0, scaledW, scaledH)
         if (scaledBmp != bmp && !scaledBmp.isRecycled) {
             scaledBmp.recycle()
         }
@@ -261,9 +260,9 @@ object OcrEngine {
             val m = mean[c]
             val s = std[c]
             for (y in 0 until targetH) {
-                val rowOff = y * targetW
+                val rowOffInScaled = if (y < scaledH) y * scaledW else -1
                 for (x in 0 until targetW) {
-                    val p = pixels[rowOff + x]
+                    val p = if (x < scaledW && rowOffInScaled >= 0) pixels[rowOffInScaled + x] else 0
                     val raw = when (c) {
                         0 -> (p shr 16) and 0xFF // R
                         1 -> (p shr 8) and 0xFF  // G
@@ -355,13 +354,13 @@ object OcrEngine {
 
                             val unclipL = max(0, (minX - distance).toInt())
                             val unclipT = max(0, (minY - distance).toInt())
-                            val unclipR = min(targetW - 1, (maxX + distance).toInt())
-                            val unclipB = min(targetH - 1, (maxY + distance).toInt())
+                            val unclipR = min(scaledW - 1, (maxX + distance).toInt())
+                            val unclipB = min(scaledH - 1, (maxY + distance).toInt())
 
-                            val origL = (unclipL / scaleW).toInt().coerceIn(0, origW - 1)
-                            val origT = (unclipT / scaleH).toInt().coerceIn(0, origH - 1)
-                            val origR = (unclipR / scaleW).toInt().coerceIn(origL + 1, origW)
-                            val origB = (unclipB / scaleH).toInt().coerceIn(origT + 1, origH)
+                            val origL = (unclipL / scale).toInt().coerceIn(0, origW - 1)
+                            val origT = (unclipT / scale).toInt().coerceIn(0, origH - 1)
+                            val origR = (unclipR / scale).toInt().coerceIn(origL + 1, origW)
+                            val origB = (unclipB / scale).toInt().coerceIn(origT + 1, origH)
 
                             detectedBoxes.add(Rect(origL, origT, origR, origB))
                         }
@@ -572,7 +571,7 @@ object OcrEngine {
             val sb = StringBuilder()
             var lastIndex = -1
             val timeSteps = output[0]
-            val validSteps = ((timeSteps.size.toFloat() * resizedW) / targetW).toInt().coerceIn(1, timeSteps.size)
+            val validSteps = kotlin.math.ceil((timeSteps.size.toFloat() * resizedW) / targetW).toInt().coerceIn(1, timeSteps.size)
 
             for (s in 0 until validSteps) {
                 val step = timeSteps[s]
@@ -856,9 +855,9 @@ object OcrEngine {
             for (box in filteredBoxes) {
                 val f = threadPool.submit(java.util.concurrent.Callable {
                     val bH = box.height()
-                    // Умеренный паддинг исключительно при кропе для нейросети распознавания, не искажающий координаты бокса
-                    val padX = (bH * 0.25f).toInt().coerceIn(4, 16)
-                    val padY = (bH * 0.12f).toInt().coerceIn(2, 6)
+                    // Просторный горизонтальный паддинг исключительно при кропе для нейросети распознавания, не искажающий координаты бокса
+                    val padX = (bH * 0.45f).toInt().coerceIn(14, 36)
+                    val padY = (bH * 0.18f).toInt().coerceIn(3, 10)
 
                     val cropL = (box.left - padX).coerceIn(0, localBmp.width - 1)
                     val cropT = (box.top - padY).coerceIn(0, localBmp.height - 1)
