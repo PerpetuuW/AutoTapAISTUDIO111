@@ -114,9 +114,24 @@ class InteractiveRoboticArmDemoDialog(
                 textSize = dpF(12f)
                 typeface = Typeface.DEFAULT_BOLD
             }
+            private val bannerPhasePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = "#FCD34D".toColorInt()
+                textSize = dpF(10f)
+                typeface = Typeface.DEFAULT_BOLD
+            }
             private val bannerBodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.WHITE
+                textSize = dpF(10f)
+                typeface = Typeface.DEFAULT
+            }
+            private val hintTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = "#A78BFA".toColorInt()
                 textSize = dpF(10.5f)
+                typeface = Typeface.DEFAULT_BOLD
+            }
+            private val hintBodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = "#E2E8F0".toColorInt()
+                textSize = dpF(9.5f)
                 typeface = Typeface.DEFAULT
             }
             private val badgeCirclePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -162,8 +177,21 @@ class InteractiveRoboticArmDemoDialog(
                     gy += step
                 }
 
-                // 2. Симулируемый экран приложения / игры
-                val gameRect = RectF(w * 0.05f, h * 0.17f, w * 0.95f, h * 0.72f)
+                // 2. Определение текущей стадии (0: Картинка, 1: OCR, 2: Запись, 3: Клики)
+                val currentStage = selectedManualStage ?: when {
+                    animProgress < 0.25f -> 0 // 1. ИЗОБРАЖЕНИЕ
+                    animProgress < 0.50f -> 1 // 2. ТЕКСТ (OCR)
+                    animProgress < 0.75f -> 2 // 3. ЗАПИСЬ ДЕЙСТВИЙ
+                    else -> 3                 // 4. ОБЫЧНЫЕ КЛИКИ И ПУСК
+                }
+
+                // Координаты рабочих зон
+                val bannerRect = RectF(w * 0.04f, dpF(82f), w * 0.96f, dpF(160f))
+                val gameRect = RectF(w * 0.04f, bannerRect.bottom + dpF(8f), w * 0.96f, h * 0.73f)
+                val panelRect = RectF(w * 0.04f, h * 0.745f, w * 0.96f, h * 0.835f)
+                val hintRect = RectF(w * 0.04f, panelRect.bottom + dpF(8f), w * 0.96f, h - dpF(12f))
+
+                // 3. Симулируемый экран приложения / игры
                 generalItemBg.shader = LinearGradient(
                     gameRect.left, gameRect.top, gameRect.right, gameRect.bottom,
                     intArrayOf("#140F24".toColorInt(), "#0B0813".toColorInt()), null, Shader.TileMode.CLAMP
@@ -171,42 +199,42 @@ class InteractiveRoboticArmDemoDialog(
                 canvas.drawRoundRect(gameRect, dpF(14f), dpF(14f), generalItemBg)
                 canvas.drawRoundRect(gameRect, dpF(14f), dpF(14f), gameScreenBorderPaint)
 
-                // Заголовок сцены
-                val gameHeader = RectF(gameRect.left, gameRect.top, gameRect.right, gameRect.top + dpF(34f))
+                // Заголовок сцены игры
+                val gameHeader = RectF(gameRect.left, gameRect.top, gameRect.right, gameRect.top + dpF(30f))
                 generalItemBg.shader = null
                 generalItemBg.color = "#201738".toColorInt()
                 canvas.drawRoundRect(gameHeader, dpF(14f), dpF(14f), generalItemBg)
-                canvas.drawText("СИМУЛЯЦИЯ ИНТЕРФЕЙСА · СЦЕНАРИЙ AUTOTAP", gameHeader.left + dpF(12f), gameHeader.centerY() + dpF(4f), textTitlePaint)
+                canvas.drawText("СИМУЛЯЦИЯ ИНТЕРФЕЙСА · СЦЕНАРИЙ AUTOTAP", gameHeader.left + dpF(10f), gameHeader.centerY() + dpF(4f), textTitlePaint)
 
                 // Карточка 1: Графическая цель (Сундук сокровищ / Кнопка с иконкой)
-                val chestArea = RectF(gameRect.left + dpF(12f), gameHeader.bottom + dpF(14f), gameRect.left + dpF(130f), gameHeader.bottom + dpF(96f))
+                val chestArea = RectF(gameRect.left + dpF(10f), gameHeader.bottom + dpF(10f), gameRect.left + dpF(130f), gameHeader.bottom + dpF(88f))
                 generalItemBg.color = "#1F1735".toColorInt()
                 canvas.drawRoundRect(chestArea, dpF(10f), dpF(10f), generalItemBg)
-                canvas.drawText("ЦЕЛЬ ИИ", chestArea.left + dpF(8f), chestArea.top + dpF(16f), textSubPaint)
+                canvas.drawText("ЦЕЛЬ: КАРТИНКА", chestArea.left + dpF(8f), chestArea.top + dpF(16f), textSubPaint)
 
-                val arrowTarget = RectF(chestArea.centerX() - dpF(20f), chestArea.centerY() - dpF(6f), chestArea.centerX() + dpF(20f), chestArea.centerY() + dpF(22f))
+                val arrowTarget = RectF(chestArea.centerX() - dpF(18f), chestArea.centerY() - dpF(4f), chestArea.centerX() + dpF(18f), chestArea.centerY() + dpF(22f))
                 generalItemBg.color = "#3538BDF8".toColorInt()
                 canvas.drawRoundRect(arrowTarget, dpF(6f), dpF(6f), generalItemBg)
-                iconBounds.set(arrowTarget.left + dpF(6f), arrowTarget.top + dpF(4f), arrowTarget.right - dpF(6f), arrowTarget.bottom - dpF(4f))
+                iconBounds.set(arrowTarget.left + dpF(5f), arrowTarget.top + dpF(4f), arrowTarget.right - dpF(5f), arrowTarget.bottom - dpF(4f))
                 VectorIconDrawer.drawIcon(canvas, VectorIconDrawer.IconType.IMAGE, iconBounds, "#38BDF8".toColorInt(), dpF(1.5f))
 
                 // Карточка 2: Текстовая цель (OCR Кнопка "ЗАБРАТЬ +500")
-                val ocrClaimBtn = RectF(gameRect.right - dpF(140f), gameHeader.bottom + dpF(20f), gameRect.right - dpF(12f), gameHeader.bottom + dpF(68f))
+                val ocrClaimBtn = RectF(gameRect.right - dpF(135f), gameHeader.bottom + dpF(14f), gameRect.right - dpF(10f), gameHeader.bottom + dpF(60f))
                 generalItemBg.color = "#0D2E1E".toColorInt()
                 canvas.drawRoundRect(ocrClaimBtn, dpF(8f), dpF(8f), generalItemBg)
                 gameScreenBorderPaint.color = "#34D399".toColorInt()
                 canvas.drawRoundRect(ocrClaimBtn, dpF(8f), dpF(8f), gameScreenBorderPaint)
-                canvas.drawText("ЗАБРАТЬ +500", ocrClaimBtn.left + dpF(16f), ocrClaimBtn.centerY() + dpF(4f), textTitlePaint)
+                canvas.drawText("ЗАБРАТЬ +500", ocrClaimBtn.left + dpF(12f), ocrClaimBtn.centerY() + dpF(4f), textTitlePaint)
 
                 // Карточка 3: Список элементов для кликов и свайпа
-                val listArea = RectF(gameRect.left + dpF(12f), chestArea.bottom + dpF(14f), gameRect.right - dpF(12f), gameRect.bottom - dpF(14f))
+                val listArea = RectF(gameRect.left + dpF(10f), chestArea.bottom + dpF(10f), gameRect.right - dpF(10f), gameRect.bottom - dpF(10f))
                 generalItemBg.color = "#161127".toColorInt()
                 canvas.drawRoundRect(listArea, dpF(10f), dpF(10f), generalItemBg)
-                canvas.drawText("СПИСОК ЭЛЕМЕНТОВ (ТАПЫ И СВАЙПЫ)", listArea.left + dpF(10f), listArea.top + dpF(16f), textSubPaint)
+                canvas.drawText("СПИСОК ЭЛЕМЕНТОВ (ТАПЫ И СВАЙПЫ)", listArea.left + dpF(10f), listArea.top + dpF(15f), textSubPaint)
 
-                val itemBtn1 = RectF(listArea.left + dpF(8f), listArea.top + dpF(24f), listArea.right - dpF(8f), listArea.top + dpF(48f))
-                val itemBtn2 = RectF(listArea.left + dpF(8f), listArea.top + dpF(52f), listArea.right - dpF(8f), listArea.top + dpF(76f))
-                val itemBtn3 = RectF(listArea.left + dpF(8f), listArea.top + dpF(80f), listArea.right - dpF(8f), listArea.top + dpF(104f))
+                val itemBtn1 = RectF(listArea.left + dpF(8f), listArea.top + dpF(22f), listArea.right - dpF(8f), listArea.top + dpF(44f))
+                val itemBtn2 = RectF(listArea.left + dpF(8f), listArea.top + dpF(48f), listArea.right - dpF(8f), listArea.top + dpF(70f))
+                val itemBtn3 = RectF(listArea.left + dpF(8f), listArea.top + dpF(74f), listArea.right - dpF(8f), listArea.top + dpF(96f))
 
                 generalItemBg.color = "#231B3D".toColorInt()
                 canvas.drawRoundRect(itemBtn1, dpF(6f), dpF(6f), generalItemBg)
@@ -218,150 +246,153 @@ class InteractiveRoboticArmDemoDialog(
                 canvas.drawRoundRect(itemBtn3, dpF(6f), dpF(6f), generalItemBg)
                 canvas.drawText("Пункт #3 — Прокрутка вверх", itemBtn3.left + dpF(10f), itemBtn3.centerY() + dpF(4f), textSubPaint)
 
-                // 3. Плавающий пульт управления AutoTap
-                val panelRect = RectF(w * 0.05f, h * 0.75f, w * 0.95f, h * 0.84f)
+                // 4. Плавающий пульт управления AutoTap
                 canvas.drawRoundRect(panelRect, dpF(12f), dpF(12f), panelBgPaint)
                 canvas.drawRoundRect(panelRect, dpF(12f), dpF(12f), panelBorderPaint)
 
-                val btnW = (panelRect.width() - dpF(30f)) / 5f
-                val btnH = panelRect.height() - dpF(12f)
-                val btnY = panelRect.top + dpF(6f)
+                val btnW = (panelRect.width() - dpF(28f)) / 5f
+                val btnH = panelRect.height() - dpF(10f)
+                val btnY = panelRect.top + dpF(5f)
 
-                // 3.1 Кнопка ПУСК
-                val pBtnPlay = RectF(panelRect.left + dpF(6f), btnY, panelRect.left + dpF(6f) + btnW, btnY + btnH)
+                // 4.1 Кнопка ПУСК
+                val pBtnPlay = RectF(panelRect.left + dpF(5f), btnY, panelRect.left + dpF(5f) + btnW, btnY + btnH)
                 generalItemBg.color = if (animProgress >= 0.75f) "#064E3B".toColorInt() else "#0D2E1E".toColorInt()
                 canvas.drawRoundRect(pBtnPlay, dpF(8f), dpF(8f), generalItemBg)
                 gameScreenBorderPaint.color = "#34D399".toColorInt()
                 canvas.drawRoundRect(pBtnPlay, dpF(8f), dpF(8f), gameScreenBorderPaint)
-                iconBounds.set(pBtnPlay.centerX() - dpF(9f), pBtnPlay.centerY() - dpF(9f), pBtnPlay.centerX() + dpF(9f), pBtnPlay.centerY() + dpF(9f))
+                iconBounds.set(pBtnPlay.centerX() - dpF(8f), pBtnPlay.centerY() - dpF(8f), pBtnPlay.centerX() + dpF(8f), pBtnPlay.centerY() + dpF(8f))
                 VectorIconDrawer.drawIcon(canvas, if (animProgress >= 0.75f) VectorIconDrawer.IconType.PAUSE else VectorIconDrawer.IconType.PLAY, iconBounds, "#34D399".toColorInt(), dpF(2f))
 
-                // 3.2 Кнопка Снимок ИИ
+                // 4.2 Кнопка Снимок ИИ
                 val pBtnCapture = RectF(pBtnPlay.right + dpF(4f), btnY, pBtnPlay.right + dpF(4f) + btnW, btnY + btnH)
                 generalItemBg.color = "#162032".toColorInt()
                 canvas.drawRoundRect(pBtnCapture, dpF(8f), dpF(8f), generalItemBg)
                 gameScreenBorderPaint.color = "#38BDF8".toColorInt()
                 canvas.drawRoundRect(pBtnCapture, dpF(8f), dpF(8f), gameScreenBorderPaint)
-                iconBounds.set(pBtnCapture.centerX() - dpF(9f), pBtnCapture.centerY() - dpF(9f), pBtnCapture.centerX() + dpF(9f), pBtnCapture.centerY() + dpF(9f))
+                iconBounds.set(pBtnCapture.centerX() - dpF(8f), pBtnCapture.centerY() - dpF(8f), pBtnCapture.centerX() + dpF(8f), pBtnCapture.centerY() + dpF(8f))
                 VectorIconDrawer.drawIcon(canvas, VectorIconDrawer.IconType.CAPTURE, iconBounds, "#38BDF8".toColorInt(), dpF(1.8f))
 
-                // 3.3 Кнопка Запись
+                // 4.3 Кнопка Запись
                 val pBtnRecord = RectF(pBtnCapture.right + dpF(4f), btnY, pBtnCapture.right + dpF(4f) + btnW, btnY + btnH)
                 generalItemBg.color = "#2E121B".toColorInt()
                 canvas.drawRoundRect(pBtnRecord, dpF(8f), dpF(8f), generalItemBg)
                 gameScreenBorderPaint.color = "#F43F5E".toColorInt()
                 canvas.drawRoundRect(pBtnRecord, dpF(8f), dpF(8f), gameScreenBorderPaint)
-                iconBounds.set(pBtnRecord.centerX() - dpF(9f), pBtnRecord.centerY() - dpF(9f), pBtnRecord.centerX() + dpF(9f), pBtnRecord.centerY() + dpF(9f))
+                iconBounds.set(pBtnRecord.centerX() - dpF(8f), pBtnRecord.centerY() - dpF(8f), pBtnRecord.centerX() + dpF(8f), pBtnRecord.centerY() + dpF(8f))
                 VectorIconDrawer.drawIcon(canvas, VectorIconDrawer.IconType.RECORD, iconBounds, "#F43F5E".toColorInt(), dpF(1.8f))
 
-                // 3.4 Кнопка Добавить шаг [+]
+                // 4.4 Кнопка Добавить шаг [+]
                 val pBtnAdd = RectF(pBtnRecord.right + dpF(4f), btnY, pBtnRecord.right + dpF(4f) + btnW, btnY + btnH)
                 generalItemBg.color = "#162032".toColorInt()
                 canvas.drawRoundRect(pBtnAdd, dpF(8f), dpF(8f), generalItemBg)
                 gameScreenBorderPaint.color = "#38BDF8".toColorInt()
                 canvas.drawRoundRect(pBtnAdd, dpF(8f), dpF(8f), gameScreenBorderPaint)
-                iconBounds.set(pBtnAdd.centerX() - dpF(9f), pBtnAdd.centerY() - dpF(9f), pBtnAdd.centerX() + dpF(9f), pBtnAdd.centerY() + dpF(9f))
+                iconBounds.set(pBtnAdd.centerX() - dpF(8f), pBtnAdd.centerY() - dpF(8f), pBtnAdd.centerX() + dpF(8f), pBtnAdd.centerY() + dpF(8f))
                 VectorIconDrawer.drawIcon(canvas, VectorIconDrawer.IconType.PLUS, iconBounds, "#38BDF8".toColorInt(), dpF(1.8f))
 
-                // 3.5 Кнопка Глаз (3 режима)
+                // 4.5 Кнопка Глаз (3 режима)
                 val pBtnEye = RectF(pBtnAdd.right + dpF(4f), btnY, pBtnAdd.right + dpF(4f) + btnW, btnY + btnH)
                 generalItemBg.color = "#162032".toColorInt()
                 canvas.drawRoundRect(pBtnEye, dpF(8f), dpF(8f), generalItemBg)
                 gameScreenBorderPaint.color = "#38BDF8".toColorInt()
                 canvas.drawRoundRect(pBtnEye, dpF(8f), dpF(8f), gameScreenBorderPaint)
-                iconBounds.set(pBtnEye.centerX() - dpF(9f), pBtnEye.centerY() - dpF(9f), pBtnEye.centerX() + dpF(9f), pBtnEye.centerY() + dpF(9f))
+                iconBounds.set(pBtnEye.centerX() - dpF(8f), pBtnEye.centerY() - dpF(8f), pBtnEye.centerX() + dpF(8f), pBtnEye.centerY() + dpF(8f))
                 VectorIconDrawer.drawIcon(canvas, VectorIconDrawer.IconType.VISIBILITY, iconBounds, "#38BDF8".toColorInt(), dpF(1.8f))
 
-                // 4. Логика 4 стадий
-                val currentStage = selectedManualStage ?: when {
-                    animProgress < 0.25f -> 0 // 1. ИЗОБРАЖЕНИЕ
-                    animProgress < 0.50f -> 1 // 2. ТЕКСТ (OCR)
-                    animProgress < 0.75f -> 2 // 3. ЗАПИСЬ ДЕЙСТВИЙ
-                    else -> 3                 // 4. ОБЫЧНЫЕ КЛИКИ И ПУСК
-                }
-
+                // 5. Логика и координаты указателя для 4 стадий
                 var targetX = 0f
                 var targetY = 0f
                 var isScanning = false
                 var isTapping = false
                 var isSwiping = false
                 var stageTitle = ""
-                var bannerText = ""
+                var currentActionDesc = ""
+                var practicalHint = ""
 
                 when (currentStage) {
                     0 -> {
-                        stageTitle = "ЭТАП 1: ИЗОБРАЖЕНИЕ (ИИ-ДЕТЕКЦИЯ)"
-                        bannerText = "AutoTap находит визуальный образ на экране с помощью ИИ и совершает точный клик."
-                        val p = if (selectedManualStage != null) (now % 4000) / 4000f else (animProgress / 0.25f)
+                        stageTitle = "ЭТАП 1/4: ИЗОБРАЖЕНИЕ (ИИ-ПОИСК)"
+                        val p = if (selectedManualStage != null) (now % 4500) / 4500f else (animProgress / 0.25f)
                         if (p < 0.35f) {
                             targetX = pBtnCapture.centerX()
                             targetY = pBtnCapture.centerY()
-                            isTapping = p in 0.20f..0.32f
+                            isTapping = p in 0.18f..0.32f
+                            currentActionDesc = "ДЕЙСТВИЕ: Нажатие кнопки захвата рамки [КАМЕРА] на пульте AutoTap."
                         } else if (p < 0.70f) {
                             targetX = arrowTarget.centerX()
                             targetY = arrowTarget.centerY()
                             isScanning = true
+                            currentActionDesc = "ДЕЙСТВИЕ: Сканирование экрана лазером и ИИ-поиск шаблона сундука."
                         } else {
                             targetX = arrowTarget.centerX()
                             targetY = arrowTarget.centerY()
                             isTapping = true
+                            currentActionDesc = "ДЕЙСТВИЕ: Объект обнаружен со 100% совпадением! Автоклик по цели."
                         }
+                        practicalHint = "КАК ПРИМЕНЯТЬ: Нажмите иконку камеры на пульте -> выделите объект рамкой -> сохраните цель."
                     }
                     1 -> {
-                        stageTitle = "ЭТАП 2: ТЕКСТ (МУЛЬТИЯЗЫЧНЫЙ OCR)"
-                        bannerText = "Быстрое оптическое распознавание ключевых фраз (Русский / Английский) и автоматическое нажатие."
-                        val p = if (selectedManualStage != null) (now % 4000) / 4000f else ((animProgress - 0.25f) / 0.25f)
-                        if (p < 0.40f) {
+                        stageTitle = "ЭТАП 2/4: ТЕКСТ (OCR РАСПОЗНАВАНИЕ)"
+                        val p = if (selectedManualStage != null) (now % 4500) / 4500f else ((animProgress - 0.25f) / 0.25f)
+                        if (p < 0.35f) {
                             targetX = pBtnAdd.centerX()
                             targetY = pBtnAdd.centerY()
-                            isTapping = p in 0.20f..0.35f
-                        } else if (p < 0.75f) {
+                            isTapping = p in 0.18f..0.32f
+                            currentActionDesc = "ДЕЙСТВИЕ: Добавление шага OCR через кнопку [+] на пульте управления."
+                        } else if (p < 0.70f) {
                             targetX = ocrClaimBtn.centerX()
                             targetY = ocrClaimBtn.centerY()
                             isScanning = true
+                            currentActionDesc = "ДЕЙСТВИЕ: Оптическое распознавание фраз 'ЗАБРАТЬ +500' на Русском / English."
                         } else {
                             targetX = ocrClaimBtn.centerX()
                             targetY = ocrClaimBtn.centerY()
                             isTapping = true
+                            currentActionDesc = "ДЕЙСТВИЕ: Текст найден! Мгновенное нажатие по центру кнопки с наградой."
                         }
+                        practicalHint = "КАК ПРИМЕНЯТЬ: Добавьте шаг -> выберите тип [OCR ТЕКСТ] -> укажите фразу для клика."
                     }
                     2 -> {
-                        stageTitle = "ЭТАП 3: ЗАПИСЬ ДЕЙСТВИЙ (ЖЕСТЫ И СВАЙПЫ)"
-                        bannerText = "Умная запись прямолинейных свайпов, удержаний и многоточечных траекторий в реальном времени."
-                        val p = if (selectedManualStage != null) (now % 4000) / 4000f else ((animProgress - 0.50f) / 0.25f)
+                        stageTitle = "ЭТАП 3/4: ЖИВАЯ ЗАПИСЬ ЖЕСТОВ И СВАЙПОВ"
+                        val p = if (selectedManualStage != null) (now % 4500) / 4500f else ((animProgress - 0.50f) / 0.25f)
                         if (p < 0.30f) {
                             targetX = pBtnRecord.centerX()
                             targetY = pBtnRecord.centerY()
                             isTapping = p in 0.15f..0.28f
+                            currentActionDesc = "ДЕЙСТВИЕ: Включение записи жестов красной кнопкой [КРУГ] на пульте."
                         } else {
                             val swipeP = ((p - 0.30f) / 0.70f).coerceIn(0f, 1f)
                             targetX = listArea.centerX()
-                            targetY = (listArea.bottom - dpF(20f)) - swipeP * dpF(60f)
+                            targetY = (listArea.bottom - dpF(18f)) - swipeP * dpF(58f)
                             isSwiping = true
+                            currentActionDesc = "ДЕЙСТВИЕ: Проведение пальцем снизу вверх по списку для прокрутки экрана."
                         }
+                        practicalHint = "КАК ПРИМЕНЯТЬ: Нажмите [ЗАПИСЬ] -> выполните любые жесты на экране -> нажмите [СТОП]."
                     }
                     else -> {
-                        stageTitle = "ЭТАП 4: ОБЫЧНЫЕ КЛИКИ И ЗАПУСК"
-                        bannerText = "Мгновенная расстановка кликов по списку и запуск автономного сценария в 1 клик."
-                        val p = if (selectedManualStage != null) (now % 4000) / 4000f else ((animProgress - 0.75f) / 0.25f)
+                        stageTitle = "ЭТАП 4/4: РАССТАНОВКА КЛИКОВ И АВТОЗАПУСК"
+                        val p = if (selectedManualStage != null) (now % 4500) / 4500f else ((animProgress - 0.75f) / 0.25f)
                         if (p < 0.35f) {
                             targetX = itemBtn1.centerX()
                             targetY = itemBtn1.centerY()
                             isTapping = p in 0.20f..0.30f
+                            currentActionDesc = "ДЕЙСТВИЕ: Клик по первому пункту списка (Шаг #1 макроса)."
                         } else if (p < 0.70f) {
                             targetX = itemBtn2.centerX()
                             targetY = itemBtn2.centerY()
-                            isTapping = p in 0.55f..0.65f
+                            isTapping = p in 0.52f..0.62f
+                            currentActionDesc = "ДЕЙСТВИЕ: Клик по второму пункту списка (Шаг #2 макроса)."
                         } else {
                             targetX = pBtnPlay.centerX()
                             targetY = pBtnPlay.centerY()
-                            isTapping = p > 0.85f
+                            isTapping = p > 0.82f
+                            currentActionDesc = "ДЕЙСТВИЕ: Нажатие зеленой кнопки [ПУСК] — запуск непрерывного макроса."
                         }
+                        practicalHint = "КАК ПРИМЕНЯТЬ: Расставьте точки кликов по экрану и нажмите зеленую кнопку [ПУСК]."
                     }
                 }
 
-                // 5. Отрисовка плавающего информационного баннера вверху
-                val bannerRect = RectF(w * 0.05f, h * 0.02f, w * 0.95f, h * 0.14f)
+                // 6. Отрисовка верхнего информационного баннера с описанием текущего действия
                 generalItemBg.shader = LinearGradient(
                     bannerRect.left, bannerRect.top, bannerRect.right, bannerRect.bottom,
                     intArrayOf("#25140F24".toColorInt(), "#FA140F24".toColorInt()), null, Shader.TileMode.CLAMP
@@ -370,10 +401,22 @@ class InteractiveRoboticArmDemoDialog(
                 gameScreenBorderPaint.color = "#8B5CF6".toColorInt()
                 canvas.drawRoundRect(bannerRect, dpF(12f), dpF(12f), gameScreenBorderPaint)
 
+                // Текст баннера
                 canvas.drawText(stageTitle, bannerRect.left + dpF(12f), bannerRect.top + dpF(20f), bannerTitlePaint)
-                canvas.drawText(bannerText, bannerRect.left + dpF(12f), bannerRect.top + dpF(38f), bannerBodyPaint)
+                canvas.drawText(currentActionDesc, bannerRect.left + dpF(12f), bannerRect.top + dpF(40f), bannerPhasePaint)
+                canvas.drawText("Переключайте стадии чипами вверху или измените скорость воспроизведения.", bannerRect.left + dpF(12f), bannerRect.top + dpF(58f), bannerBodyPaint)
 
-                // 6. Отрисовка сканирования лазером при поиске
+                // 7. Отрисовка нижнего руководства к действию (Actionable Guide Card)
+                generalItemBg.shader = null
+                generalItemBg.color = "#1A152E".toColorInt()
+                canvas.drawRoundRect(hintRect, dpF(10f), dpF(10f), generalItemBg)
+                gameScreenBorderPaint.color = "#38BDF8".toColorInt()
+                canvas.drawRoundRect(hintRect, dpF(10f), dpF(10f), gameScreenBorderPaint)
+
+                canvas.drawText("ИНСТРУКЦИЯ К ДЕЙСТВИЮ:", hintRect.left + dpF(10f), hintRect.top + dpF(18f), hintTitlePaint)
+                canvas.drawText(practicalHint, hintRect.left + dpF(10f), hintRect.top + dpF(34f), hintBodyPaint)
+
+                // 8. Отрисовка сканирования лазером при поиске
                 if (isScanning) {
                     val scanBox = if (currentStage == 0) arrowTarget else ocrClaimBtn
                     val scanP = (now % 1000) / 1000f
@@ -381,16 +424,16 @@ class InteractiveRoboticArmDemoDialog(
                     canvas.drawLine(scanBox.left - dpF(4f), scanLineY, scanBox.right + dpF(4f), scanLineY, laserLinePaint)
                 }
 
-                // 7. Отрисовка неонового шлейфа при свайпе
+                // 9. Отрисовка неонового шлейфа при свайпе
                 if (isSwiping) {
-                    val startY = listArea.bottom - dpF(20f)
+                    val startY = listArea.bottom - dpF(18f)
                     reusablePath.rewind()
                     reusablePath.moveTo(listArea.centerX(), startY)
                     reusablePath.lineTo(targetX, targetY)
                     canvas.drawPath(reusablePath, swipeTrailPaint)
                 }
 
-                // 8. Отрисовка жетонов шагов
+                // 10. Отрисовка жетонов шагов
                 val badgeX1 = arrowTarget.right + dpF(6f)
                 val badgeY1 = arrowTarget.centerY()
                 badgeCirclePaint.color = "#38BDF8".toColorInt()
@@ -403,7 +446,7 @@ class InteractiveRoboticArmDemoDialog(
                 canvas.drawCircle(badgeX2, badgeY2, dpF(9f), badgeCirclePaint)
                 canvas.drawText("2", badgeX2, badgeY2 + dpF(3.5f), badgeTextPaint)
 
-                // 9. Отрисовка плавного неонового указателя тача
+                // 11. Отрисовка плавного неонового указателя тача (указательная рука)
                 if (targetX > 0f && targetY > 0f) {
                     drawClassicIndexPointerGlove(canvas, targetX, targetY, isTapping)
                 }
@@ -590,3 +633,4 @@ class InteractiveRoboticArmDemoDialog(
         }
     }
 }
+

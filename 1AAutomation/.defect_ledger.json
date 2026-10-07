@@ -947,6 +947,15 @@
             "checker_file": "check_accessibility_overlay_zero_permission_friction.py",
             "checker": "check_accessibility_overlay_zero_permission_friction.py",
             "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_DEMO_ACTION_DESCRIPTIONS_AND_CLARITY",
+            "description": "Максимальная ясность и доступность действий в демо-режиме: пошаговое описание текущего действия и практическое руководство",
+            "target_file": "InteractiveRoboticArmDemoDialog.kt",
+            "checker_module": "check_demo_action_descriptions_and_clarity.py",
+            "checker_file": "check_demo_action_descriptions_and_clarity.py",
+            "checker": "check_demo_action_descriptions_and_clarity.py",
+            "status": "FIXED"
         }
     ]
 }
