@@ -167,20 +167,25 @@
             app:layout_constraintTop_toTopOf="@+id/icon_box_acc"
             app:layout_constraintBottom_toBottomOf="@+id/icon_box_acc"
             app:layout_constraintStart_toEndOf="@+id/icon_box_acc"
-            app:layout_constraintEnd_toStartOf="@+id/btn_perm_acc">
+            app:layout_constraintEnd_toStartOf="@+id/btn_perm_acc"
+            app:layout_constrainedWidth="true">
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/service_clicker_title"
                 android:textColor="@color/purple_text_white"
-                android:textSize="13.5sp"
-                android:textStyle="bold" />
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end" />
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/service_clicker_desc"
                 android:textColor="@color/purple_text_muted"
-                android:textSize="11sp" />
+                android:textSize="10.5sp"
+                android:maxLines="2"
+                android:ellipsize="end" />
         </LinearLayout>
 
         <TextView
@@ -230,20 +235,25 @@
             app:layout_constraintTop_toTopOf="@+id/icon_box_stream"
             app:layout_constraintBottom_toBottomOf="@+id/icon_box_stream"
             app:layout_constraintStart_toEndOf="@+id/icon_box_stream"
-            app:layout_constraintEnd_toStartOf="@+id/btn_perm_stream">
+            app:layout_constraintEnd_toStartOf="@+id/btn_perm_stream"
+            app:layout_constrainedWidth="true">
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/screen_capture_title"
                 android:textColor="@color/purple_text_white"
-                android:textSize="13.5sp"
-                android:textStyle="bold" />
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end" />
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/screen_capture_desc"
                 android:textColor="@color/purple_text_muted"
-                android:textSize="11sp" />
+                android:textSize="10.5sp"
+                android:maxLines="2"
+                android:ellipsize="end" />
         </LinearLayout>
 
         <TextView
@@ -293,20 +303,25 @@
             app:layout_constraintTop_toTopOf="@+id/icon_box_restricted"
             app:layout_constraintBottom_toBottomOf="@+id/icon_box_restricted"
             app:layout_constraintStart_toEndOf="@+id/icon_box_restricted"
-            app:layout_constraintEnd_toStartOf="@+id/btn_perm_restricted">
+            app:layout_constraintEnd_toStartOf="@+id/btn_perm_restricted"
+            app:layout_constrainedWidth="true">
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/restricted_settings_menu_title"
                 android:textColor="@color/purple_text_white"
-                android:textSize="13.5sp"
-                android:textStyle="bold" />
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end" />
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/restricted_settings_menu_desc"
                 android:textColor="@color/purple_text_muted"
-                android:textSize="11sp" />
+                android:textSize="10.5sp"
+                android:maxLines="2"
+                android:ellipsize="end" />
         </LinearLayout>
 
         <TextView
