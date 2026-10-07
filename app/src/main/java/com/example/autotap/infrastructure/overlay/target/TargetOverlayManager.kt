@@ -19,6 +19,7 @@ import com.example.autotap.domain.model.MacroAction
 import com.example.autotap.domain.model.MatchCandidate
 import com.example.autotap.domain.model.Point2D
 import com.example.autotap.infrastructure.overlay.OverlayWindowManager
+import com.example.autotap.infrastructure.overlay.model.OverlayVisibilityMode
 import com.example.autotap.infrastructure.overlay.capture.CalibrationOverlay
 import com.example.autotap.infrastructure.overlay.capture.CaptureFrameOverlay
 import com.example.autotap.infrastructure.overlay.graph.GraphOverlayView
@@ -53,7 +54,21 @@ class TargetOverlayManager(
 
     private var isGraphAttached = false
 
-    var isNumbersHidden: Boolean = false
+    var visibilityMode: OverlayVisibilityMode = OverlayVisibilityMode.FULL
+        private set
+
+    var isNumbersHidden: Boolean
+        get() = (visibilityMode == OverlayVisibilityMode.HIDDEN)
+        set(value) {
+            visibilityMode = if (value) OverlayVisibilityMode.HIDDEN else OverlayVisibilityMode.FULL
+            setOverlaysVisible(true)
+        }
+
+    fun applyVisibilityMode(mode: OverlayVisibilityMode) {
+        visibilityMode = mode
+        setOverlaysVisible(true)
+    }
+
     var onActionEditRequested: ((MacroAction) -> Unit)? = null
     var onActionTestRequested: ((MacroAction) -> Unit)? = null
     var onActionAddTemplateRequested: ((MacroAction) -> Unit)? = null
@@ -298,9 +313,10 @@ class TargetOverlayManager(
         val idx = actionsList.indexOfFirst { it.id == actionId }
         if (idx == -1) return
 
+        quickRingOverlay.dismiss()
+
         targetViews[actionId]?.let { overlayWindowManager.removeViewSafe(it) }
         targetViews.remove(actionId)
-
 
         endTargetViews[actionId]?.let { overlayWindowManager.removeViewSafe(it) }
         endTargetViews.remove(actionId)
@@ -376,20 +392,47 @@ class TargetOverlayManager(
 
     override fun setOverlaysVisible(visible: Boolean) {
         mainHandler.post {
-                        val vis = if (visible) View.VISIBLE else View.GONE
+            val vis = if (visible) View.VISIBLE else View.GONE
+            val currentAlpha = when (visibilityMode) {
+                OverlayVisibilityMode.TRANSPARENT -> 0.30f
+                else -> 1.0f
+            }
+            val isHidden = (visibilityMode == OverlayVisibilityMode.HIDDEN)
+
             targetViews.values.forEach {
                 it.visibility = vis
-                it.tvNumber.visibility = if (isNumbersHidden) View.INVISIBLE else View.VISIBLE
-                it.tvCornerBadge.visibility = if (isNumbersHidden) View.GONE else View.VISIBLE
+                it.alpha = currentAlpha
+                if (isHidden) {
+                    it.circleContainer.visibility = View.INVISIBLE
+                    it.tvNumber.visibility = View.INVISIBLE
+                    it.tvCornerBadge.visibility = View.GONE
+                    it.ivTemplate.visibility = View.GONE
+                } else {
+                    it.circleContainer.visibility = View.VISIBLE
+                    it.tvNumber.visibility = View.VISIBLE
+                    it.tvCornerBadge.visibility = if (it.tvCornerBadge.text.isNullOrBlank()) View.GONE else View.VISIBLE
+                }
             }
 
             endTargetViews.values.forEach {
                 it.visibility = vis
-                it.tvNumber.visibility = if (isNumbersHidden) View.INVISIBLE else View.VISIBLE
-                it.tvCornerBadge.visibility = if (isNumbersHidden) View.GONE else View.VISIBLE
+                it.alpha = currentAlpha
+                if (isHidden) {
+                    it.circleContainer.visibility = View.INVISIBLE
+                    it.tvNumber.visibility = View.INVISIBLE
+                    it.tvCornerBadge.visibility = View.GONE
+                } else {
+                    it.circleContainer.visibility = View.VISIBLE
+                    it.tvNumber.visibility = View.VISIBLE
+                    it.tvCornerBadge.visibility = View.VISIBLE
+                }
             }
-            waypointViews.values.flatten().forEach { it.visibility = vis }
-            graphOverlayView.visibility = if (visible && !isNumbersHidden) View.VISIBLE else View.GONE
+            waypointViews.values.flatten().forEach {
+                it.visibility = if (isHidden) View.GONE else vis
+                it.alpha = currentAlpha
+            }
+            graphOverlayView.visibility = if (visible && !isHidden) View.VISIBLE else View.GONE
+            graphOverlayView.alpha = currentAlpha
         }
     }
 
@@ -784,6 +827,8 @@ class TargetOverlayManager(
         targetViews.clear()
         endTargetViews.values.forEach { overlayWindowManager.removeViewSafe(it) }
         endTargetViews.clear()
+        waypointViews.values.flatten().forEach { overlayWindowManager.removeViewSafe(it) }
+        waypointViews.clear()
 
         currentActions.forEach { act ->
             spawnTargetView(act)
@@ -794,6 +839,7 @@ class TargetOverlayManager(
                 spawnWaypointViews(act)
             }
         }
+        setOverlaysVisible(true)
     }
 
     private fun updateGraph() {

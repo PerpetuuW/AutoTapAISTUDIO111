@@ -18,6 +18,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import com.example.autotap.core.logger.AppLogger
 import com.example.autotap.infrastructure.overlay.OverlayWindowManager
+import com.example.autotap.infrastructure.overlay.model.OverlayVisibilityMode
 import com.example.autotap.infrastructure.overlay.model.PanelDisplayMode
 import com.example.autotap.infrastructure.overlay.tutorial.InteractiveTutorialOverlay
 import com.example.autotap.infrastructure.overlay.ui.VectorIconDrawer
@@ -37,6 +38,7 @@ class ControlPanelOverlay(
     // [V35.0] По умолчанию легкий однорядный компактный режим — 0 загромождения экрана
     private var currentMode: PanelDisplayMode = PanelDisplayMode.COMPACT_SINGLE_ROW
     private var isPlayingState: Boolean = false
+    private var visibilityModeState: OverlayVisibilityMode = OverlayVisibilityMode.FULL
     private var isNumbersHiddenState: Boolean = false
     private var btnHideRef: View? = null
 
@@ -47,22 +49,38 @@ class ControlPanelOverlay(
     private var posX = dp(20)
     private var posY = dp(140)
 
-    fun updateNumbersHiddenState(isHidden: Boolean) {
-        isNumbersHiddenState = isHidden
+    fun updateVisibilityMode(mode: OverlayVisibilityMode) {
+        visibilityModeState = mode
+        isNumbersHiddenState = (mode == OverlayVisibilityMode.HIDDEN)
+        val targetAlpha = if (mode == OverlayVisibilityMode.TRANSPARENT) 0.40f else 1.0f
+        rootLinearView?.alpha = targetAlpha
         (btnHideRef as? com.example.autotap.infrastructure.overlay.ui.CanvasIconButton)?.apply {
-            if (isHidden) {
-                iconColor = Color.parseColor("#FBBF24")
-                bgColorStart = Color.parseColor("#3B2606")
-                bgColorEnd = Color.parseColor("#1F1403")
-                strokeColor = Color.parseColor("#F59E0B")
-            } else {
-                iconColor = Color.parseColor("#94A3B8")
-                bgColorStart = Color.parseColor("#1A202C")
-                bgColorEnd = Color.parseColor("#10141D")
-                strokeColor = Color.parseColor("#2D3748")
+            when (mode) {
+                OverlayVisibilityMode.FULL -> {
+                    iconColor = Color.parseColor("#38BDF8")
+                    bgColorStart = Color.parseColor("#162032")
+                    bgColorEnd = Color.parseColor("#0F172A")
+                    strokeColor = Color.parseColor("#38BDF8")
+                }
+                OverlayVisibilityMode.TRANSPARENT -> {
+                    iconColor = Color.parseColor("#A78BFA")
+                    bgColorStart = Color.parseColor("#2E123D")
+                    bgColorEnd = Color.parseColor("#170924")
+                    strokeColor = Color.parseColor("#A78BFA")
+                }
+                OverlayVisibilityMode.HIDDEN -> {
+                    iconColor = Color.parseColor("#FBBF24")
+                    bgColorStart = Color.parseColor("#3B2606")
+                    bgColorEnd = Color.parseColor("#1F1403")
+                    strokeColor = Color.parseColor("#F59E0B")
+                }
             }
         }
         btnHideRef?.invalidate()
+    }
+
+    fun updateNumbersHiddenState(isHidden: Boolean) {
+        updateVisibilityMode(if (isHidden) OverlayVisibilityMode.HIDDEN else OverlayVisibilityMode.FULL)
     }
 
     fun show() {

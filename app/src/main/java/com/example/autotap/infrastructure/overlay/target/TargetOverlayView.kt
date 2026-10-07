@@ -16,6 +16,7 @@ import android.widget.TextView
 import androidx.core.graphics.toColorInt
 import com.example.autotap.domain.model.ActionType
 import com.example.autotap.domain.model.MacroAction
+import com.example.autotap.infrastructure.overlay.model.OverlayVisibilityMode
 import com.example.autotap.infrastructure.storage.TemplateRepositoryImpl
 
 @SuppressLint("SetTextI18n")
@@ -102,6 +103,12 @@ class TargetOverlayView(
         addView(tvCornerBadge, badgeLp)
     }
 
+
+    fun bindAction(action: MacroAction, visibilityMode: OverlayVisibilityMode) {
+        val isHidden = (visibilityMode == OverlayVisibilityMode.HIDDEN)
+        this.alpha = if (visibilityMode == OverlayVisibilityMode.TRANSPARENT) 0.30f else 1.0f
+        bindAction(action, isHidden)
+    }
 
     fun bindAction(action: MacroAction, isNumbersHidden: Boolean) {
         // [V40.0] Тотальное скрытие меток: при включенном глазе скрываются круги, превью и номера

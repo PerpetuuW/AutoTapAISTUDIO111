@@ -38,6 +38,7 @@ import com.example.autotap.infrastructure.overlay.dialog.ScriptsDialog
 import com.example.autotap.infrastructure.overlay.graph.GraphEditorOverlay
 import com.example.autotap.infrastructure.overlay.graph.GraphOverlayView
 import com.example.autotap.infrastructure.overlay.lock.ScreenLockOverlay
+import com.example.autotap.infrastructure.overlay.model.OverlayVisibilityMode
 import com.example.autotap.infrastructure.overlay.panel.ControlPanelListener
 import com.example.autotap.infrastructure.overlay.panel.ControlPanelOverlay
 import com.example.autotap.infrastructure.overlay.record.GestureRecorderOverlay
@@ -202,7 +203,6 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
     // [V80.0] Автоматическая фиксация активной сессии на диск при изменении или скрытии оверлея
     fun persistActiveSession() {
         val actions = targetManager.getActions()
-        if (actions.isEmpty()) return
         val dm = appContext.resources.displayMetrics
         val specs = DeviceDisplaySpecs(dm.widthPixels, dm.heightPixels, dm.densityDpi, dm.density, dm.widthPixels > dm.heightPixels)
         val scenario = MacroScenario("ActiveSession", 1, specs, actions, globalClickDurationMs, globalSwipeDurationMs)
@@ -1054,13 +1054,23 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
     }
     override fun onClearAllClicked() {
         targetManager.clearAll()
+        persistActiveSession()
         Toast.makeText(appContext, "Все мишени удалены", Toast.LENGTH_SHORT).show()
     }
     override fun onToggleNumbersClicked() {
-        targetManager.isNumbersHidden = !targetManager.isNumbersHidden
-        targetManager.setOverlaysVisible(true)
-        controlPanelOverlay.updateNumbersHiddenState(targetManager.isNumbersHidden)
-        Toast.makeText(appContext, if (targetManager.isNumbersHidden) "Номера шагов скрыты" else "Номера шагов показаны", Toast.LENGTH_SHORT).show()
+        val nextMode = when (targetManager.visibilityMode) {
+            OverlayVisibilityMode.FULL -> OverlayVisibilityMode.TRANSPARENT
+            OverlayVisibilityMode.TRANSPARENT -> OverlayVisibilityMode.HIDDEN
+            OverlayVisibilityMode.HIDDEN -> OverlayVisibilityMode.FULL
+        }
+        targetManager.applyVisibilityMode(nextMode)
+        controlPanelOverlay.updateVisibilityMode(nextMode)
+        val toastText = when (nextMode) {
+            OverlayVisibilityMode.FULL -> "Оверлеи: Полная видимость"
+            OverlayVisibilityMode.TRANSPARENT -> "Оверлеи: Прозрачный режим"
+            OverlayVisibilityMode.HIDDEN -> "Оверлеи: Метки и иконки скрыты"
+        }
+        Toast.makeText(appContext, toastText, Toast.LENGTH_SHORT).show()
     }
     override fun onLogsClicked() { LogViewerDialog(appContext, overlayWindowManager).show() }
     override fun onHelpClicked() {
