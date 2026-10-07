@@ -31,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvHeroSubtitle: TextView
     private lateinit var btnPermAcc: TextView
     private lateinit var btnPermStream: TextView
+    private lateinit var btnPermRestricted: TextView
     private lateinit var tvTopShieldStatus: TextView
 
     private lateinit var btnMainLogs: android.widget.Button
@@ -122,6 +123,7 @@ class MainActivity : AppCompatActivity() {
         tvHeroSubtitle = findViewById(R.id.tv_hero_subtitle)
         btnPermAcc = findViewById(R.id.btn_perm_acc)
         btnPermStream = findViewById(R.id.btn_perm_stream)
+        btnPermRestricted = findViewById(R.id.btn_perm_restricted)
         tvTopShieldStatus = findViewById(R.id.tv_top_shield_status)
 
         btnMainLogs = findViewById(R.id.btn_main_logs)
@@ -140,6 +142,10 @@ class MainActivity : AppCompatActivity() {
 
         btnPermAcc.setOnClickListener {
             showAccessibilitySafetyDialog()
+        }
+
+        btnPermRestricted.setOnClickListener {
+            showRestrictedSettingsGuideDialog()
         }
 
         tvTopShieldStatus.setOnClickListener {

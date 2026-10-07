@@ -86,4 +86,7 @@
     <!-- RuStore Pay SDK Configuration -->
     <string name="console_app_id">2063548</string>
     <string name="sdk_pay_scheme">rustorepay2063548</string>
+    <string name="restricted_settings_menu_title">Разрешить запрещенные настройки</string>
+    <string name="restricted_settings_menu_desc">Для Android 13+ (требуется при первом включении)</string>
+    <string name="btn_restricted_settings">ИНСТРУКЦИЯ</string>
 </resources>
