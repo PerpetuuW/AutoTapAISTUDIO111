@@ -956,6 +956,15 @@
             "checker_file": "check_demo_action_descriptions_and_clarity.py",
             "checker": "check_demo_action_descriptions_and_clarity.py",
             "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_TUTORIALS_AND_MASK_EDITOR_IMPROVEMENTS",
+            "description": "Точная подсветка всех туториалов, сохранение пользовательских правок маски при переключении режимов, адаптивный отступ +-50% и попиксельное смещение",
+            "target_file": "MagicWandEditorOverlay.kt",
+            "checker_module": "check_tutorials_and_mask_editor_improvements.py",
+            "checker_file": "check_tutorials_and_mask_editor_improvements.py",
+            "checker": "check_tutorials_and_mask_editor_improvements.py",
+            "status": "FIXED"
         }
     ]
 }

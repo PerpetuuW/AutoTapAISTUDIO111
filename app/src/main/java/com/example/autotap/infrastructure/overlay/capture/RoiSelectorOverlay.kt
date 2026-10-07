@@ -106,6 +106,24 @@ class RoiSelectorOverlay(
                 handleBounds.set(hx - handleSz / 2f + dpF(5f), hy - handleSz / 2f + dpF(5f), hx + handleSz / 2f - dpF(5f), hy + handleSz / 2f - dpF(5f))
                 VectorIconDrawer.drawIcon(canvas, VectorIconDrawer.IconType.RESIZE, handleBounds, Color.WHITE, dpF(2f))
             }
+
+            @Suppress("unused")
+            fun getTutorialRect(tagKey: String): Rect? {
+                val loc = IntArray(2)
+                getLocationOnScreen(loc)
+                val rx = loc[0]
+                val ry = loc[1]
+                return when (tagKey) {
+                    "ROI_BOX" -> Rect(rx + roi.left, ry + roi.top, rx + roi.right, ry + roi.bottom)
+                    "RESIZE" -> {
+                        val handleSz = dp(28)
+                        val hx = (roi.right.toFloat() + dpF(18f)).coerceIn(dpF(16f), screenW - dpF(16f))
+                        val hy = (roi.bottom.toFloat() + dpF(18f)).coerceIn(dpF(16f), screenH - dpF(16f))
+                        Rect((rx + hx - handleSz / 2).toInt(), (ry + hy - handleSz / 2).toInt(), (rx + hx + handleSz / 2).toInt(), (ry + hy + handleSz / 2).toInt())
+                    }
+                    else -> null
+                }
+            }
         }
         root.setWillNotDraw(false)
         rootView = root

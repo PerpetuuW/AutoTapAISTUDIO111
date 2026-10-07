@@ -175,7 +175,7 @@ class ScriptsDialog(
             } else {
                 Toast.makeText(context, "Введите имя сценария", Toast.LENGTH_SHORT).show()
             }
-        }
+        }.apply { tag = "SAVE" }
         saveRow.addView(btnSave, LinearLayout.LayoutParams(dp(100), dp(34)))
         rootCard.addView(saveRow)
 

@@ -345,6 +345,18 @@ class InteractiveTutorialOverlay(
 
         val targetLoc = IntArray(2)
 
+        fun findViewWithTagRecursive(v: View, targetTag: String): View? {
+            if (v.tag == targetTag || v.tag?.toString() == targetTag) return v
+            if (v is android.view.ViewGroup) {
+                for (i in 0 until v.childCount) {
+                    val child = v.getChildAt(i)
+                    val res = findViewWithTagRecursive(child, targetTag)
+                    if (res != null) return res
+                }
+            }
+            return null
+        }
+
         fun resolveHighlightRect(): Rect? {
             val host = hostViewProvider?.invoke() ?: return null
             if (!host.isAttachedToWindow) return null
@@ -352,12 +364,18 @@ class InteractiveTutorialOverlay(
             val tagOrKey = steps.getOrNull(currentStep)?.third ?: ""
             if (tagOrKey.isEmpty()) return null
 
+            try {
+                val method = host.javaClass.getMethod("getTutorialRect", String::class.java)
+                val canvasRect = method.invoke(host, tagOrKey) as? Rect
+                if (canvasRect != null) return canvasRect
+            } catch (_: Throwable) {}
+
             if (host is com.example.autotap.infrastructure.overlay.graph.GraphCanvasView) {
                 val canvasRect = host.getTutorialRect(tagOrKey)
                 if (canvasRect != null) return canvasRect
             }
 
-            val targetView = host.findViewWithTag<View>(tagOrKey)
+            val targetView = findViewWithTagRecursive(host, tagOrKey)
             if (targetView != null && targetView.visibility == View.VISIBLE && targetView.width > 0 && targetView.height > 0) {
                 var parent = targetView.parent
                 while (parent != null) {
@@ -376,7 +394,7 @@ class InteractiveTutorialOverlay(
                 return Rect(left, top, right, bottom)
             }
 
-            if (host.tag == tagOrKey && host.width > 0 && host.height > 0) {
+            if (host.width > 0 && host.height > 0) {
                 host.getLocationOnScreen(targetLoc)
                 return Rect(targetLoc[0], targetLoc[1], targetLoc[0] + host.width, targetLoc[1] + host.height)
             }

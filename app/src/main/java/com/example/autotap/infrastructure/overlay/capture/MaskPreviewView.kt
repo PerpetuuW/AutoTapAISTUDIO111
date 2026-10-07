@@ -85,8 +85,9 @@ class MaskPreviewView(context: Context) : View(context) {
         sourceBitmap?.let { bmp ->
             if (!bmp.isRecycled && bmp.width > 0 && bmp.height > 0) {
                 srcRect.set(0, 0, bmp.width, bmp.height)
-                val pad = dpF(3f)
-                val scale = minOf((w - pad * 2) / bmp.width.toFloat(), (h - pad * 2) / bmp.height.toFloat())
+                val minDim = minOf(bmp.width, bmp.height).toFloat()
+                val adaptivePad = (minDim * 0.12f).coerceIn(dpF(3f), minOf(w, h) * 0.35f)
+                val scale = minOf((w - adaptivePad * 2) / bmp.width.toFloat(), (h - adaptivePad * 2) / bmp.height.toFloat())
                 val drawW = bmp.width * scale
                 val drawH = bmp.height * scale
                 val dx = (w - drawW) / 2f

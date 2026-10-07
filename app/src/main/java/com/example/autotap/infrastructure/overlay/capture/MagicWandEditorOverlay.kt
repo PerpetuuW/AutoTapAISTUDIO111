@@ -440,6 +440,73 @@ class MagicWandEditorOverlay(
         rowTools.addView(btnUndo, LinearLayout.LayoutParams(dp(48), dp(30)))
         card.addView(rowTools)
 
+        // [V181.0] Попиксельное смещение маски (D-Pad Nudge Controls: ◀ ▶ ▲ ▼)
+        val rowShift = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, dp(4))
+        }
+        var shiftStep = 1
+
+        val tvShiftLbl = TextView(context).apply {
+            text = "СМЕЩЕНИЕ:"
+            textSize = 8f
+            typeface = Typeface.MONOSPACE
+            includeFontPadding = false
+            setTextColor("#58A6FF".toColorInt())
+        }
+        rowShift.addView(tvShiftLbl, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(4) })
+
+        val btnStepToggle = Button(context).apply {
+            text = "1px"
+            textSize = 7.5f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                setColor("#21262D".toColorInt())
+                cornerRadius = dpF(4f)
+                setStroke(dp(1), "#38BDF8".toColorInt())
+            }
+            minHeight = 0; minimumHeight = 0
+            setPadding(dp(4), dp(2), dp(4), dp(2))
+            setOnClickListener {
+                shiftStep = if (shiftStep == 1) 5 else 1
+                text = "${shiftStep}px"
+            }
+        }
+        rowShift.addView(btnStepToggle, LinearLayout.LayoutParams(dp(38), dp(26)).apply { marginEnd = dp(6) })
+
+        fun createShiftBtn(symbol: String, dx: Int, dy: Int): Button {
+            return Button(context).apply {
+                text = symbol
+                textSize = 9f
+                typeface = Typeface.DEFAULT_BOLD
+                includeFontPadding = false
+                setTextColor(Color.WHITE)
+                background = GradientDrawable().apply {
+                    setColor("#1E293B".toColorInt())
+                    cornerRadius = dpF(4f)
+                    setStroke(dp(1), "#6366F1".toColorInt())
+                }
+                minHeight = 0; minimumHeight = 0
+                setPadding(0, 0, 0, 0)
+                setOnClickListener {
+                    saveUndo()
+                    val next = SmartMaskEngine.shiftMask(currentMask, dx * shiftStep, dy * shiftStep)
+                    safeReplaceCurrentMask(next)
+                    zoomView.invalidate()
+                }
+            }
+        }
+
+        rowShift.addView(createShiftBtn("◀", -1, 0), LinearLayout.LayoutParams(dp(32), dp(26)).apply { marginEnd = dp(3) })
+        rowShift.addView(createShiftBtn("▶", 1, 0), LinearLayout.LayoutParams(dp(32), dp(26)).apply { marginEnd = dp(3) })
+        rowShift.addView(createShiftBtn("▲", 0, -1), LinearLayout.LayoutParams(dp(32), dp(26)).apply { marginEnd = dp(3) })
+        rowShift.addView(createShiftBtn("▼", 0, 1), LinearLayout.LayoutParams(dp(32), dp(26)))
+
+        card.addView(rowShift)
+
         val tvSlider = TextView(context).apply {
             text = "ЧУВСТВИТЕЛЬНОСТЬ ПАЛОЧКИ: $wandTolerance"
             setTextColor("#58A6FF".toColorInt())

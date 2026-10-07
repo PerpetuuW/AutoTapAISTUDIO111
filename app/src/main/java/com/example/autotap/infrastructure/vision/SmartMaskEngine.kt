@@ -577,6 +577,16 @@ object SmartMaskEngine {
         return res
     }
 
+    fun shiftMask(src: Bitmap, dx: Int, dy: Int): Bitmap {
+        if (src.isRecycled || src.width <= 0 || src.height <= 0) return src
+        val w = src.width
+        val h = src.height
+        val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(out)
+        canvas.drawBitmap(src, dx.toFloat(), dy.toFloat(), null)
+        return out
+    }
+
     private fun applyCircleMask(pixels: IntArray, w: Int, h: Int) {
         val cx = w / 2.0
         val cy = h / 2.0

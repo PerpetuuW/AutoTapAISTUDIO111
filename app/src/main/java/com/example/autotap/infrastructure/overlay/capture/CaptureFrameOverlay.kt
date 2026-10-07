@@ -192,6 +192,26 @@ class CaptureFrameOverlay(
                 handleBounds.set(hx - handleSz / 2f + dpF(5f), hy - handleSz / 2f + dpF(5f), hx + handleSz / 2f - dpF(5f), hy + handleSz / 2f - dpF(5f))
                 VectorIconDrawer.drawIcon(canvas, VectorIconDrawer.IconType.RESIZE, handleBounds, Color.WHITE, dpF(2f))
             }
+
+            @Suppress("unused")
+            fun getTutorialRect(tagKey: String): Rect? {
+                val loc = IntArray(2)
+                getLocationOnScreen(loc)
+                val rx = loc[0]
+                val ry = loc[1]
+                return when (tagKey) {
+                    "TRACKPAD" -> Rect(rx + cropRect.left, ry + cropRect.top, rx + cropRect.right, ry + cropRect.bottom)
+                    "RESIZE" -> {
+                        val handleSz = dp(28)
+                        val rawHx = cropRect.right.toFloat() + dpF(18f)
+                        val rawHy = cropRect.bottom.toFloat() + dpF(18f)
+                        val hx = rawHx.coerceIn(dpF(16f), screenW - dpF(16f))
+                        val hy = rawHy.coerceIn(dpF(16f), screenH - dpF(16f))
+                        Rect((rx + hx - handleSz / 2).toInt(), (ry + hy - handleSz / 2).toInt(), (rx + hx + handleSz / 2).toInt(), (ry + hy + handleSz / 2).toInt())
+                    }
+                    else -> null
+                }
+            }
         }
         root.setWillNotDraw(false)
         rootView = root

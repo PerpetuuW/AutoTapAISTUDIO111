@@ -275,6 +275,7 @@ class EditActionDialog(
         val navHeader = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            tag = "NAV"
             background = GradientDrawable().apply {
                 setColor("#21262D".toColorInt())
                 cornerRadius = dpF(8f)
@@ -376,6 +377,7 @@ class EditActionDialog(
         val tabBar = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            tag = "TYPES"
             background = GradientDrawable().apply {
                 setColor("#161224".toColorInt())
                 cornerRadius = dpF(8f)
@@ -387,9 +389,9 @@ class EditActionDialog(
 
         var activeTabIndex = if (selectedType == ActionType.TRIGGER || selectedType == ActionType.OCR || selectedType == ActionType.COLOR_CHECK) 1 else 0
 
-        val tabContainerParams = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-        val tabContainerVision = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-        val tabContainerLogic = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        val tabContainerParams = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; tag = "TIMINGS" }
+        val tabContainerVision = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; tag = "CAROUSEL" }
+        val tabContainerLogic = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; tag = "JUMPS_SECTION" }
 
         val contentLayout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -1658,6 +1660,7 @@ class EditActionDialog(
         val actionToolbar = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            tag = "ACTIONS"
             setPadding(0, dp(4), 0, dp(2))
         }
 

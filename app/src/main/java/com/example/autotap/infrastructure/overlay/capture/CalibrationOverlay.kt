@@ -676,6 +676,7 @@ private val targetStepId: Int? = null,
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 0, 0, dp(4))
+            tag = "HEADER"
         }
 
         val analysis = TemplateMorphologyClassifier.analyze(rawTemplateBitmap)
@@ -871,6 +872,7 @@ private val targetStepId: Int? = null,
         val previewRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
+            tag = "PREVIEW"
             background = GradientDrawable().apply {
                 setColor("#161B22".toColorInt())
                 cornerRadius = dpF(8f)
@@ -1047,7 +1049,6 @@ private val targetStepId: Int? = null,
                 ).apply {
                     cornerRadius = dpF(4f)
                 }
-                customEditedMask = null
                 reevaluateMatching()
             }
         }
@@ -1118,19 +1119,20 @@ private val targetStepId: Int? = null,
                 ).apply {
                     cornerRadius = dpF(4f)
                 }
-                customEditedMask = null
                 reevaluateMatching()
             }
         }
         modesRow2.addView(btnCircleToggle, LinearLayout.LayoutParams(0, dp(30), 1f))
         modesContainer.addView(modesRow2)
+        modesContainer.tag = "MODES"
         card.addView(modesContainer)
 
-        fun createSliderRow(label: String, initialVal: String): Pair<TextView, SeekBar> {
+        fun createSliderRow(label: String, initialVal: String, sliderTag: String = ""): Pair<TextView, SeekBar> {
             val row = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, dp(1), 0, dp(1))
+                if (sliderTag.isNotBlank()) tag = sliderTag
             }
             val tvLbl = TextView(context).apply {
                 text = label
@@ -1152,6 +1154,7 @@ private val targetStepId: Int? = null,
             row.addView(tvVal)
 
             val sb = SeekBar(context).apply {
+                if (sliderTag.isNotBlank()) tag = sliderTag
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             }
             row.addView(sb)
@@ -1159,7 +1162,7 @@ private val targetStepId: Int? = null,
             return Pair(tvVal, sb)
         }
 
-        val (tvExp, sbExp) = createSliderRow("Охват формы:", "$currentShapeExpansion%")
+        val (tvExp, sbExp) = createSliderRow("Охват формы:", "$currentShapeExpansion%", "CONTOUR")
         tvExpansionValue = tvExp
         sbExpansion = sbExp
         sbExp.max = 60
@@ -1169,7 +1172,6 @@ private val targetStepId: Int? = null,
                 if (fromUser) {
                     currentShapeExpansion = progress
                     tvExp.text = "$currentShapeExpansion%"
-                    customEditedMask = null
                     reevaluateMatching()
                 }
             }
@@ -1177,17 +1179,20 @@ private val targetStepId: Int? = null,
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
-        val (tvPad, sbPad) = createSliderRow("Отступ краев:", "${currentPaddingOffset}px")
+        // Динамический адаптивный диапазон отступа (до +-50% от размера маски)
+        val maskMinDimension = minOf(rawTemplateBitmap.width, rawTemplateBitmap.height)
+        val adaptiveMaxPad = (maskMinDimension * 0.5f).toInt().coerceIn(12, 45)
+
+        val (tvPad, sbPad) = createSliderRow("Отступ краев:", "${currentPaddingOffset}px", "CONTOUR")
         tvPaddingValue = tvPad
         sbPadding = sbPad
-        sbPad.max = 15
-        sbPad.progress = currentPaddingOffset + 5
+        sbPad.max = adaptiveMaxPad
+        sbPad.progress = (currentPaddingOffset + 5).coerceIn(0, adaptiveMaxPad)
         sbPad.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
                     currentPaddingOffset = progress - 5
                     tvPad.text = "${currentPaddingOffset}px"
-                    customEditedMask = null
                     reevaluateMatching()
                 }
             }
@@ -1199,6 +1204,7 @@ private val targetStepId: Int? = null,
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, dp(2), 0, dp(2))
+            tag = "SIMILARITY"
         }
 
         val tvSim = TextView(context).apply {
@@ -1293,6 +1299,7 @@ private val targetStepId: Int? = null,
 
 
         val btnTestClick = Button(context).apply {
+            tag = "TEST"
             text = "ТЕСТ КЛИКА"
             textSize = 8f
             typeface = Typeface.DEFAULT_BOLD
@@ -1474,6 +1481,7 @@ private val targetStepId: Int? = null,
         }
 
         val btnSave = Button(context).apply {
+            tag = "APPLY"
             text = "СОХРАНИТЬ ШАБЛОН"
             textSize = 9f
             typeface = Typeface.DEFAULT_BOLD

@@ -384,6 +384,8 @@ class GlobalSettingsDialog(
 
         val btnCancel = createActionIconBtn(VectorIconDrawer.IconType.CLOSE, "#1B1430", "#FDA4AF") {
             dismiss()
+        }.apply {
+            tag = "CANCEL"
         }
         btnRow.addView(btnCancel, LinearLayout.LayoutParams(0, dp(38), 1f).apply { marginEnd = dp(4) })
 
