@@ -24,6 +24,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
@@ -102,6 +103,12 @@ private val targetStepId: Int? = null,
     private var customEditedMask: Bitmap? = null
     private val coVerificationTemplates = mutableListOf<String>()
     private var activeGeneratedMask: Bitmap? = null
+    private var currentWorkingRaw: Bitmap = rawTemplateBitmap
+    private var currentCropShiftX = 0
+    private var currentCropShiftY = 0
+    private var currentCropDeltaW = 0
+    private var currentCropDeltaH = 0
+    private var cropShiftStep = 1
     private var currentCropOffsetX = 0
     private var currentCropOffsetY = 0
     private var currentCandidates = mutableListOf<MatchCandidate>()
@@ -493,20 +500,152 @@ private val targetStepId: Int? = null,
         } catch (_: Exception) {}
     }
 
+    private fun updateWorkingCropBitmap() {
+        customEditedMask = null
+        if (!screenshot.isRecycled && screenshot.width > 0 && screenshot.height > 0) {
+            val baseW = rawTemplateBitmap.width
+            val baseH = rawTemplateBitmap.height
+            val targetW = (baseW + currentCropDeltaW).coerceIn(8, screenshot.width)
+            val targetH = (baseH + currentCropDeltaH).coerceIn(8, screenshot.height)
+            val startX = (anchorCropX + currentCropShiftX).coerceIn(0, (screenshot.width - targetW).coerceAtLeast(0))
+            val startY = (anchorCropY + currentCropShiftY).coerceIn(0, (screenshot.height - targetH).coerceAtLeast(0))
+            try {
+                val safeW = targetW.coerceAtMost(screenshot.width - startX)
+                val safeH = targetH.coerceAtMost(screenshot.height - startY)
+                if (safeW > 0 && safeH > 0) {
+                    val newRaw = Bitmap.createBitmap(screenshot, startX, startY, safeW, safeH)
+                    if (currentWorkingRaw != rawTemplateBitmap && !currentWorkingRaw.isRecycled) {
+                        currentWorkingRaw.recycle()
+                    }
+                    currentWorkingRaw = newRaw
+                }
+            } catch (_: Exception) {}
+        }
+        previewRawView?.bind(currentWorkingRaw, isMask = false, isCircle = false)
+    }
+
     private fun getActiveTemplateBitmap(): Bitmap {
         customEditedMask?.let { return it }
         val res = SmartMaskEngine.generateContourMaskWithCrop(
-            src = rawTemplateBitmap,
+            src = currentWorkingRaw,
             shapeExpansion = currentShapeExpansion,
             paddingOffsetPx = currentPaddingOffset,
             isCircle = isCircleShape,
             isRawMode = !isAutoContourMode,
             isShapeOnly = isShapeOnlyMode
         )
-        currentCropOffsetX = res.cropOffsetX
-        currentCropOffsetY = res.cropOffsetY
+        currentCropOffsetX = res.cropOffsetX + currentCropShiftX
+        currentCropOffsetY = res.cropOffsetY + currentCropShiftY
         activeGeneratedMask = res.bitmap
         return res.bitmap
+    }
+
+    private fun showFolderSelectionModal(targetEditText: EditText) {
+        val root = rootFrameLayout ?: return
+        val folders = (templateRepository as? com.example.autotap.infrastructure.storage.TemplateRepositoryImpl)?.listFolders() ?: listOf("default")
+
+        val modalOverlay = FrameLayout(context).apply {
+            setBackgroundColor("#B30B0813".toColorInt())
+            isClickable = true
+            isFocusable = true
+        }
+
+        val dialogCard = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf("#1F2937".toColorInt(), "#111827".toColorInt())
+            ).apply {
+                cornerRadius = dpF(12f)
+                setStroke(dp(1), "#8B5CF6".toColorInt())
+            }
+            val p = dp(12)
+            setPadding(p, p, p, p)
+            elevation = dpF(24f)
+        }
+
+        val titleRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, dp(8))
+        }
+        val tvModalTitle = TextView(context).apply {
+            text = "ВЫБОР ГРУППЫ ШАБЛОНОВ"
+            textSize = 9.5f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor("#A78BFA".toColorInt())
+        }
+        titleRow.addView(tvModalTitle, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
+        val btnCloseModal = createIconButton(VectorIconDrawer.IconType.CLOSE, "#1F2937", "#94A3B8", dp(24)) {
+            root.removeView(modalOverlay)
+        }
+        titleRow.addView(btnCloseModal, LinearLayout.LayoutParams(dp(24), dp(24)))
+        dialogCard.addView(titleRow)
+
+        val scrollView = ScrollView(context).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+        }
+        val listContainer = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        for (folder in folders) {
+            val count = try {
+                File(context.filesDir, "templates/$folder").listFiles()?.count { it.extension == "png" && !it.name.contains("_mask") && !it.name.contains("_raw") } ?: 0
+            } catch (_: Exception) { 0 }
+
+            val itemRow = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                background = GradientDrawable().apply {
+                    setColor(if (folder == targetEditText.text.toString().trim()) "#2E2250".toColorInt() else "#161B22".toColorInt())
+                    cornerRadius = dpF(6f)
+                    setStroke(dp(1), if (folder == targetEditText.text.toString().trim()) "#8B5CF6".toColorInt() else "#30363D".toColorInt())
+                }
+                val ip = dp(8)
+                setPadding(ip, dp(6), ip, dp(6))
+                isClickable = true
+                isFocusable = true
+                setOnClickListener {
+                    targetEditText.setText(folder)
+                    root.removeView(modalOverlay)
+                }
+            }
+
+            val tvName = TextView(context).apply {
+                text = folder
+                textSize = 9f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(Color.WHITE)
+            }
+            itemRow.addView(tvName, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
+            val tvBadge = TextView(context).apply {
+                text = "$count шт."
+                textSize = 7.5f
+                setTextColor("#8B949E".toColorInt())
+            }
+            itemRow.addView(tvBadge)
+
+            listContainer.addView(itemRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(4)
+            })
+        }
+
+        scrollView.addView(listContainer)
+        dialogCard.addView(scrollView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(140)))
+
+        modalOverlay.setOnClickListener {
+            root.removeView(modalOverlay)
+        }
+        dialogCard.setOnClickListener { /* prevent dismissal when touching card */ }
+
+        val cardParams = FrameLayout.LayoutParams(dp(260).coerceAtMost((dm.widthPixels * 0.9f).toInt()), FrameLayout.LayoutParams.WRAP_CONTENT).apply {
+            gravity = Gravity.CENTER
+        }
+        modalOverlay.addView(dialogCard, cardParams)
+        root.addView(modalOverlay, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
     }
 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 private fun reevaluateMatching() {
@@ -758,7 +897,7 @@ private val targetStepId: Int? = null,
                 MagicWandEditorOverlay(
                     context = context,
                     overlayWindowManager = overlayWindowManager,
-                    rawBitmap = rawTemplateBitmap,
+                    rawBitmap = currentWorkingRaw,
                     initialMask = currentMask,
                     onApplied = { editedMask ->
                         customEditedMask = editedMask
@@ -1356,75 +1495,177 @@ private val targetStepId: Int? = null,
         simRow.addView(btnSimPlus, LinearLayout.LayoutParams(dp(36), dp(24)))
         card.addView(simRow)
 
-        val cropShiftRow = LinearLayout(context).apply {
+        val cropControlBox = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                setColor("#111827".toColorInt())
+                cornerRadius = dpF(6f)
+                setStroke(dp(1), "#1E293B".toColorInt())
+            }
+            val cp = dp(4)
+            setPadding(cp, cp, cp, cp)
+        }
+
+        // [V182.0] D-Pad смещение кропа стрелочками (◀ ▶ ▲ ▼)
+        val rowCropShift = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(2), 0, dp(2))
+            setPadding(0, 0, 0, dp(3))
         }
+
         val tvCropShift = TextView(context).apply {
-            text = "СМЕЩЕНИЕ КРОПА X:${currentCropOffsetX} Y:${currentCropOffsetY}"
-            textSize = 8f
-            typeface = Typeface.DEFAULT_BOLD
+            text = "СМЕЩЕНИЕ X:${currentCropShiftX} Y:${currentCropShiftY}"
+            textSize = 7.5f
+            typeface = Typeface.MONOSPACE
             setTextColor("#38BDF8".toColorInt())
         }
-        cropShiftRow.addView(tvCropShift, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        rowCropShift.addView(tvCropShift, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 
-        val btnCropXMinus = Button(context).apply {
-            text = "X-1"
-            textSize = 7f
+        val btnStepToggle = Button(context).apply {
+            text = "${cropShiftStep}px"
+            textSize = 7.5f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
             setTextColor(Color.WHITE)
-            background = GradientDrawable().apply { setColor("#21262D".toColorInt()); cornerRadius = dpF(3f); setStroke(dp(1), "#30363D".toColorInt()) }
-            minHeight = 0; minimumHeight = 0; setPadding(dp(2), dp(2), dp(2), dp(2))
+            background = GradientDrawable().apply {
+                setColor("#21262D".toColorInt())
+                cornerRadius = dpF(4f)
+                setStroke(dp(1), "#38BDF8".toColorInt())
+            }
+            minHeight = 0; minimumHeight = 0
+            setPadding(dp(4), dp(2), dp(4), dp(2))
             setOnClickListener {
-                currentCropOffsetX = (currentCropOffsetX - 1).coerceAtLeast(-30)
-                tvCropShift.text = "СМЕЩЕНИЕ КРОПА X:${currentCropOffsetX} Y:${currentCropOffsetY}"
+                cropShiftStep = if (cropShiftStep == 1) 5 else 1
+                text = "${cropShiftStep}px"
+            }
+        }
+        rowCropShift.addView(btnStepToggle, LinearLayout.LayoutParams(dp(32), dp(22)).apply { marginEnd = dp(3) })
+
+        var tvCropSizeRef: TextView? = null
+
+        fun createCropArrowBtn(symbol: String, dx: Int, dy: Int): Button {
+            return Button(context).apply {
+                text = symbol
+                textSize = 8f
+                typeface = Typeface.DEFAULT_BOLD
+                includeFontPadding = false
+                setTextColor(Color.WHITE)
+                background = GradientDrawable().apply {
+                    setColor("#1E293B".toColorInt())
+                    cornerRadius = dpF(4f)
+                    setStroke(dp(1), "#6366F1".toColorInt())
+                }
+                minHeight = 0; minimumHeight = 0
+                setPadding(0, 0, 0, 0)
+                setOnClickListener {
+                    currentCropShiftX = (currentCropShiftX + dx * cropShiftStep).coerceIn(-100, 100)
+                    currentCropShiftY = (currentCropShiftY + dy * cropShiftStep).coerceIn(-100, 100)
+                    tvCropShift.text = "СМЕЩЕНИЕ X:${currentCropShiftX} Y:${currentCropShiftY}"
+                    updateWorkingCropBitmap()
+                    tvCropSizeRef?.text = "РАЗМЕР: ${currentWorkingRaw.width}×${currentWorkingRaw.height}"
+                    reevaluateMatching()
+                }
+            }
+        }
+
+        rowCropShift.addView(createCropArrowBtn("◀", -1, 0), LinearLayout.LayoutParams(dp(26), dp(22)).apply { marginEnd = dp(2) })
+        rowCropShift.addView(createCropArrowBtn("▶", 1, 0), LinearLayout.LayoutParams(dp(26), dp(22)).apply { marginEnd = dp(2) })
+        rowCropShift.addView(createCropArrowBtn("▲", 0, -1), LinearLayout.LayoutParams(dp(26), dp(22)).apply { marginEnd = dp(2) })
+        rowCropShift.addView(createCropArrowBtn("▼", 0, 1), LinearLayout.LayoutParams(dp(26), dp(22)))
+
+        cropControlBox.addView(rowCropShift)
+
+        // [V182.0] Расширение и уменьшение кропа для детальной настройки
+        val rowCropSize = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val tvCropSize = TextView(context).apply {
+            text = "РАЗМЕР: ${currentWorkingRaw.width}×${currentWorkingRaw.height}"
+            textSize = 7.5f
+            typeface = Typeface.MONOSPACE
+            setTextColor("#A78BFA".toColorInt())
+        }
+        tvCropSizeRef = tvCropSize
+        rowCropSize.addView(tvCropSize, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
+        val btnShrinkCrop = Button(context).apply {
+            text = "—"
+            textSize = 8f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                setColor("#1E293B".toColorInt())
+                cornerRadius = dpF(4f)
+                setStroke(dp(1), "#A78BFA".toColorInt())
+            }
+            minHeight = 0; minimumHeight = 0
+            setPadding(0, 0, 0, 0)
+            setOnClickListener {
+                val step = cropShiftStep * 2
+                currentCropDeltaW = (currentCropDeltaW - step).coerceAtLeast(-(rawTemplateBitmap.width - 12))
+                currentCropDeltaH = (currentCropDeltaH - step).coerceAtLeast(-(rawTemplateBitmap.height - 12))
+                updateWorkingCropBitmap()
+                tvCropSize.text = "РАЗМЕР: ${currentWorkingRaw.width}×${currentWorkingRaw.height}"
                 reevaluateMatching()
             }
         }
-        cropShiftRow.addView(btnCropXMinus, LinearLayout.LayoutParams(dp(32), dp(22)).apply { marginEnd = dp(2) })
+        rowCropSize.addView(btnShrinkCrop, LinearLayout.LayoutParams(dp(26), dp(22)).apply { marginEnd = dp(2) })
 
-        val btnCropXPlus = Button(context).apply {
-            text = "X+1"
-            textSize = 7f
+        val btnExpandCrop = Button(context).apply {
+            text = "+"
+            textSize = 9f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
             setTextColor(Color.WHITE)
-            background = GradientDrawable().apply { setColor("#21262D".toColorInt()); cornerRadius = dpF(3f); setStroke(dp(1), "#30363D".toColorInt()) }
-            minHeight = 0; minimumHeight = 0; setPadding(dp(2), dp(2), dp(2), dp(2))
+            background = GradientDrawable().apply {
+                setColor("#1E293B".toColorInt())
+                cornerRadius = dpF(4f)
+                setStroke(dp(1), "#A78BFA".toColorInt())
+            }
+            minHeight = 0; minimumHeight = 0
+            setPadding(0, 0, 0, 0)
             setOnClickListener {
-                currentCropOffsetX = (currentCropOffsetX + 1).coerceAtMost(30)
-                tvCropShift.text = "СМЕЩЕНИЕ КРОПА X:${currentCropOffsetX} Y:${currentCropOffsetY}"
+                val step = cropShiftStep * 2
+                currentCropDeltaW = (currentCropDeltaW + step).coerceAtMost(100)
+                currentCropDeltaH = (currentCropDeltaH + step).coerceAtMost(100)
+                updateWorkingCropBitmap()
+                tvCropSize.text = "РАЗМЕР: ${currentWorkingRaw.width}×${currentWorkingRaw.height}"
                 reevaluateMatching()
             }
         }
-        cropShiftRow.addView(btnCropXPlus, LinearLayout.LayoutParams(dp(32), dp(22)).apply { marginEnd = dp(2) })
+        rowCropSize.addView(btnExpandCrop, LinearLayout.LayoutParams(dp(26), dp(22)).apply { marginEnd = dp(2) })
 
-        val btnCropYMinus = Button(context).apply {
-            text = "Y-1"
-            textSize = 7f
-            setTextColor(Color.WHITE)
-            background = GradientDrawable().apply { setColor("#21262D".toColorInt()); cornerRadius = dpF(3f); setStroke(dp(1), "#30363D".toColorInt()) }
-            minHeight = 0; minimumHeight = 0; setPadding(dp(2), dp(2), dp(2), dp(2))
+        val btnResetCrop = Button(context).apply {
+            text = "СБРОС"
+            textSize = 6.5f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            setTextColor("#94A3B8".toColorInt())
+            background = GradientDrawable().apply {
+                setColor("#161B22".toColorInt())
+                cornerRadius = dpF(4f)
+                setStroke(dp(1), "#30363D".toColorInt())
+            }
+            minHeight = 0; minimumHeight = 0
+            setPadding(dp(2), 0, dp(2), 0)
             setOnClickListener {
-                currentCropOffsetY = (currentCropOffsetY - 1).coerceAtLeast(-30)
-                tvCropShift.text = "СМЕЩЕНИЕ КРОПА X:${currentCropOffsetX} Y:${currentCropOffsetY}"
+                currentCropShiftX = 0
+                currentCropShiftY = 0
+                currentCropDeltaW = 0
+                currentCropDeltaH = 0
+                tvCropShift.text = "СМЕЩЕНИЕ X:0 Y:0"
+                updateWorkingCropBitmap()
+                tvCropSize.text = "РАЗМЕР: ${currentWorkingRaw.width}×${currentWorkingRaw.height}"
                 reevaluateMatching()
             }
         }
-        cropShiftRow.addView(btnCropYMinus, LinearLayout.LayoutParams(dp(32), dp(22)).apply { marginEnd = dp(2) })
+        rowCropSize.addView(btnResetCrop, LinearLayout.LayoutParams(dp(36), dp(22)))
 
-        val btnCropYPlus = Button(context).apply {
-            text = "Y+1"
-            textSize = 7f
-            setTextColor(Color.WHITE)
-            background = GradientDrawable().apply { setColor("#21262D".toColorInt()); cornerRadius = dpF(3f); setStroke(dp(1), "#30363D".toColorInt()) }
-            minHeight = 0; minimumHeight = 0; setPadding(dp(2), dp(2), dp(2), dp(2))
-            setOnClickListener {
-                currentCropOffsetY = (currentCropOffsetY + 1).coerceAtMost(30)
-                tvCropShift.text = "СМЕЩЕНИЕ КРОПА X:${currentCropOffsetX} Y:${currentCropOffsetY}"
-                reevaluateMatching()
-            }
-        }
-        cropShiftRow.addView(btnCropYPlus, LinearLayout.LayoutParams(dp(32), dp(22)))
-        card.addView(cropShiftRow)
+        cropControlBox.addView(rowCropSize)
+        card.addView(cropControlBox)
 
         val clickControlRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -1647,16 +1888,7 @@ private val targetStepId: Int? = null,
             minHeight = 0; minimumHeight = 0
             setPadding(dp(6), 0, dp(6), 0)
             setOnClickListener {
-                val folders = (templateRepository as? com.example.autotap.infrastructure.storage.TemplateRepositoryImpl)?.listFolders() ?: listOf("default")
-                val popup = android.widget.PopupMenu(context, this)
-                for (folder in folders) {
-                    popup.menu.add(folder)
-                }
-                popup.setOnMenuItemClickListener { item ->
-                    etFolder.setText(item.title)
-                    true
-                }
-                popup.show()
+                showFolderSelectionModal(etFolder)
             }
         }
         folderRow.addView(btnSelectFolder, LinearLayout.LayoutParams(dp(28), dp(28)).apply {marginStart = dp(4)})
@@ -1686,11 +1918,11 @@ private val targetStepId: Int? = null,
 
                 val finalMask = getActiveTemplateBitmap()
 
-                                val bestCand = currentCandidates.firstOrNull()
+                val bestCand = currentCandidates.firstOrNull()
                 val finalCalibX = bestCand?.clickX?.toInt() ?: (anchorCropX + finalMask.width / 2)
                 val finalCalibY = bestCand?.clickY?.toInt() ?: (anchorCropY + finalMask.height / 2)
 
-                                val minDim = kotlin.math.min(finalMask.width, finalMask.height)
+                val minDim = kotlin.math.min(finalMask.width, finalMask.height)
                 val calculatedGridStep = kotlin.math.max(2, kotlin.math.min(minDim / 4, 8))
 
                 val metaObj = JSONObject().apply {
@@ -1729,17 +1961,17 @@ private val targetStepId: Int? = null,
                         }
                         put("roiZones", rArr)
                     }
-                    }
+                }
 
-                                // [V12.1] Синхронный кроп сырого кадра для 100% совпадения габаритов с маской
+                // [V12.1] Синхронный кроп сырого кадра для 100% совпадения габаритов с маской
                 val finalRawCropped = try {
-                    val safeCropW = finalMask.width.coerceIn(1, rawTemplateBitmap.width)
-                    val safeCropH = finalMask.height.coerceIn(1, rawTemplateBitmap.height)
-                    val safeCropX = currentCropOffsetX.coerceIn(0, rawTemplateBitmap.width - safeCropW)
-                    val safeCropY = currentCropOffsetY.coerceIn(0, rawTemplateBitmap.height - safeCropH)
-                    Bitmap.createBitmap(rawTemplateBitmap, safeCropX, safeCropY, safeCropW, safeCropH)
+                    val safeCropW = finalMask.width.coerceIn(1, currentWorkingRaw.width)
+                    val safeCropH = finalMask.height.coerceIn(1, currentWorkingRaw.height)
+                    val safeCropX = 0.coerceIn(0, currentWorkingRaw.width - safeCropW)
+                    val safeCropY = 0.coerceIn(0, currentWorkingRaw.height - safeCropH)
+                    Bitmap.createBitmap(currentWorkingRaw, safeCropX, safeCropY, safeCropW, safeCropH)
                 } catch (_: Exception) {
-                    rawTemplateBitmap
+                    currentWorkingRaw
                 }
 
                 val tPath = templateRepository.saveTemplate(
@@ -1755,8 +1987,6 @@ private val targetStepId: Int? = null,
                               else (best?.clickX?.toFloat() ?: (anchorCropX + finalMask.width / 2f).coerceIn(100f, dm.widthPixels - 100f))
                 val targetY = if (existingAction != null && existingAction.posY > 10f && best == null) existingAction.posY
                               else (best?.clickY?.toFloat() ?: (anchorCropY + finalMask.height / 2f).coerceIn(150f, dm.heightPixels - 150f))
-
-
 
                 val firstRoi = activeRoiZones.firstOrNull()
                 val updatedRoiAnchors: List<Point2D> = activeRoiZones.map { zone -> Point2D(zone.centerX().toFloat(), zone.centerY().toFloat()) }
@@ -1897,6 +2127,7 @@ private val targetStepId: Int? = null,
         rootFrameLayout?.let { overlayWindowManager.removeViewSafe(it) }
         rootFrameLayout = null
         if (!screenshot.isRecycled) screenshot.recycle()
+        if (currentWorkingRaw != rawTemplateBitmap && !currentWorkingRaw.isRecycled) currentWorkingRaw.recycle()
         if (!rawTemplateBitmap.isRecycled) rawTemplateBitmap.recycle()
         activeGeneratedMask?.let { if (!it.isRecycled) it.recycle() }
         customEditedMask?.let { if (!it.isRecycled) it.recycle() }
