@@ -920,6 +920,15 @@
             "checker_file": "check_orchestrator_singleton_access.py",
             "checker": "check_orchestrator_singleton_access.py",
             "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_OVERLAY_3MODE_VISIBILITY_AND_STEP_DELETION",
+            "description": "3 режима видимости оверлеев (Full, Transparent, Hidden) и надежное удаление шага 1 без воскрешения сессии",
+            "target_file": "TargetOverlayManager.kt",
+            "checker_module": "check_overlay_3mode_visibility_and_step_deletion.py",
+            "checker_file": "check_overlay_3mode_visibility_and_step_deletion.py",
+            "checker": "check_overlay_3mode_visibility_and_step_deletion.py",
+            "status": "FIXED"
         }
     ]
 }
