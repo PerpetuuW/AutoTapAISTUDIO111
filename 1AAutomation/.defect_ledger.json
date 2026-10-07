@@ -965,6 +965,15 @@
             "checker_file": "check_tutorials_and_mask_editor_improvements.py",
             "checker": "check_tutorials_and_mask_editor_improvements.py",
             "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_UI_LAYOUT_AND_BUTTON_STANDARDIZATION",
+            "description": "Полноцветный режим редактора масок, динамическое измерение ширины плавающих пузырей без обрезания кнопок и унификация иконки справки",
+            "target_file": "MagicWandEditorOverlay.kt",
+            "checker_module": "check_ui_layout_and_button_standardization.py",
+            "checker_file": "check_ui_layout_and_button_standardization.py",
+            "checker": "check_ui_layout_and_button_standardization.py",
+            "status": "FIXED"
         }
     ]
 }

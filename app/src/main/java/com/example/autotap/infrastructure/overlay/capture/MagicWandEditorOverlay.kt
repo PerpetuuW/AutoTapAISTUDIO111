@@ -142,6 +142,9 @@ class MagicWandEditorOverlay(
             private val checkerLight = Paint().apply { color = "#281142".toColorInt() }
             private val checkerDark = Paint().apply { color = "#10051C".toColorInt() }
             private val bmpPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+            private val maskOverlayPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+                alpha = 170
+            }
             private val gridLinePaint = Paint().apply {
                 color = "#30C084FC".toColorInt()
                 style = Paint.Style.STROKE
@@ -180,7 +183,12 @@ class MagicWandEditorOverlay(
                 val dx = (w - drawW) / 2f + panX
                 val dy = (h - drawH) / 2f + panY
                 dstR.set(dx, dy, dx + drawW, dy + drawH)
-                canvas.drawBitmap(currentMask, srcR, dstR, bmpPaint)
+
+                // 1. Отрисовка исходного полноцветного шаблона (rawBitmap)
+                canvas.drawBitmap(rawBitmap, srcR, dstR, bmpPaint)
+
+                // 2. Отрисовка полупрозрачной цветной маски поверх оригинала
+                canvas.drawBitmap(currentMask, srcR, dstR, maskOverlayPaint)
 
                 if (effectiveScale >= dpF(4f)) {
                     val pxW = drawW / currentMask.width

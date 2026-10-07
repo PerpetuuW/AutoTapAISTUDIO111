@@ -131,6 +131,8 @@ class RoiSelectorOverlay(
         val hudLayout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
+            clipChildren = false
+            clipToPadding = false
             setOnTouchListener { _, _ -> true }
         }
 
@@ -160,6 +162,8 @@ class RoiSelectorOverlay(
         val bar = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            clipChildren = false
+            clipToPadding = false
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
                 intArrayOf("#F8161B22".toColorInt(), "#F80D1117".toColorInt())
@@ -207,16 +211,20 @@ class RoiSelectorOverlay(
                 View.MeasureSpec.makeMeasureSpec(screenW, View.MeasureSpec.AT_MOST),
                 View.MeasureSpec.makeMeasureSpec(screenH, View.MeasureSpec.AT_MOST)
             )
-            val hudW = hudLayout.measuredWidth.coerceAtLeast(dp(180))
-            val hudH = hudLayout.measuredHeight.coerceAtLeast(dp(70))
+            bar.measure(
+                View.MeasureSpec.makeMeasureSpec(screenW, View.MeasureSpec.AT_MOST),
+                View.MeasureSpec.makeMeasureSpec(screenH, View.MeasureSpec.AT_MOST)
+            )
+            val hudW = maxOf(hudLayout.measuredWidth, bar.measuredWidth, dp(200))
+            val hudH = maxOf(hudLayout.measuredHeight, bar.measuredHeight, dp(70))
             val margin = dp(10)
             val safeTop = dp(30)
 
-            val posX = (roi.centerX() - hudW / 2).coerceIn(margin, screenW - hudW - margin)
+            val posX = (roi.centerX() - hudW / 2).coerceIn(margin, (screenW - hudW - margin).coerceAtLeast(margin))
             val posY = if (roi.top - hudH - margin >= safeTop) {
                 roi.top - hudH - margin
             } else {
-                (roi.bottom + dp(15)).coerceAtMost(screenH - hudH - dp(10))
+                (roi.bottom + dp(15)).coerceAtMost((screenH - hudH - dp(10)).coerceAtLeast(safeTop))
             }
 
             val hudLp = hudLayout.layoutParams as? FrameLayout.LayoutParams

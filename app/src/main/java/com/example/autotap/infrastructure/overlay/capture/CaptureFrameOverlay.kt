@@ -219,6 +219,8 @@ class CaptureFrameOverlay(
         val controls = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            clipChildren = false
+            clipToPadding = false
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
                 intArrayOf("#F8161B22".toColorInt(), "#F80D1117".toColorInt())
@@ -403,13 +405,13 @@ class CaptureFrameOverlay(
         root.addView(controls, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT))
 
         fun updateFloatingControlsPosition() {
-            val ctrlW = dp(184)
-            val ctrlH = dp(48)
+            controls.measure(
+                View.MeasureSpec.makeMeasureSpec(screenW, View.MeasureSpec.AT_MOST),
+                View.MeasureSpec.makeMeasureSpec(screenH, View.MeasureSpec.AT_MOST)
+            )
+            val ctrlW = maxOf(controls.measuredWidth, dp(220))
+            val ctrlH = maxOf(controls.measuredHeight, dp(48))
             val margin = dp(10)
-            val safeTop = dp(35)
-            val safeBottom = dp(35)
-
-
 
             val posX = (cropRect.centerX() - ctrlW / 2).coerceIn(margin, (screenW - ctrlW - margin).coerceAtLeast(margin))
             // [V31.2] Безопасная дистанция 48dp: исключает наложение панели кнопок на ручку ресайза (которая на +18dp)

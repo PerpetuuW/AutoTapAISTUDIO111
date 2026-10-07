@@ -29,6 +29,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.graphics.toColorInt
 import com.example.autotap.core.logger.AppLogger
+import com.example.autotap.infrastructure.overlay.ui.VectorIconDrawer
 
 import com.example.autotap.domain.model.ActionType
 import com.example.autotap.domain.model.MacroAction
@@ -721,29 +722,15 @@ private val targetStepId: Int? = null,
         headerRow.addView(btnStudio, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(26)).apply { marginEnd = dp(4) })
 
         // [V180.0] Интерактивная справка и обучение в редакторе шаблона (CalibrationOverlay)
-        val btnTut = Button(context).apply {
-            text = "[?] СПРАВКА"
-            textSize = 8f
-            typeface = Typeface.DEFAULT_BOLD
-            includeFontPadding = false
-            minHeight = 0; minimumHeight = 0
-            setPadding(dp(6), dp(3), dp(6), dp(3))
-            setTextColor(Color.WHITE)
-            background = GradientDrawable().apply {
-                setColor("#1E293B".toColorInt())
-                cornerRadius = dpF(4f)
-                setStroke(dp(1), "#38BDF8".toColorInt())
-            }
-            setOnClickListener {
-                InteractiveTutorialOverlay(
-                    context = context,
-                    overlayWindowManager = overlayWindowManager,
-                    mode = InteractiveTutorialOverlay.TutorialMode.CALIBRATION,
-                    hostViewProvider = { rootFrameLayout }
-                ).show()
-            }
+        val btnTut = createIconButton(VectorIconDrawer.IconType.HELP, "#21262D", "#38BDF8", dp(26)) {
+            InteractiveTutorialOverlay(
+                context = context,
+                overlayWindowManager = overlayWindowManager,
+                mode = InteractiveTutorialOverlay.TutorialMode.CALIBRATION,
+                hostViewProvider = { rootFrameLayout }
+            ).show()
         }
-        headerRow.addView(btnTut, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(26)).apply { marginEnd = dp(4) })
+        headerRow.addView(btnTut, LinearLayout.LayoutParams(dp(26), dp(26)).apply { marginEnd = dp(4) })
 
         val btnAuto = Button(context).apply {
             text = "АВТО"
@@ -1662,6 +1649,31 @@ private val targetStepId: Int? = null,
         overlayWindowManager.addViewSafe(root, params)
 
         reevaluateMatching()
+    }
+
+    private fun createIconButton(
+        type: VectorIconDrawer.IconType,
+        bgHex: String,
+        iconHex: String,
+        sizePx: Int,
+        onClick: () -> Unit
+    ): View {
+        return object : View(context) {
+            private val bounds = RectF()
+            override fun onDraw(canvas: Canvas) {
+                super.onDraw(canvas)
+                bounds.set(dpF(5f), dpF(5f), width - dpF(5f), height - dpF(5f))
+                VectorIconDrawer.drawIcon(canvas, type, bounds, iconHex.toColorInt(), dpF(1.8f))
+            }
+        }.apply {
+            background = GradientDrawable().apply {
+                setColor(bgHex.toColorInt())
+                cornerRadius = dpF(4f)
+                setStroke(dp(1), iconHex.toColorInt())
+            }
+            layoutParams = LinearLayout.LayoutParams(sizePx, sizePx)
+            setOnClickListener { onClick() }
+        }
     }
 
     fun dismiss() {
