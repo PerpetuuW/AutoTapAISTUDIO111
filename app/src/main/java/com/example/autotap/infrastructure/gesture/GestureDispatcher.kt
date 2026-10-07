@@ -269,18 +269,20 @@ class GestureDispatcher(
 
     fun performSwipeAsync(startX: Float, startY: Float, endX: Float, endY: Float, durationMs: Long, onComplete: ((Boolean) -> Unit)?) {
         val service = serviceProvider() ?: run {
+            AppLogger.log(null, "GESTURE", "ОШИБКА: AccessibilityService недоступен при свайпе")
             onComplete?.invoke(false)
             return
         }
         val dm: DisplayMetrics = getRealDisplayMetrics(service)
         visualizerManager.showSwipeVisualizer(startX, startY, endX, endY, durationMs)
-        AppLogger.log(service, "GESTURE", "Свайп ($startX, $startY) -> ($endX, $endY), длительность ${durationMs}мс")
+        AppLogger.log(service, "GESTURE", "Запуск свайпа: ($startX, $startY) -> ($endX, $endY), длительность ${durationMs}мс")
 
         val humanGesture = HumanGestureEngine.buildHumanSwipeGesture(startX, startY, endX, endY, durationMs, dm.widthPixels, dm.heightPixels)
         val isDone = AtomicBoolean(false)
         val timeoutRunnable = Runnable {
             if (isDone.compareAndSet(false, true)) {
                 safeTogglePassthrough(false)
+                AppLogger.log(service, "GESTURE", "Таймаут свайпа ($startX, $startY) -> ($endX, $endY)")
                 onComplete?.invoke(false)
             }
         }
@@ -292,14 +294,17 @@ class GestureDispatcher(
         mainHandler.postDelayed({
             if (isDone.get()) return@postDelayed
             try {
+                AppLogger.log(service, "GESTURE", "Отправка свайпа в Android System...")
                 val dispatched = service.dispatchGesture(humanGesture, object : AccessibilityService.GestureResultCallback() {
                     override fun onCompleted(gestureDescription: GestureDescription?) {
+                        AppLogger.log(service, "GESTURE", "Свайп УСПЕШНО исполнен системой")
                         mainHandler.removeCallbacks(timeoutRunnable)
                         safeTogglePassthrough(false)
                         if (isDone.compareAndSet(false, true)) onComplete?.invoke(true)
                     }
 
                     override fun onCancelled(gestureDescription: GestureDescription?) {
+                        AppLogger.log(service, "GESTURE", "ОШИБКА: Свайп ОТМЕНЕН системой")
                         mainHandler.removeCallbacks(timeoutRunnable)
                         safeTogglePassthrough(false)
                         if (isDone.compareAndSet(false, true)) onComplete?.invoke(false)
@@ -307,12 +312,13 @@ class GestureDispatcher(
                 }, null)
 
                 if (!dispatched) {
+                    AppLogger.log(service, "GESTURE", "ОШИБКА: dispatchGesture свайпа вернул FALSE")
                     mainHandler.removeCallbacks(timeoutRunnable)
                     safeTogglePassthrough(false)
                     if (isDone.compareAndSet(false, true)) onComplete?.invoke(false)
                 }
             } catch (e: Exception) {
-                AppLogger.logError(service, "GESTURE_CRASH", e)
+                AppLogger.logError(service, "GESTURE_CRASH_SWIPE", e)
                 mainHandler.removeCallbacks(timeoutRunnable)
                 safeTogglePassthrough(false)
                 if (isDone.compareAndSet(false, true)) onComplete?.invoke(false)
@@ -337,16 +343,20 @@ class GestureDispatcher(
 
     fun performPathAsync(points: List<Point2D>, durationMs: Long, onComplete: ((Boolean) -> Unit)?) {
         if (points.isEmpty()) {
+            AppLogger.log(null, "GESTURE", "ОШИБКА: performPathAsync получил пустой список точек")
             onComplete?.invoke(false)
             return
         }
         val service = serviceProvider() ?: run {
+            AppLogger.log(null, "GESTURE", "ОШИБКА: AccessibilityService недоступен при пути/жесте")
             onComplete?.invoke(false)
             return
         }
         val dm: DisplayMetrics = getRealDisplayMetrics(service)
         val maxW = (dm.widthPixels - 1).toFloat()
         val maxH = (dm.heightPixels - 1).toFloat()
+
+        AppLogger.log(service, "GESTURE", "Запуск отрисовки пути (${points.size} точек), длительность ${durationMs}мс")
 
         val path = Path().apply {
             val startX = points[0].x.coerceIn(0f, maxW)
@@ -367,6 +377,7 @@ class GestureDispatcher(
         val timeoutRunnable = Runnable {
             if (isDone.compareAndSet(false, true)) {
                 safeTogglePassthrough(false)
+                AppLogger.log(service, "GESTURE", "Таймаут выполнения пути/жеста")
                 onComplete?.invoke(false)
             }
         }
@@ -378,14 +389,17 @@ class GestureDispatcher(
         mainHandler.postDelayed({
             if (isDone.get()) return@postDelayed
             try {
+                AppLogger.log(service, "GESTURE", "Отправка сложного пути в Android System...")
                 val dispatched = service.dispatchGesture(gesture, object : AccessibilityService.GestureResultCallback() {
                     override fun onCompleted(gestureDescription: GestureDescription?) {
+                        AppLogger.log(service, "GESTURE", "Сложный путь УСПЕШНО исполнен системой")
                         mainHandler.removeCallbacks(timeoutRunnable)
                         safeTogglePassthrough(false)
                         if (isDone.compareAndSet(false, true)) onComplete?.invoke(true)
                     }
 
                     override fun onCancelled(gestureDescription: GestureDescription?) {
+                        AppLogger.log(service, "GESTURE", "ОШИБКА: Сложный путь ОТМЕНЕН системой")
                         mainHandler.removeCallbacks(timeoutRunnable)
                         safeTogglePassthrough(false)
                         if (isDone.compareAndSet(false, true)) onComplete?.invoke(false)
@@ -393,12 +407,13 @@ class GestureDispatcher(
                 }, null)
 
                 if (!dispatched) {
+                    AppLogger.log(service, "GESTURE", "ОШИБКА: dispatchGesture сложного пути вернул FALSE")
                     mainHandler.removeCallbacks(timeoutRunnable)
                     safeTogglePassthrough(false)
                     if (isDone.compareAndSet(false, true)) onComplete?.invoke(false)
                 }
             } catch (e: Exception) {
-                AppLogger.logError(service, "GESTURE_CRASH", e)
+                AppLogger.logError(service, "GESTURE_CRASH_PATH", e)
                 mainHandler.removeCallbacks(timeoutRunnable)
                 safeTogglePassthrough(false)
                 if (isDone.compareAndSet(false, true)) onComplete?.invoke(false)

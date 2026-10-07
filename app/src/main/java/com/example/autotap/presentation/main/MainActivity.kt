@@ -282,6 +282,13 @@ class MainActivity : AppCompatActivity() {
         }
         actionsRow.addView(btnSend)
 
+        val btnClear = createBtn("ОЧИСТИТЬ", "#1F2937", "#EF4444", 1.2f) {
+            com.example.autotap.core.logger.AppLogger.clearLogs(this)
+            tvLogs.text = "Журнал логов пуст."
+            android.widget.Toast.makeText(this, "Логи полностью очищены!", android.widget.Toast.LENGTH_SHORT).show()
+        }
+        actionsRow.addView(btnClear)
+
         val btnClose = createBtn("ЗАКРЫТЬ", "#2A1420", "#F43F5E", 1f) {
             dialogRef?.dismiss()
         }

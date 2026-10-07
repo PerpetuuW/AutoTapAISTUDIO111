@@ -105,6 +105,10 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         }
     }
 
+    private var isRestoringOrLoadingScenario = false
+    private var lastObservedActionIds = emptySet<Int>()
+    private val sessionCreatedActionIds = mutableSetOf<Int>()
+
     var globalClickDurationMs: Long = 30L
     var globalClickPauseMs: Long = 60L
     var globalSwipeDurationMs: Long = 300L
@@ -143,7 +147,20 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             }
         }
 
-        targetManager.onActionsChanged = { persistActiveSession() }
+        targetManager.onActionsChanged = { list ->
+            val currentIds = list.map { it.id }.toSet()
+            if (isRestoringOrLoadingScenario) {
+                sessionCreatedActionIds.clear()
+            } else {
+                val addedIds = currentIds - lastObservedActionIds
+                sessionCreatedActionIds.addAll(addedIds)
+                if (list.isEmpty()) {
+                    sessionCreatedActionIds.clear()
+                }
+            }
+            lastObservedActionIds = currentIds
+            persistActiveSession()
+        }
         appScope.launch { macroEngine.executionState.collect { handleExecutionState(it) } }
         AutoTapAccessibilityService.instance?.gestureDispatcher?.onGesturePassthroughToggle = { enabled, x, y -> screenLockOverlay.setPassthroughEnabled(enabled, x, y) }
     }
@@ -155,6 +172,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         targetManager.setOverlaysVisible(true)
 
         // [V80.0] Гарантированное восстановление последней активной сессии и шагов, которые использовались
+        isRestoringOrLoadingScenario = true
         if (targetManager.getActions().isEmpty()) {
             val prefs = appContext.getSharedPreferences("autotap_prefs", Context.MODE_PRIVATE)
             val lastScript = prefs.getString("last_active_scenario_name", null)
@@ -165,6 +183,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 }
             }
         }
+        isRestoringOrLoadingScenario = false
 
         val currentActions = targetManager.getActions()
         if (currentActions.isEmpty()) {
@@ -243,7 +262,9 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             return
         }
         val allActions = targetManager.getActions()
-        val isComplex = allActions.size > 3
+        val sessionActions = allActions.filter { it.id in sessionCreatedActionIds }
+        val hasMultiSearchMoreThan3 = allActions.any { it.multiTemplatePaths.size > 3 }
+        val isComplex = sessionActions.size > 3 || hasMultiSearchMoreThan3
         if (!isComplex) {
             onCompleted()
             return
@@ -1039,7 +1060,11 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 val specs = DeviceDisplaySpecs(dm.widthPixels, dm.heightPixels, dm.densityDpi, dm.density, dm.widthPixels > dm.heightPixels)
                 scenarioRepository.saveScenario(MacroScenario(it, 1, specs, targetManager.getActions(), globalClickDurationMs, globalSwipeDurationMs))
             },
-            onLoadRequested = { scenarioRepository.loadScenario(it)?.let { s -> targetManager.loadActions(s.actions) } },
+            onLoadRequested = { 
+                isRestoringOrLoadingScenario = true
+                scenarioRepository.loadScenario(it)?.let { s -> targetManager.loadActions(s.actions) }
+                isRestoringOrLoadingScenario = false
+            },
             onExportRequested = { backupManager.exportSingleScriptZip(it)?.let { z -> backupManager.shareZipFile(z, "Export") } },
             onOpenGraphRequested = { openGraphEditor(it) }
         ).show()
@@ -1185,25 +1210,12 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                         val specs = DeviceDisplaySpecs(dm.widthPixels, dm.heightPixels, dm.densityDpi, dm.density, dm.widthPixels > dm.heightPixels)
                         scenarioRepository.saveScenario(MacroScenario("_last_active_session", 1, specs, currentActions, globalClickDurationMs, globalSwipeDurationMs))
                     }
-                    if (wasRunning && currentActions.size > 3) {
-                        mainHandler.postDelayed({
-                            checkAndPromptGraphGeneration(currentActions.first()) {}
-                        }, 350L)
-                    }
                 }
                 ExecutionState.Idle, is ExecutionState.Error -> {
                     val wasRunning = wasExecutingBeforeStop
                     wasExecutingBeforeStop = false
                     runningBadgeOverlay.dismiss(); debuggerToolbarOverlay.dismiss(); screenLockOverlay.dismiss()
                     controlPanelOverlay.show(); controlPanelOverlay.setPlayState(false); targetManager.setOverlaysVisible(true); targetManager.setTargetsTouchable(true)
-                    if (wasRunning && state is ExecutionState.Idle) {
-                        val currentActions = targetManager.getActions()
-                        if (currentActions.size > 3) {
-                            mainHandler.postDelayed({
-                                checkAndPromptGraphGeneration(currentActions.first()) {}
-                            }, 350L)
-                        }
-                    }
                 }
 
                 is ExecutionState.Paused -> {

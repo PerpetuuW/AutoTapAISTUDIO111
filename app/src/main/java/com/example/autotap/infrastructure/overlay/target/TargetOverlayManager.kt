@@ -405,11 +405,16 @@ class TargetOverlayManager(
                 val act = actionsList.find { it.id == actId }
                 if (act != null) {
                     tv.bindAction(act, visibilityMode)
-                } else if (isHidden) {
-                    tv.circleContainer.visibility = View.INVISIBLE
-                    tv.tvNumber.visibility = View.INVISIBLE
-                    tv.tvCornerBadge.visibility = View.GONE
-                    tv.ivTemplate.visibility = View.GONE
+                } else {
+                    if (isHidden) {
+                        tv.circleContainer.visibility = View.INVISIBLE
+                        tv.tvNumber.visibility = View.INVISIBLE
+                        tv.tvCornerBadge.visibility = View.GONE
+                        tv.ivTemplate.visibility = View.GONE
+                    } else {
+                        tv.circleContainer.visibility = View.VISIBLE
+                        tv.tvNumber.visibility = View.VISIBLE
+                    }
                 }
             }
 
@@ -420,10 +425,15 @@ class TargetOverlayManager(
                 val act = actionsList.find { it.id == actId }
                 if (act != null) {
                     etv.bindAction(act, visibilityMode)
-                } else if (isHidden) {
-                    etv.circleContainer.visibility = View.INVISIBLE
-                    etv.tvNumber.visibility = View.INVISIBLE
-                    etv.tvCornerBadge.visibility = View.GONE
+                } else {
+                    if (isHidden) {
+                        etv.circleContainer.visibility = View.INVISIBLE
+                        etv.tvNumber.visibility = View.INVISIBLE
+                        etv.tvCornerBadge.visibility = View.GONE
+                    } else {
+                        etv.circleContainer.visibility = View.VISIBLE
+                        etv.tvNumber.visibility = View.VISIBLE
+                    }
                 }
             }
             waypointViews.values.flatten().forEach { wp ->
