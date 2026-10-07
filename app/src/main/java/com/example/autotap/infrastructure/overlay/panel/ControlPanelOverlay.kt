@@ -101,6 +101,7 @@ class ControlPanelOverlay(
         }
         overlayWindowManager.addViewSafe(container, layoutParams)
         applyDisplayMode(currentMode)
+        updateVisibilityMode(visibilityModeState)
         AppLogger.log(context, "PANEL", "Плавающая панель управления открыта")
     }
 

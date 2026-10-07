@@ -115,6 +115,7 @@ class TargetOverlayManager(
     fun loadActions(actions: List<MacroAction>) {
         clearAll()
         ensureGraphOverlayAttached()
+        visibilityMode = OverlayVisibilityMode.FULL
         actions.forEach { act ->
             actionsList.add(act)
             spawnTargetView(act)
@@ -144,6 +145,7 @@ class TargetOverlayManager(
 
     fun addAction(action: MacroAction) {
         ensureGraphOverlayAttached()
+        visibilityMode = OverlayVisibilityMode.FULL
         val nextId = actionsList.size + 1
         val (screenW, screenH) = getRealScreenDimensions()
 
@@ -214,6 +216,34 @@ class TargetOverlayManager(
             pathPoints = newPts
         )
         addAction(cloned)
+    }
+
+    fun addPathWaypoint(actionId: Int) {
+        val idx = actionsList.indexOfFirst { it.id == actionId }
+        if (idx == -1) return
+        val action = actionsList[idx]
+        if (action.type != ActionType.PATH) return
+
+        val mPts = action.pathPoints.toMutableList()
+        val pts = if (mPts.size >= 2) {
+            val p1 = mPts[mPts.size - 2]
+            val p2 = mPts.last()
+            val midX = (p1.x + p2.x) / 2f + dp(15f).toFloat()
+            val midY = (p1.y + p2.y) / 2f - dp(15f).toFloat()
+            mPts.add(mPts.size - 1, Point2D(midX, midY, 0L))
+            mPts
+        } else {
+            val endX = action.endX ?: (action.posX + dp(80f))
+            val endY = action.endY ?: (action.posY + dp(80f))
+            listOf(
+                Point2D(action.posX, action.posY, 0L),
+                Point2D((action.posX + endX) / 2f + dp(15f).toFloat(), (action.posY + endY) / 2f - dp(15f).toFloat(), 0L),
+                Point2D(endX, endY, 0L)
+            )
+        }
+        val updated = action.copy(pathPoints = pts)
+        updateAction(updated)
+        android.widget.Toast.makeText(context, "Точка добавлена в траекторию (всего: ${pts.size})", android.widget.Toast.LENGTH_SHORT).show()
     }
 
     fun addActionAt(
@@ -644,7 +674,13 @@ class TargetOverlayManager(
                                     onEdit = { onActionEditRequested?.invoke(it) },
                                     onAddTemplate = { onActionAddTemplateRequested?.invoke(it) },
                                     onCalibrate = { onActionCalibrateRequested?.invoke(it) },
-                                    onClone = { cloneAction(it) },
+                                    onClone = { 
+                                        if (it.type == ActionType.PATH) {
+                                            addPathWaypoint(it.id)
+                                        } else {
+                                            cloneAction(it)
+                                        }
+                                    },
                                     onDelete = { removeAction(it.id) }
                                 )
                             }

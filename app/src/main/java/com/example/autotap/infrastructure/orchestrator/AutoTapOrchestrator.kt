@@ -154,6 +154,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             } else {
                 val addedIds = currentIds - lastObservedActionIds
                 sessionCreatedActionIds.addAll(addedIds)
+                sessionCreatedActionIds.retainAll(currentIds)
                 if (list.isEmpty()) {
                     sessionCreatedActionIds.clear()
                 }
@@ -263,7 +264,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         }
         val allActions = targetManager.getActions()
         val sessionActions = allActions.filter { it.id in sessionCreatedActionIds }
-        val hasMultiSearchMoreThan3 = allActions.any { it.multiTemplatePaths.size > 3 }
+        val hasMultiSearchMoreThan3 = sessionActions.any { it.multiTemplatePaths.size > 3 }
         val isComplex = sessionActions.size > 3 || hasMultiSearchMoreThan3
         if (!isComplex) {
             onCompleted()
@@ -397,9 +398,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                                     targetManager.setOverlaysVisible(true)
                                     TemplateMatchingEngine.lastMatchedPositions[path] = Pair(updatedAction.posX.toInt(), updatedAction.posY.toInt())
                                     targetManager.updateAction(updatedAction)
-                                    if (targetManager.getActions().size >= 3) {
-                                        checkAndPromptGraphGeneration(updatedAction) {}
-                                    }
+                                    checkAndPromptGraphGeneration(updatedAction) {}
                                 },
                                 onCancelled = {
                                     controlPanelOverlay.show()
@@ -961,9 +960,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 controlPanelOverlay.show()
                 targetManager.setOverlaysVisible(true)
                 actions.forEach { act -> targetManager.addAction(act) }
-                if (targetManager.getActions().size > 3 || actions.size > 3) {
-                    checkAndPromptGraphGeneration(targetManager.getActions().lastOrNull() ?: actions.last()) {}
-                }
+                checkAndPromptGraphGeneration(targetManager.getActions().lastOrNull() ?: actions.last()) {}
             },
             onCancelled = {
                 com.example.autotap.core.logger.AppLogger.log(appContext, "RECORDER", "Запись отменена пользователем")
@@ -1036,9 +1033,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                                         TemplateMatchingEngine.lastMatchedPositions[path] = Pair(updatedAction.posX.toInt(), updatedAction.posY.toInt())
                                         targetManager.addAction(updatedAction)
                                     }
-                                    if (targetManager.getActions().size >= 3) {
-                                        checkAndPromptGraphGeneration(updatedAction) {}
-                                    }
+                                    checkAndPromptGraphGeneration(updatedAction) {}
                                 },
                                 onCancelled = { controlPanelOverlay.show(); targetManager.setOverlaysVisible(true) }
                             ).show()

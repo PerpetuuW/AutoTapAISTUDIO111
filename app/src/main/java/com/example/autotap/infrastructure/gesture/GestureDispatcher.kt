@@ -226,14 +226,14 @@ class GestureDispatcher(
                 AppLogger.log(service, "GESTURE", "Отправка dispatchGesture в Android System... ($safeX, $safeY)")
                 val dispatched = service.dispatchGesture(gesture, object : AccessibilityService.GestureResultCallback() {
                     override fun onCompleted(gestureDescription: GestureDescription?) {
-                        AppLogger.log(service, "GESTURE", "Клик УСПЕШНО исполнен системой в ($safeX, $safeY)")
+                        AppLogger.log(service, "GESTURE", "Клик УСПЕШНО исполнен системой в ($safeX, $safeY). Длительность: ${durationMs}мс")
                         mainHandler.removeCallbacks(timeoutRunnable)
                         safeTogglePassthrough(false)
                         if (isDone.compareAndSet(false, true)) onComplete?.invoke(true)
                     }
 
                     override fun onCancelled(gestureDescription: GestureDescription?) {
-                        AppLogger.log(service, "GESTURE", "ОШИБКА: Клик ОТМЕНЕН системой в ($safeX, $safeY)")
+                        AppLogger.log(service, "GESTURE", "ОШИБКА: Клик ОТМЕНЕН системой в ($safeX, $safeY). Проверьте перекрытие окон или активность экрана!")
                         mainHandler.removeCallbacks(timeoutRunnable)
                         safeTogglePassthrough(false)
                         if (isDone.compareAndSet(false, true)) onComplete?.invoke(false)
@@ -300,14 +300,14 @@ class GestureDispatcher(
                 AppLogger.log(service, "GESTURE", "Отправка свайпа в Android System...")
                 val dispatched = service.dispatchGesture(humanGesture, object : AccessibilityService.GestureResultCallback() {
                     override fun onCompleted(gestureDescription: GestureDescription?) {
-                        AppLogger.log(service, "GESTURE", "Свайп УСПЕШНО исполнен системой")
+                        AppLogger.log(service, "GESTURE", "Свайп УСПЕШНО исполнен системой ($startX, $startY) -> ($endX, $endY). Длительность: ${durationMs}мс")
                         mainHandler.removeCallbacks(timeoutRunnable)
                         safeTogglePassthrough(false)
                         if (isDone.compareAndSet(false, true)) onComplete?.invoke(true)
                     }
 
                     override fun onCancelled(gestureDescription: GestureDescription?) {
-                        AppLogger.log(service, "GESTURE", "ОШИБКА: Свайп ОТМЕНЕН системой")
+                        AppLogger.log(service, "GESTURE", "ОШИБКА: Свайп ОТМЕНЕН системой ($startX, $startY) -> ($endX, $endY). Проверьте перекрытие окон!")
                         mainHandler.removeCallbacks(timeoutRunnable)
                         safeTogglePassthrough(false)
                         if (isDone.compareAndSet(false, true)) onComplete?.invoke(false)
@@ -395,14 +395,14 @@ class GestureDispatcher(
                 AppLogger.log(service, "GESTURE", "Отправка сложного пути в Android System...")
                 val dispatched = service.dispatchGesture(gesture, object : AccessibilityService.GestureResultCallback() {
                     override fun onCompleted(gestureDescription: GestureDescription?) {
-                        AppLogger.log(service, "GESTURE", "Сложный путь УСПЕШНО исполнен системой")
+                        AppLogger.log(service, "GESTURE", "Сложный путь УСПЕШНО исполнен системой. Точек: ${points.size}, Длительность: ${durationMs}мс")
                         mainHandler.removeCallbacks(timeoutRunnable)
                         safeTogglePassthrough(false)
                         if (isDone.compareAndSet(false, true)) onComplete?.invoke(true)
                     }
 
                     override fun onCancelled(gestureDescription: GestureDescription?) {
-                        AppLogger.log(service, "GESTURE", "ОШИБКА: Сложный путь ОТМЕНЕН системой")
+                        AppLogger.log(service, "GESTURE", "ОШИБКА: Сложный путь ОТМЕНЕН системой. Проверьте перекрытие окон, права службы или активность экрана! Точек: ${points.size}")
                         mainHandler.removeCallbacks(timeoutRunnable)
                         safeTogglePassthrough(false)
                         if (isDone.compareAndSet(false, true)) onComplete?.invoke(false)
