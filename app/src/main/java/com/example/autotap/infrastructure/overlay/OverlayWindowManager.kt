@@ -130,20 +130,16 @@ class OverlayWindowManager(private val context: Context) {
     }
 
     private fun executeRemoveView(view: View) {
-        if (!view.isAttachedToWindow) {
-            activeViews.remove(view)
-            return
-        }
         try {
-            val record = activeViews[view]
+            val record = activeViews.remove(view)
             if (record != null) {
                 record.first.removeView(view)
-            } else if (view.parent != null) {
+            } else if (view.parent != null || view.isAttachedToWindow) {
                 val fallback = getActiveWindowManager()?.first ?: (context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager)
                 fallback?.removeView(view)
             }
         } catch (e: IllegalArgumentException) {
-            // Игнорируем безопасный вылет неактивного оверлея
+            // View was not attached to WindowManager
         } catch (e: Exception) {
             AppLogger.logError(context, "OVERLAY_WM", e)
         } finally {

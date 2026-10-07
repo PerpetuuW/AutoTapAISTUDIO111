@@ -315,14 +315,9 @@ class TargetOverlayManager(
 
         quickRingOverlay.dismiss()
 
-        targetViews[actionId]?.let { overlayWindowManager.removeViewSafe(it) }
-        targetViews.remove(actionId)
-
-        endTargetViews[actionId]?.let { overlayWindowManager.removeViewSafe(it) }
-        endTargetViews.remove(actionId)
-
-        waypointViews[actionId]?.forEach { overlayWindowManager.removeViewSafe(it) }
-        waypointViews.remove(actionId)
+        targetViews.remove(actionId)?.let { overlayWindowManager.removeViewSafe(it) }
+        endTargetViews.remove(actionId)?.let { overlayWindowManager.removeViewSafe(it) }
+        waypointViews.remove(actionId)?.forEach { overlayWindowManager.removeViewSafe(it) }
 
         actionsList.removeAt(idx)
 

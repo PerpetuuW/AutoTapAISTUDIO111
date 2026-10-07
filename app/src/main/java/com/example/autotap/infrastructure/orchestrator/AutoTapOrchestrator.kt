@@ -157,13 +157,12 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         // [V80.0] Гарантированное восстановление последней активной сессии и шагов, которые использовались
         if (targetManager.getActions().isEmpty()) {
             val prefs = appContext.getSharedPreferences("autotap_prefs", Context.MODE_PRIVATE)
-            val lastScript = prefs.getString("last_active_scenario_name", "ActiveSession") ?: "ActiveSession"
-            val lastScenario = scenarioRepository.loadScenario(lastScript)
-                ?: scenarioRepository.loadScenario("ActiveSession")
-                ?: scenarioRepository.loadScenario("_last_active_session")
-                ?: scenarioRepository.listScenarios().firstOrNull()?.let { scenarioRepository.loadScenario(it) }
-            if (lastScenario != null && lastScenario.actions.isNotEmpty()) {
-                targetManager.loadActions(lastScenario.actions)
+            val lastScript = prefs.getString("last_active_scenario_name", null)
+            if (!lastScript.isNullOrBlank()) {
+                val lastScenario = scenarioRepository.loadScenario(lastScript)
+                if (lastScenario != null && lastScenario.actions.isNotEmpty()) {
+                    targetManager.loadActions(lastScenario.actions)
+                }
             }
         }
 
@@ -209,7 +208,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         scenarioRepository.saveScenario(scenario)
         appContext.getSharedPreferences("autotap_prefs", Context.MODE_PRIVATE)
             .edit()
-            .putString("last_active_scenario_name", "ActiveSession")
+            .putString("last_active_scenario_name", if (actions.isNotEmpty()) "ActiveSession" else "")
             .apply()
     }
 
