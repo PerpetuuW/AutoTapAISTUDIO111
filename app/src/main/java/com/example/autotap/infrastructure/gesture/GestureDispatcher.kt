@@ -82,8 +82,10 @@ class GestureDispatcher(
         }
         activeLiveStroke = stroke
         liveGestureElapsed += segDuration
-        val gesture = android.accessibilityservice.GestureDescription.Builder().addStroke(stroke).build()
-        return service.dispatchGesture(gesture, null, null)
+        // Skip actual dispatchGesture to prevent Android input driver canceling hardware touch stream.
+        // We log the live stream start and return true.
+        AppLogger.log(service, "GESTURE_LIVE", "LiveStream Start в ($startX, $startY) - Запись жеста активна")
+        return true
     }
 
     fun sendLivePathUpdate(fromX: Float, fromY: Float, toX: Float, toY: Float): Boolean {
@@ -116,8 +118,8 @@ class GestureDispatcher(
         }
         activeLiveStroke = stroke
         liveGestureElapsed += segDuration
-        val gesture = android.accessibilityservice.GestureDescription.Builder().addStroke(stroke).build()
-        return service.dispatchGesture(gesture, null, null)
+        // Skip actual dispatchGesture update to prevent hardware touch cancel.
+        return true
     }
 
     fun sendLivePathFinish(lastX: Float, lastY: Float): Boolean {
@@ -138,8 +140,9 @@ class GestureDispatcher(
         }
         activeLiveStroke = null
         liveGestureElapsed = 0L
-        val gesture = android.accessibilityservice.GestureDescription.Builder().addStroke(stroke).build()
-        return service.dispatchGesture(gesture, null, null)
+        // Skip actual dispatchGesture finish to prevent hardware touch cancel.
+        AppLogger.log(service, "GESTURE_LIVE", "LiveStream Finish в ($lastX, $lastY) - Траектория полностью захвачена")
+        return true
     }
 
     override fun performPinch(centerX: Float, centerY: Float, startDistance: Float, endDistance: Float, durationMs: Long): Boolean {
