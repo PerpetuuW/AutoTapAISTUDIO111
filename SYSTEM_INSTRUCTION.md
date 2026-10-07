@@ -28,12 +28,18 @@
   3. HIDDEN (Тотальное скрытие меток, иконок и графа при сохранении панели управления).
 
 ================================================================================
-3. УПРОЩЕННЫЙ ИНЖЕНЕРНЫЙ АНАЛИЗ И АНАЛОГИЧНЫЕ РЕШЕНИЯ (SIMPLIFIED DOMAIN PATTERNS)
+3. ГЛУБОКИЙ АНАЛИЗ ПРИЧИН (ROOT CAUSE ANALYSIS) И АНАЛОГИЧНЫЕ РЕШЕНИЯ
 ================================================================================
+- Протокол Root Cause Analysis (RCA):
+  - При возникновении любой ошибки или несоответствия в интерфейсе/логике запрещено делать поверхностные предположения.
+  - Проводится детальный анализ цепочки исполнения:
+    1. Точный источник вызова (кто инициализирует View/Сценарий).
+    2. Фактическое состояние данных (SharedPreferences, сохранённые файлы, списки в памяти).
+    3. Разрыв между декларацией и физическим кодом на Canvas/WindowManager.
+  - Запрещено объявлять фичу или фикс завершёнными без подтверждения чтения реального изменённого кода (`view_file`).
 - Принцип минимальной сложности (KISS & Domain Realism):
   - Перед написанием кода проведи сжатый анализ (3-4 тезиса): какой системный контракт Android задействован (`AccessibilityService.dispatchGesture`, `WindowManager.updateViewLayout`, `MediaProjection`, `Canvas` matrix).
   - Опирайся на проверенные решения и паттерны из индустрии (State Pattern, Reactive Flow, Touch Injection Debouncing, Zero-Alloc Rendering, Bitmap Pooling).
-  - Избегай искусственных барьеров, лишних промежуточных абстракций и избыточных флагов.
 - Ссылки на стандарты и документацию:
   - Accessibility Service & Gestures: `android.accessibilityservice.GestureDescription`, `Path`.
   - Floating Overlays & Touch Passthrough: `WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE`, `FLAG_NOT_FOCUSABLE`.
@@ -65,4 +71,4 @@
 - Авторизация и поставка:
   - Токен и логин берутся из окружения (`GITHUB_TOKEN`, `GITHUB_USERNAME`).
   - Цикл поставки агента: Модификация кода -> `compile_applet` -> `1AInspector` -> `git push origin 1Gemini`.
-  - На локальной машине разработчика эту же цепочку реализуют `1Abuild.py` и `1AAutomation/git_sync.py`.
+  - На локальной машине разработчика эту же цепочку реализуют `1Abuild.py`, `1Apull.py` и `1AAutomation/git_sync.py`.

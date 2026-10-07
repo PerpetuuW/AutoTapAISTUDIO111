@@ -929,6 +929,15 @@
             "checker_file": "check_overlay_3mode_visibility_and_step_deletion.py",
             "checker": "check_overlay_3mode_visibility_and_step_deletion.py",
             "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_DEMO_DIALOG_OLD_STAGES",
+            "description": "Устаревший 5-стадийный интерфейс демо с шумом кадрирования заменен на 4 чистые стадии Zero-Friction",
+            "target_file": "InteractiveRoboticArmDemoDialog.kt",
+            "checker_module": "check_demo_dialog_4stages_and_zero_friction.py",
+            "checker_file": "check_demo_dialog_4stages_and_zero_friction.py",
+            "checker": "check_demo_dialog_4stages_and_zero_friction.py",
+            "status": "FIXED"
         }
     ]
 }
