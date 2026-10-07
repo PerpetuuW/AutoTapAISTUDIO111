@@ -312,7 +312,7 @@
                 android:textColor="@color/purple_text_white"
                 android:textSize="13sp"
                 android:textStyle="bold"
-                android:maxLines="1"
+                android:maxLines="2"
                 android:ellipsize="end" />
             <TextView
                 android:layout_width="match_parent"
