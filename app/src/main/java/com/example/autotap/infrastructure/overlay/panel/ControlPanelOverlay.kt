@@ -458,6 +458,12 @@ class ControlPanelOverlay(
         }
         subRow.addView(btnGraph)
 
+        // 1.5. Пошаговый отладчик (Активный лазурный синий #38BDF8)
+        val btnDebug = createIconButton(VectorIconDrawer.IconType.PLAY, "", "#38BDF8", dp(36), "BTN_DEBUG") {
+            listener.onPlayLongClicked()
+        }
+        subRow.addView(btnDebug)
+
         // 2. Сценарии (Активный лазурный синий)
         val btnScripts = createIconButton(VectorIconDrawer.IconType.SCRIPTS, "", "#38BDF8", dp(36), "BTN_SCRIPTS") { listener.onScriptsClicked() }
         subRow.addView(btnScripts)

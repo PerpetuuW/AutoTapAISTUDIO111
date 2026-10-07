@@ -1154,6 +1154,9 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     wasExecutingBeforeStop = true
                     controlPanelOverlay.hide(); targetManager.setTargetsTouchable(false); targetManager.setOverlaysVisible(false)
 
+                    if (state.isDebugPaused) {
+                        debuggerToolbarOverlay.updateStepInfo(state.currentStepIndex, state.totalSteps, state.stepType.name)
+                    }
                     runningBadgeOverlay.show(onLockClick = { screenLockOverlay.show() }, onStopClick = { macroEngine.stop() })
                     runningBadgeOverlay.forceVisible() // Гарантирует появление кнопки СТОП
                     runningBadgeOverlay.updateState(state)

@@ -101,37 +101,37 @@ class InteractiveRoboticArmDemoDialog(
             }
             private val textTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.WHITE
-                textSize = dpF(11.5f)
+                textSize = dpF(12.5f)
                 typeface = Typeface.DEFAULT_BOLD
             }
             private val textSubPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = "#94A3B8".toColorInt()
-                textSize = dpF(9f)
+                textSize = dpF(10f)
                 typeface = Typeface.MONOSPACE
             }
             private val bannerTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = "#38BDF8".toColorInt()
-                textSize = dpF(12f)
+                textSize = dpF(13.5f)
                 typeface = Typeface.DEFAULT_BOLD
             }
             private val bannerPhasePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = "#FCD34D".toColorInt()
-                textSize = dpF(10f)
+                textSize = dpF(11.5f)
                 typeface = Typeface.DEFAULT_BOLD
             }
             private val bannerBodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.WHITE
-                textSize = dpF(10f)
+                textSize = dpF(11f)
                 typeface = Typeface.DEFAULT
             }
             private val hintTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = "#A78BFA".toColorInt()
-                textSize = dpF(10.5f)
+                textSize = dpF(12f)
                 typeface = Typeface.DEFAULT_BOLD
             }
             private val hintBodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = "#E2E8F0".toColorInt()
-                textSize = dpF(9.5f)
+                textSize = dpF(11f)
                 typeface = Typeface.DEFAULT
             }
             private val badgeCirclePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -401,10 +401,13 @@ class InteractiveRoboticArmDemoDialog(
                 gameScreenBorderPaint.color = "#8B5CF6".toColorInt()
                 canvas.drawRoundRect(bannerRect, dpF(12f), dpF(12f), gameScreenBorderPaint)
 
-                // Текст баннера
-                canvas.drawText(stageTitle, bannerRect.left + dpF(12f), bannerRect.top + dpF(20f), bannerTitlePaint)
-                canvas.drawText(currentActionDesc, bannerRect.left + dpF(12f), bannerRect.top + dpF(40f), bannerPhasePaint)
-                canvas.drawText("Переключайте стадии чипами вверху или измените скорость воспроизведения.", bannerRect.left + dpF(12f), bannerRect.top + dpF(58f), bannerBodyPaint)
+                // Текст баннера с авто-переносом по ширине
+                val maxBannerW = bannerRect.width() - dpF(24f)
+                var bY = bannerRect.top + dpF(20f)
+                canvas.drawText(stageTitle, bannerRect.left + dpF(12f), bY, bannerTitlePaint)
+                bY += dpF(18f)
+                bY = drawWrappedText(canvas, currentActionDesc, bannerRect.left + dpF(12f), bY, maxBannerW, bannerPhasePaint, dpF(16f))
+                drawWrappedText(canvas, "Переключайте стадии чипами вверху или измените скорость.", bannerRect.left + dpF(12f), bY, maxBannerW, bannerBodyPaint, dpF(14f))
 
                 // 7. Отрисовка нижнего руководства к действию (Actionable Guide Card)
                 generalItemBg.shader = null
@@ -413,8 +416,11 @@ class InteractiveRoboticArmDemoDialog(
                 gameScreenBorderPaint.color = "#38BDF8".toColorInt()
                 canvas.drawRoundRect(hintRect, dpF(10f), dpF(10f), gameScreenBorderPaint)
 
-                canvas.drawText("ИНСТРУКЦИЯ К ДЕЙСТВИЮ:", hintRect.left + dpF(10f), hintRect.top + dpF(18f), hintTitlePaint)
-                canvas.drawText(practicalHint, hintRect.left + dpF(10f), hintRect.top + dpF(34f), hintBodyPaint)
+                val maxHintW = hintRect.width() - dpF(20f)
+                var hY = hintRect.top + dpF(18f)
+                canvas.drawText("ИНСТРУКЦИЯ К ДЕЙСТВИЮ:", hintRect.left + dpF(10f), hY, hintTitlePaint)
+                hY += dpF(18f)
+                drawWrappedText(canvas, practicalHint, hintRect.left + dpF(10f), hY, maxHintW, hintBodyPaint, dpF(15f))
 
                 // 8. Отрисовка сканирования лазером при поиске
                 if (isScanning) {
@@ -446,21 +452,110 @@ class InteractiveRoboticArmDemoDialog(
                 canvas.drawCircle(badgeX2, badgeY2, dpF(9f), badgeCirclePaint)
                 canvas.drawText("2", badgeX2, badgeY2 + dpF(3.5f), badgeTextPaint)
 
-                // 11. Отрисовка плавного неонового указателя тача (указательная рука)
+                // 11. Отрисовка плавного неонового указателя тача (геометрическая стрелка)
                 if (targetX > 0f && targetY > 0f) {
                     drawClassicIndexPointerGlove(canvas, targetX, targetY, isTapping)
                 }
             }
 
+            private fun drawWrappedText(
+                canvas: Canvas,
+                text: String,
+                x: Float,
+                startY: Float,
+                maxWidth: Float,
+                paint: Paint,
+                lineSpacing: Float = dpF(15f)
+            ): Float {
+                if (text.isEmpty() || maxWidth <= 0f) return startY
+                val words = text.split(" ")
+                var currentLine = ""
+                var currentY = startY
+
+                for (word in words) {
+                    val testLine = if (currentLine.isEmpty()) word else "$currentLine $word"
+                    val measuredW = paint.measureText(testLine)
+                    if (measuredW > maxWidth && currentLine.isNotEmpty()) {
+                        canvas.drawText(currentLine, x, currentY, paint)
+                        currentLine = word
+                        currentY += lineSpacing
+                    } else {
+                        currentLine = testLine
+                    }
+                }
+                if (currentLine.isNotEmpty()) {
+                    canvas.drawText(currentLine, x, currentY, paint)
+                    currentY += lineSpacing
+                }
+                return currentY
+            }
+
             private fun drawClassicIndexPointerGlove(canvas: Canvas, tx: Float, ty: Float, isTapping: Boolean) {
+                val angleRad = -135f * (PI.toFloat() / 180f)
+                val cosA = cos(angleRad.toDouble()).toFloat()
+                val sinA = sin(angleRad.toDouble()).toFloat()
+                val perpX = -sinA
+                val perpY = cosA
+
+                val len = dpF(28f)
+                val width = dpF(18f)
+
+                val baseX = tx - cosA * len
+                val baseY = ty - sinA * len
+                val leftX = baseX + perpX * (width * 0.5f)
+                val leftY = baseY + perpY * (width * 0.5f)
+                val rightX = baseX - perpX * (width * 0.5f)
+                val rightY = baseY - perpY * (width * 0.5f)
+                val recessX = tx - cosA * (len * 0.72f)
+                val recessY = ty - sinA * (len * 0.72f)
+                val tailEndX = tx - cosA * (len * 1.35f)
+                val tailEndY = ty - sinA * (len * 1.35f)
+
+                val arrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.FILL
+                    color = "#FCD34D".toColorInt()
+                }
+                val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.STROKE
+                    strokeWidth = dpF(2f)
+                    color = "#B45309".toColorInt()
+                    strokeCap = Paint.Cap.ROUND
+                    strokeJoin = Paint.Join.ROUND
+                }
+
+                reusablePath.rewind()
+                reusablePath.moveTo(tx, ty)
+                reusablePath.lineTo(leftX, leftY)
+                reusablePath.lineTo(recessX, recessY)
+                reusablePath.lineTo(recessX + perpX * dpF(2.5f), recessY + perpY * dpF(2.5f))
+                reusablePath.lineTo(tailEndX, tailEndY)
+                reusablePath.lineTo(recessX - perpX * dpF(2.5f), recessY - perpY * dpF(2.5f))
+                reusablePath.lineTo(recessX, recessY)
+                reusablePath.lineTo(rightX, rightY)
+                reusablePath.close()
+
+                // Отрисовка тени
+                canvas.save()
+                canvas.translate(dpF(2.5f), dpF(2.5f))
+                val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.FILL
+                    color = "#600F172A".toColorInt()
+                }
+                canvas.drawPath(reusablePath, shadowPaint)
+                canvas.restore()
+
+                canvas.drawPath(reusablePath, arrowPaint)
+                canvas.drawPath(reusablePath, borderPaint)
+
+                // Неоновый импульс касания на кончике стрелки
+                val glowRadius = if (isTapping) dpF(16f) else dpF(10f)
                 val glowColor = if (isTapping) "#8038BDF8".toColorInt() else "#408B5CF6".toColorInt()
-                val coreColor = if (isTapping) "#38BDF8".toColorInt() else Color.WHITE
+                val coreColor = if (isTapping) "#38BDF8".toColorInt() else "#10B981".toColorInt()
+
                 pointerGlowPaint.color = glowColor
                 pointerCorePaint.color = coreColor
-
-                val radius = if (isTapping) dpF(16f) else dpF(11f)
-                canvas.drawCircle(tx, ty, radius, pointerGlowPaint)
-                canvas.drawCircle(tx, ty, dpF(6f), pointerCorePaint)
+                canvas.drawCircle(tx, ty, glowRadius, pointerGlowPaint)
+                canvas.drawCircle(tx, ty, dpF(4.5f), pointerCorePaint)
             }
         }
         root.addView(demoCanvasView, FrameLayout.LayoutParams(-1, -1))
