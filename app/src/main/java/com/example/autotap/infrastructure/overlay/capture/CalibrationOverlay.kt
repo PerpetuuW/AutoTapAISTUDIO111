@@ -1356,6 +1356,76 @@ private val targetStepId: Int? = null,
         simRow.addView(btnSimPlus, LinearLayout.LayoutParams(dp(36), dp(24)))
         card.addView(simRow)
 
+        val cropShiftRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(2), 0, dp(2))
+        }
+        val tvCropShift = TextView(context).apply {
+            text = "СМЕЩЕНИЕ КРОПА X:${currentCropOffsetX} Y:${currentCropOffsetY}"
+            textSize = 8f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor("#38BDF8".toColorInt())
+        }
+        cropShiftRow.addView(tvCropShift, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
+        val btnCropXMinus = Button(context).apply {
+            text = "X-1"
+            textSize = 7f
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply { setColor("#21262D".toColorInt()); cornerRadius = dpF(3f); setStroke(dp(1), "#30363D".toColorInt()) }
+            minHeight = 0; minimumHeight = 0; setPadding(dp(2), dp(2), dp(2), dp(2))
+            setOnClickListener {
+                currentCropOffsetX = (currentCropOffsetX - 1).coerceAtLeast(-30)
+                tvCropShift.text = "СМЕЩЕНИЕ КРОПА X:${currentCropOffsetX} Y:${currentCropOffsetY}"
+                reevaluateMatching()
+            }
+        }
+        cropShiftRow.addView(btnCropXMinus, LinearLayout.LayoutParams(dp(32), dp(22)).apply { marginEnd = dp(2) })
+
+        val btnCropXPlus = Button(context).apply {
+            text = "X+1"
+            textSize = 7f
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply { setColor("#21262D".toColorInt()); cornerRadius = dpF(3f); setStroke(dp(1), "#30363D".toColorInt()) }
+            minHeight = 0; minimumHeight = 0; setPadding(dp(2), dp(2), dp(2), dp(2))
+            setOnClickListener {
+                currentCropOffsetX = (currentCropOffsetX + 1).coerceAtMost(30)
+                tvCropShift.text = "СМЕЩЕНИЕ КРОПА X:${currentCropOffsetX} Y:${currentCropOffsetY}"
+                reevaluateMatching()
+            }
+        }
+        cropShiftRow.addView(btnCropXPlus, LinearLayout.LayoutParams(dp(32), dp(22)).apply { marginEnd = dp(2) })
+
+        val btnCropYMinus = Button(context).apply {
+            text = "Y-1"
+            textSize = 7f
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply { setColor("#21262D".toColorInt()); cornerRadius = dpF(3f); setStroke(dp(1), "#30363D".toColorInt()) }
+            minHeight = 0; minimumHeight = 0; setPadding(dp(2), dp(2), dp(2), dp(2))
+            setOnClickListener {
+                currentCropOffsetY = (currentCropOffsetY - 1).coerceAtLeast(-30)
+                tvCropShift.text = "СМЕЩЕНИЕ КРОПА X:${currentCropOffsetX} Y:${currentCropOffsetY}"
+                reevaluateMatching()
+            }
+        }
+        cropShiftRow.addView(btnCropYMinus, LinearLayout.LayoutParams(dp(32), dp(22)).apply { marginEnd = dp(2) })
+
+        val btnCropYPlus = Button(context).apply {
+            text = "Y+1"
+            textSize = 7f
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply { setColor("#21262D".toColorInt()); cornerRadius = dpF(3f); setStroke(dp(1), "#30363D".toColorInt()) }
+            minHeight = 0; minimumHeight = 0; setPadding(dp(2), dp(2), dp(2), dp(2))
+            setOnClickListener {
+                currentCropOffsetY = (currentCropOffsetY + 1).coerceAtMost(30)
+                tvCropShift.text = "СМЕЩЕНИЕ КРОПА X:${currentCropOffsetX} Y:${currentCropOffsetY}"
+                reevaluateMatching()
+            }
+        }
+        cropShiftRow.addView(btnCropYPlus, LinearLayout.LayoutParams(dp(32), dp(22)))
+        card.addView(cropShiftRow)
+
         val clickControlRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
