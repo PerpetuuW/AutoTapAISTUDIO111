@@ -389,21 +389,26 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
 
 
     private fun startRecaptureForStep(action: MacroAction) {
-        if (action.templatePath.isEmpty()) {
+        val primaryPath = if (action.selectedTemplateIndex in action.multiTemplatePaths.indices) {
+            action.multiTemplatePaths[action.selectedTemplateIndex]
+        } else {
+            action.templatePath.ifBlank { action.multiTemplatePaths.firstOrNull { it.isNotBlank() } ?: "" }
+        }
+        if (primaryPath.isEmpty()) {
             Toast.makeText(appContext, "Шаблон отсутствует, запуск обычного захвата", Toast.LENGTH_SHORT).show()
             startCaptureForStep(action)
             return
         }
 
         // [V20.1] Надежный поиск файлов шаблона с поддержкой относительных путей
-        val maskFile = if (File(action.templatePath).isAbsolute && File(action.templatePath).exists()) {
-            File(action.templatePath)
+        val maskFile = if (File(primaryPath).isAbsolute && File(primaryPath).exists()) {
+            File(primaryPath)
         } else {
             val tDir = File(appContext.filesDir, "templates")
-            val direct = File(tDir, action.templatePath)
+            val direct = File(tDir, primaryPath)
             if (direct.exists()) direct else {
-                val fName = File(action.templatePath).name
-                tDir.walkTopDown().filter { it.isFile && it.name == fName }.firstOrNull() ?: File(action.templatePath)
+                val fName = File(primaryPath).name
+                tDir.walkTopDown().filter { it.isFile && it.name == fName }.firstOrNull() ?: File(primaryPath)
             }
         }
 
@@ -422,7 +427,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         val rawCropBitmap = when {
             rawFile.exists() -> BitmapFactory.decodeFile(rawFile.absolutePath)
             maskFile.exists() -> BitmapFactory.decodeFile(maskFile.absolutePath)
-            else -> templateRepository.getTemplate(action.templatePath)
+            else -> templateRepository.getTemplate(primaryPath)
         }
 
         if (rawCropBitmap == null) {
@@ -510,16 +515,25 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
     }
 
     private fun executeCleanCalibration(service: AutoTapAccessibilityService, action: MacroAction) {
+        val primaryPath = if (action.selectedTemplateIndex in action.multiTemplatePaths.indices) {
+            action.multiTemplatePaths[action.selectedTemplateIndex]
+        } else {
+            action.templatePath.ifBlank { action.multiTemplatePaths.firstOrNull { it.isNotBlank() } ?: "" }
+        }
         var savedScreenBmp: Bitmap? = null
-        if (action.templatePath.isNotEmpty()) {
+        if (primaryPath.isNotEmpty()) {
             try {
-                val maskFile = File(action.templatePath)
-                val screenFile = File(maskFile.parentFile, "screen_" + maskFile.name.removePrefix("mask_").substringBeforeLast(".") + ".jpg")
+                val maskFile = File(primaryPath)
+                var screenFile = File(maskFile.parentFile, "screen_" + maskFile.name.removePrefix("mask_").substringBeforeLast(".") + ".jpg")
+                if (!screenFile.exists()) {
+                    screenFile = File(maskFile.parentFile, "screen_" + maskFile.name.removePrefix("mask_"))
+                }
+                if (!screenFile.exists()) {
+                    val baseName = maskFile.nameWithoutExtension.removePrefix("mask_")
+                    screenFile = File(maskFile.parentFile, "screen_$baseName.png")
+                }
                 if (screenFile.exists()) {
                     savedScreenBmp = BitmapFactory.decodeFile(screenFile.absolutePath)
-                } else {
-                    val screenPngFile = File(maskFile.parentFile, "screen_" + maskFile.name.removePrefix("mask_"))
-                    if (screenPngFile.exists()) savedScreenBmp = BitmapFactory.decodeFile(screenPngFile.absolutePath)
                 }
             } catch (_: Exception) {}
         }
@@ -530,10 +544,14 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             return
         }
 
-        val rawSourceBitmap: Bitmap? = if (action.templatePath.isNotEmpty()) {
-            val maskFile = File(action.templatePath)
-            val rawFile = File(maskFile.parentFile, "raw_" + maskFile.name.removePrefix("mask_"))
-            if (rawFile.exists()) BitmapFactory.decodeFile(rawFile.absolutePath) else templateRepository.getTemplate(action.templatePath)
+        val rawSourceBitmap: Bitmap? = if (primaryPath.isNotEmpty()) {
+            val maskFile = File(primaryPath)
+            var rawFile = File(maskFile.parentFile, "raw_" + maskFile.name.removePrefix("mask_"))
+            if (!rawFile.exists()) {
+                val baseName = maskFile.nameWithoutExtension.removePrefix("mask_")
+                rawFile = File(maskFile.parentFile, "raw_$baseName.png")
+            }
+            if (rawFile.exists()) BitmapFactory.decodeFile(rawFile.absolutePath) else templateRepository.getTemplate(primaryPath)
         } else null
 
         val template = rawSourceBitmap ?: run {
@@ -548,7 +566,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         var foundX = action.posX.toInt()
         var foundY = action.posY.toInt()
 
-        if (action.templatePath.isNotEmpty()) {
+        if (primaryPath.isNotEmpty()) {
             val sPixels = PixelBufferPool.obtain(screenshot.width * screenshot.height)
             try {
                 screenshot.getPixels(sPixels, 0, screenshot.width, 0, 0, screenshot.width, screenshot.height)
@@ -592,8 +610,8 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 screenshot = screenshot,
                 rawTemplateBitmap = template,
                 initialCandidates = listOf(anchorCandidate),
-                existingAction = action,
-                existingTemplatePath = action.templatePath,
+                existingAction = action.copy(templatePath = primaryPath),
+                existingTemplatePath = primaryPath,
                 allActions = targetManager.getActions(),
                 targetStepId = action.id,
                 anchorCropX = anchorCandidate.rectLeft,

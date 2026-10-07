@@ -109,11 +109,11 @@ object TargetHighlightVisualizer {
         val boxW = safeRight - safeLeft
         val boxH = safeBottom - safeTop
 
-        // Цветовая дифференциация: >=85% Изумрудный/Неоновый, 70-84% Янтарный, <70% Коралловый
+        // Soft inverted neon color palette with ultra-low alpha fill to prevent CV edge detection
         val (primaryColorHex, gradStartHex, gradEndHex) = when {
-            scorePercent >= 85 -> Triple("#10B981", "#4D10B981", "#1538BDF8")
-            scorePercent >= 70 -> Triple("#F59E0B", "#4DF59E0B", "#15FCD34D")
-            else -> Triple("#EF4444", "#4DEF4444", "#15F87171")
+            scorePercent >= 85 -> Triple("#34D399", "#2034D399", "#0D38BDF8")
+            scorePercent >= 70 -> Triple("#FBBF24", "#20FBBF24", "#0DFCD34D")
+            else -> Triple("#F87171", "#20F87171", "#0DF87171")
         }
 
         val primaryColor = primaryColorHex.toColorInt()
@@ -125,28 +125,18 @@ object TargetHighlightVisualizer {
             clipToPadding = false
         }
 
-        // 1. Контейнер целевой области с градиентной подсветкой и неоновой рамкой
+        // 1. Контейнер целевой области с инвертированной пунктирной рамкой и сглаженными овалами/пиллами (защита от срабатывания Canny/Sobel)
         val boxContainer = FrameLayout(context).apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 intArrayOf(gradStart, gradEnd)
             ).apply {
-                setStroke(dp(2.2f), primaryColor)
-                cornerRadius = 8f * density
+                setStroke(dp(1.8f), primaryColor, dp(10f).toFloat(), dp(8f).toFloat())
+                cornerRadius = kotlin.math.min(24f * density, kotlin.math.min(boxW, boxH) / 2.1f)
             }
             alpha = 0f
             scaleX = 1.05f
             scaleY = 1.05f
-        }
-
-        // 1.1 Если передан шаблон — накладываем его с мягким альфа-блендингом для моментального визуального сравнения
-        if (templateBitmap != null && !templateBitmap.isRecycled) {
-            val ivTemplate = ImageView(context).apply {
-                scaleType = ImageView.ScaleType.FIT_XY
-                setImageBitmap(templateBitmap)
-                alpha = 0.78f
-            }
-            boxContainer.addView(ivTemplate, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         }
 
         val boxParams = FrameLayout.LayoutParams(boxW, boxH).apply {
@@ -278,9 +268,9 @@ object TargetHighlightVisualizer {
             val scorePct = (cand.score * 100).toInt().coerceIn(0, 100)
             val isBest = (idx == 0)
             val (primaryColorHex, gradStartHex, gradEndHex) = when {
-                scorePct >= requiredThreshold -> if (isBest) Triple("#10B981", "#4D10B981", "#1538BDF8") else Triple("#38BDF8", "#4038BDF8", "#150284C7")
-                scorePct >= (requiredThreshold - 10) -> Triple("#F59E0B", "#4DF59E0B", "#15FCD34D")
-                else -> Triple("#EF4444", "#4DEF4444", "#15F87171")
+                scorePct >= requiredThreshold -> if (isBest) Triple("#34D399", "#2034D399", "#0D38BDF8") else Triple("#38BDF8", "#2038BDF8", "#0D0284C7")
+                scorePct >= (requiredThreshold - 10) -> Triple("#FBBF24", "#20FBBF24", "#0DFCD34D")
+                else -> Triple("#F87171", "#20F87171", "#0DF87171")
             }
             val primaryColor = primaryColorHex.toColorInt()
             val gradStart = gradStartHex.toColorInt()
@@ -298,19 +288,9 @@ object TargetHighlightVisualizer {
                     GradientDrawable.Orientation.TL_BR,
                     intArrayOf(gradStart, gradEnd)
                 ).apply {
-                    setStroke(dp(if (isBest) 2.2f else 1.6f), primaryColor)
-                    cornerRadius = 8f * density
+                    setStroke(dp(if (isBest) 1.8f else 1.2f), primaryColor, dp(10f).toFloat(), dp(8f).toFloat())
+                    cornerRadius = kotlin.math.min(24f * density, kotlin.math.min(boxW, boxH) / 2.1f)
                 }
-            }
-
-            val tplBmp = templateBitmaps[cand.templatePath]
-            if (tplBmp != null && !tplBmp.isRecycled) {
-                val iv = ImageView(context).apply {
-                    scaleType = ImageView.ScaleType.FIT_XY
-                    setImageBitmap(tplBmp)
-                    alpha = 0.72f
-                }
-                boxContainer.addView(iv, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
             }
 
             val boxParams = FrameLayout.LayoutParams(boxW, boxH).apply {
