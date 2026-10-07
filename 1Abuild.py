@@ -18,7 +18,7 @@ root_dir = os.path.abspath(os.getcwd())
 auto_dir = os.path.join(root_dir, "1AAutomation")
 sys.path.insert(0, auto_dir)
 
-from git_sync import execute_auto_git_sync
+from git_sync import execute_auto_git_sync, execute_auto_git_pull
 from error_parser import extract_critical_error
 from clipboard_sync import copy_to_clipboard
 from defect_ledger import record_defect
@@ -54,6 +54,9 @@ def ping_connected_device() -> tuple[bool, str]:
         return False, f"Сбой проверки связи: {e}"
 
 def build() -> int:
+    # 0. Авто-обновление из репозитория (Ветка 1Gemini)
+    execute_auto_git_pull(root_dir, branch="1Gemini")
+
     # 1. Валидация инспекторами
     insp_exec = os.path.join(root_dir, "1AInspector.py")
     if os.path.exists(insp_exec):

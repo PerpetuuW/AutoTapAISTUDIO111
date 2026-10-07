@@ -18,6 +18,14 @@ def rollback_files(files: list[str], root_dir: str):
         except Exception:
             pass
 
+def execute_auto_git_pull(root_dir: str, branch: str = "1Gemini") -> bool:
+    try:
+        subprocess.run(["git", "pull", "origin", branch], cwd=root_dir, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return True
+    except Exception as e:
+        print(f"[GitPull Warning]: {e}")
+        return False
+
 def execute_auto_git_sync(root_dir: str, commit_message: str) -> bool:
     try:
         subprocess.run(["git", "add", "-A"], cwd=root_dir, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
