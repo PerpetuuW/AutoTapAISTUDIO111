@@ -282,21 +282,7 @@ class MacroExecutionEngine(
                                     val currentSw = dm?.widthPixels ?: 1080
                                     val currentSh = dm?.heightPixels ?: 2400
 
-                                    var hadHighlights = false
-                                    withContext(Dispatchers.Main) {
-                                        val ctx = service?.applicationContext
-                                        if (ctx != null) {
-                                            if (com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hasActiveHighlights()) {
-                                                hadHighlights = true
-                                                com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hideAllHighlights(
-                                                    com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx)
-                                                )
-                                            }
-                                        }
-                                    }
-                                    if (hadHighlights) {
-                                        delay(100L)
-                                    }
+                                    ensureCleanScreenBeforeCapture()
 
                                     if (MediaProjectionService.isStreaming) {
                                         val sPixels = PixelBufferPool.obtain(currentSw * currentSh)
@@ -536,6 +522,7 @@ class MacroExecutionEngine(
                                         break
                                     }
 
+                                    ensureCleanScreenBeforeCapture()
                                     val screenshot = service?.captureScreenshotSync(1500L)
                                     if (screenshot != null) {
                                         try {
@@ -660,6 +647,7 @@ class MacroExecutionEngine(
                                     )
 
                                     val service = accessibilityServiceProvider()
+                                    ensureCleanScreenBeforeCapture()
                                     val screenshot = service?.captureScreenshotSync(1000L)
                                     if (screenshot != null) {
                                         try {
@@ -923,21 +911,7 @@ class MacroExecutionEngine(
                             val currentSw = dm?.widthPixels ?: 1080
                             val currentSh = dm?.heightPixels ?: 2400
 
-                            var hadHighlights = false
-                            withContext(Dispatchers.Main) {
-                                val ctx = service?.applicationContext
-                                if (ctx != null) {
-                                    if (com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hasActiveHighlights()) {
-                                        hadHighlights = true
-                                        com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hideAllHighlights(
-                                            com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx)
-                                        )
-                                    }
-                                }
-                            }
-                            if (hadHighlights) {
-                                delay(100L)
-                            }
+                            ensureCleanScreenBeforeCapture()
 
                             if (MediaProjectionService.isStreaming) {
                                 val sPixels = PixelBufferPool.obtain(currentSw * currentSh)
@@ -1296,6 +1270,25 @@ class MacroExecutionEngine(
         debugStepDeferred?.complete(Unit)
     }
 
+
+    private suspend fun ensureCleanScreenBeforeCapture() {
+        var hadHighlights = false
+        withContext(Dispatchers.Main) {
+            val service = accessibilityServiceProvider()
+            val ctx = service?.applicationContext
+            if (ctx != null) {
+                if (com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hasActiveHighlights()) {
+                    hadHighlights = true
+                    com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hideAllHighlights(
+                        com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx)
+                    )
+                }
+            }
+        }
+        if (hadHighlights) {
+            delay(350L) // Генерация детерминированной чистой задержки 350мс для прогрузки кадра без оверлея дебага
+        }
+    }
 
     private fun createStrokeCompat(
         path: android.graphics.Path,

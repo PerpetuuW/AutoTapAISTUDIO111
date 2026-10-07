@@ -186,6 +186,7 @@ class GestureDispatcher(
 
         fun performClickAsync(x: Float, y: Float, durationMs: Long, onComplete: ((Boolean) -> Unit)?) {
         val service = serviceProvider() ?: run {
+            AppLogger.log(null, "GESTURE", "ОШИБКА: AccessibilityService недоступен (service == null)")
             onComplete?.invoke(false)
             return
         }
@@ -194,7 +195,7 @@ class GestureDispatcher(
         val safeY = y.coerceIn(0f, (dm.heightPixels - 1).toFloat())
 
         visualizerManager.showClickVisualizer(safeX, safeY)
-        AppLogger.log(service, "GESTURE", "Точечный клик в ($safeX, $safeY), длительность ${durationMs}мс")
+        AppLogger.log(service, "GESTURE", "Запуск клика: ($safeX, $safeY), длительность ${durationMs}мс")
 
         val path = Path().apply {
             moveTo(safeX, safeY)
@@ -219,14 +220,17 @@ class GestureDispatcher(
         mainHandler.postDelayed({
             if (isDone.get()) return@postDelayed
             try {
+                AppLogger.log(service, "GESTURE", "Отправка dispatchGesture в Android System... ($safeX, $safeY)")
                 val dispatched = service.dispatchGesture(gesture, object : AccessibilityService.GestureResultCallback() {
                     override fun onCompleted(gestureDescription: GestureDescription?) {
+                        AppLogger.log(service, "GESTURE", "Клик УСПЕШНО исполнен системой в ($safeX, $safeY)")
                         mainHandler.removeCallbacks(timeoutRunnable)
                         safeTogglePassthrough(false)
                         if (isDone.compareAndSet(false, true)) onComplete?.invoke(true)
                     }
 
                     override fun onCancelled(gestureDescription: GestureDescription?) {
+                        AppLogger.log(service, "GESTURE", "ОШИБКА: Клик ОТМЕНЕН системой в ($safeX, $safeY)")
                         mainHandler.removeCallbacks(timeoutRunnable)
                         safeTogglePassthrough(false)
                         if (isDone.compareAndSet(false, true)) onComplete?.invoke(false)
@@ -234,6 +238,7 @@ class GestureDispatcher(
                 }, null)
 
                 if (!dispatched) {
+                    AppLogger.log(service, "GESTURE", "ОШИБКА: service.dispatchGesture вернул FALSE в ($safeX, $safeY)")
                     mainHandler.removeCallbacks(timeoutRunnable)
                     safeTogglePassthrough(false)
                     if (isDone.compareAndSet(false, true)) onComplete?.invoke(false)
