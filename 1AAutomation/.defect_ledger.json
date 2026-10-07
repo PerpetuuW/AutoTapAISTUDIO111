@@ -938,6 +938,15 @@
             "checker_file": "check_demo_dialog_4stages_and_zero_friction.py",
             "checker": "check_demo_dialog_4stages_and_zero_friction.py",
             "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_ACCESSIBILITY_OVERLAY_ZERO_FRICTION",
+            "description": "Ликвидация избыточного запроса системного оверлея поверх окон в пользу нативного TYPE_ACCESSIBILITY_OVERLAY",
+            "target_file": "MainActivity.kt",
+            "checker_module": "check_accessibility_overlay_zero_permission_friction.py",
+            "checker_file": "check_accessibility_overlay_zero_permission_friction.py",
+            "checker": "check_accessibility_overlay_zero_permission_friction.py",
+            "status": "FIXED"
         }
     ]
 }

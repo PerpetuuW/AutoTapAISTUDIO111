@@ -20,19 +20,6 @@ class OverlayWindowManager(private val context: Context) {
     private val mainHandler = Handler(Looper.getMainLooper())
 
     fun getActiveWindowManager(requiresKeyboard: Boolean = false): Pair<WindowManager, Int>? {
-        val appWm = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
-        val hasOverlayPermission = Settings.canDrawOverlays(context)
-
-        if ((requiresKeyboard || hasOverlayPermission) && hasOverlayPermission && appWm != null) {
-            val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            } else {
-                @Suppress("DEPRECATION")
-                WindowManager.LayoutParams.TYPE_PHONE
-            }
-            return Pair(appWm, type)
-        }
-
         val service = AutoTapAccessibilityService.instance
         if (service != null) {
             val serviceWm = service.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
@@ -41,6 +28,8 @@ class OverlayWindowManager(private val context: Context) {
             }
         }
 
+        val appWm = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+        val hasOverlayPermission = Settings.canDrawOverlays(context)
         if (hasOverlayPermission && appWm != null) {
             val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -81,19 +70,13 @@ class OverlayWindowManager(private val context: Context) {
         height: Int = WindowManager.LayoutParams.WRAP_CONTENT,
         gravity: Int = Gravity.CENTER
     ): WindowManager.LayoutParams {
-        // ИНВАРИАНТ 1: Модальные окна/Диалоги строго TYPE_APPLICATION_OVERLAY.
-        // Ввод текста и клики в TYPE_ACCESSIBILITY_OVERLAY заблокированы на новых версиях Android.
-        val windowType = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        } else {
-            WindowManager.LayoutParams.TYPE_PHONE
-        }
+        val windowType = getOverlayType(true)
         
         val flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or 
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or 
                     WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 
-        return WindowManager.LayoutParams(width, height, windowType, flags, android.graphics.PixelFormat.TRANSLUCENT).apply {
+        return WindowManager.LayoutParams(width, height, windowType, flags, PixelFormat.TRANSLUCENT).apply {
             this.gravity = gravity
             this.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
                     WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN

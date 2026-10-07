@@ -30,7 +30,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnHeroPower: ImageButton
     private lateinit var tvHeroSubtitle: TextView
     private lateinit var btnPermAcc: TextView
-    private lateinit var btnPermOverlay: TextView
     private lateinit var btnPermStream: TextView
     private lateinit var tvTopShieldStatus: TextView
 
@@ -122,7 +121,6 @@ class MainActivity : AppCompatActivity() {
         btnHeroPower = findViewById(R.id.btn_hero_power)
         tvHeroSubtitle = findViewById(R.id.tv_hero_subtitle)
         btnPermAcc = findViewById(R.id.btn_perm_acc)
-        btnPermOverlay = findViewById(R.id.btn_perm_overlay)
         btnPermStream = findViewById(R.id.btn_perm_stream)
         tvTopShieldStatus = findViewById(R.id.tv_top_shield_status)
 
@@ -142,10 +140,6 @@ class MainActivity : AppCompatActivity() {
 
         btnPermAcc.setOnClickListener {
             showAccessibilitySafetyDialog()
-        }
-
-        btnPermOverlay.setOnClickListener {
-            showOverlaySafetyDialog()
         }
 
         tvTopShieldStatus.setOnClickListener {
@@ -712,39 +706,6 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun showOverlaySafetyDialog() {
-        val isAccEnabled = AccessibilityUtils.isServiceEnabled(this, AutoTapAccessibilityService::class.java)
-
-        val msg = if (isAccEnabled) {
-            """
-Пульт управления уже работает через Службу Кликера.
-
-Однако, политика безопасности Android блокирует вызов клавиатуры в окнах службы.
-Без этого разрешения вы не сможете вводить текст (например, переименовывать сценарии или вводить тайминги).
-
-Выдать разрешение на полноценные окна?
-            """.trimIndent()
-        } else {
-            """
-Разрешение необходимо для отображения плавающего пульта управления и меток клика поверх других приложений.
-            """.trimIndent()
-        }
-
-        AlertDialog.Builder(this)
-            .setTitle("ДОСТУП К КЛАВИАТУРЕ И ОКНАМ")
-            .setMessage(msg)
-            .setPositiveButton("РАЗРЕШИТЬ") { _, _ ->
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    startActivity(Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:$packageName")
-                    ))
-                }
-            }
-            .setNegativeButton("ОТМЕНА", null)
-            .show()
-    }
-
     private fun showSecurityInfoDialog() {
         val msg = """
 • Полная автономность: у приложения отсутствует сетевое разрешение (android.permission.INTERNET).
@@ -817,7 +778,6 @@ class MainActivity : AppCompatActivity() {
 
         val isAccEnabled = AccessibilityUtils.isServiceEnabled(this, AutoTapAccessibilityService::class.java)
         val isAccAlive = AutoTapAccessibilityService.instance != null
-        val isOverlayOk = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
         val isStreaming = MediaProjectionService.isStreaming
 
         // 1. Доступность: спокойный мятный чип ГОТОВО либо мягкий фиолетовый ВКЛЮЧИТЬ
@@ -835,22 +795,7 @@ class MainActivity : AppCompatActivity() {
             btnPermAcc.setTextColor(Color.parseColor("#C4B5FD"))
         }
 
-        // 2. Оверлей
-        if (isOverlayOk) {
-            btnPermOverlay.text = "● ГОТОВО"
-            btnPermOverlay.setBackgroundResource(R.drawable.bg_badge_active)
-            btnPermOverlay.setTextColor(Color.parseColor("#86EFAC"))
-        } else if (isAccEnabled && isAccAlive) {
-            btnPermOverlay.text = "БЕЗ КЛАВИАТУРЫ"
-            btnPermOverlay.setBackgroundResource(R.drawable.bg_badge_inactive)
-            btnPermOverlay.setTextColor(Color.parseColor("#FDE68A"))
-        } else {
-            btnPermOverlay.text = "ВКЛЮЧИТЬ"
-            btnPermOverlay.setBackgroundResource(R.drawable.bg_badge_action)
-            btnPermOverlay.setTextColor(Color.parseColor("#C4B5FD"))
-        }
-
-        // 3. Direct Stream 60 FPS
+        // 2. Direct Stream 60 FPS
         if (isStreaming) {
             btnPermStream.text = "● ГОТОВО"
             btnPermStream.setBackgroundResource(R.drawable.bg_badge_active)
