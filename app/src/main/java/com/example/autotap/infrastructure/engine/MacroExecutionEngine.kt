@@ -407,14 +407,32 @@ class MacroExecutionEngine(
                                     withContext(kotlinx.coroutines.Dispatchers.Main) {
                                         val ctx = accessibilityServiceProvider()?.applicationContext
                                         if (ctx != null) {
-                                            com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showConfidenceHighlight(
-                                                context = ctx,
-                                                overlayWindowManager = com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx),
-                                                rect = matchRect,
-                                                scorePercent = matchScorePct,
-                                                durationMs = 1400L,
-                                                templateBitmap = templateBmp
-                                            )
+                                            if (isStepByStepDebug || com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.isVisualDebugEnabled) {
+                                                val diag = TemplateMatchingEngine.lastDiagnostics
+                                                val curRoi = if (action.roiLeft != null && action.roiTop != null && action.roiRight != null && action.roiBottom != null) {
+                                                    android.graphics.Rect(action.roiLeft!!, action.roiTop!!, action.roiRight!!, action.roiBottom!!)
+                                                } else null
+                                                com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showSearchDebugVisualization(
+                                                    context = ctx,
+                                                    overlayWindowManager = com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx),
+                                                    roi = curRoi,
+                                                    bestCandidate = bestMatchCand,
+                                                    rejectedCandidates = diag?.rejectedCandidates ?: emptyList(),
+                                                    thresholdPct = baseSimilarity,
+                                                    methodName = diag?.methodName ?: "ГИБРИД + УМНЫЙ ЦВЕТ",
+                                                    elapsedMs = diag?.elapsedMs ?: 0L,
+                                                    durationMs = 1800L
+                                                )
+                                            } else {
+                                                com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showConfidenceHighlight(
+                                                    context = ctx,
+                                                    overlayWindowManager = com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx),
+                                                    rect = matchRect,
+                                                    scorePercent = matchScorePct,
+                                                    durationMs = 1400L,
+                                                    templateBitmap = templateBmp
+                                                )
+                                            }
                                         }
                                     }
 
@@ -448,6 +466,28 @@ class MacroExecutionEngine(
                                     }
                                 } else if (!isMatched) {
                                     AppLogger.log(null, "TRIGGER_EXEC", String.format(Locale.US, "ШАГ #%d: таймаут поиска (цель не найдена за %d сек)", action.id, action.aiTimeoutSeconds))
+                                    if (isStepByStepDebug || com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.isVisualDebugEnabled) {
+                                        withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                            val ctx = accessibilityServiceProvider()?.applicationContext
+                                            if (ctx != null) {
+                                                val diag = TemplateMatchingEngine.lastDiagnostics
+                                                val curRoi = if (action.roiLeft != null && action.roiTop != null && action.roiRight != null && action.roiBottom != null) {
+                                                    android.graphics.Rect(action.roiLeft!!, action.roiTop!!, action.roiRight!!, action.roiBottom!!)
+                                                } else null
+                                                com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showSearchDebugVisualization(
+                                                    context = ctx,
+                                                    overlayWindowManager = com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx),
+                                                    roi = curRoi,
+                                                    bestCandidate = null,
+                                                    rejectedCandidates = diag?.rejectedCandidates ?: emptyList(),
+                                                    thresholdPct = baseSimilarity,
+                                                    methodName = diag?.methodName ?: "ГИБРИД CV",
+                                                    elapsedMs = diag?.elapsedMs ?: 0L,
+                                                    durationMs = 2400L
+                                                )
+                                            }
+                                        }
+                                    }
                                     // Экспресс-лечение маски при неудачной автоматизации
                                     onAutoHealRequested?.let { healHandler ->
                                         val service = accessibilityServiceProvider()
@@ -508,6 +548,8 @@ class MacroExecutionEngine(
                                         isInfiniteSearch = isInfinite,
                                         stepType = ActionType.OCR
                                     )
+
+                                    ensureCleanScreenBeforeCapture()
 
                                     val service = accessibilityServiceProvider()
                                     val nativeMatches = service?.findTextInActiveWindow(query, roi) ?: emptyList()

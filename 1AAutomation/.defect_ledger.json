@@ -974,6 +974,33 @@
             "checker_file": "check_ui_layout_and_button_standardization.py",
             "checker": "check_ui_layout_and_button_standardization.py",
             "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_PATH_EXCESSIVE_POINTS_RADICAL_DIRECTION_FILTER",
+            "description": "Устранение избыточных точек при записи пути: создание точек строго в местах радикального изменения направления для удобного редактирования",
+            "target_file": "PathCompressionEngine.kt",
+            "checker_module": "check_path_radical_direction_compression.py",
+            "checker_file": "check_path_radical_direction_compression.py",
+            "checker": "check_path_radical_direction_compression.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_VISUAL_SEARCH_DEBUG_AND_OCR_ISOLATION",
+            "description": "Визуализация процесса поиска в дебаг-режиме (ROI, принятые и отклоненные кандидаты, HUD) и полная изоляция OCR от элементов визуализации совпадений",
+            "target_file": "TargetHighlightVisualizer.kt",
+            "checker_module": "check_visual_search_debug_and_ocr_isolation.py",
+            "checker_file": "check_visual_search_debug_and_ocr_isolation.py",
+            "checker": "check_visual_search_debug_and_ocr_isolation.py",
+            "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_TEMPLATE_CALIBRATION_DOWNSCALE_PIPELINE",
+            "description": "Автоподбор оптимального масштаба сжатия шаблона в калибровке для оптимизации первичного отсева кандидатов и сквозная передача в поиск",
+            "target_file": "CalibrationOverlay.kt",
+            "checker_module": "check_template_calibration_downscale_pipeline.py",
+            "checker_file": "check_template_calibration_downscale_pipeline.py",
+            "checker": "check_template_calibration_downscale_pipeline.py",
+            "status": "FIXED"
         }
     ]
 }

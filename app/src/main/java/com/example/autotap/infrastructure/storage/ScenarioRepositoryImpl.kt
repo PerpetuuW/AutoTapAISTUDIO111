@@ -113,6 +113,7 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                     put("targetColorHex", action.targetColorHex)
                     put("colorTolerance", action.colorTolerance)
                     put("notifyOnMatch", action.notifyOnMatch)
+                    put("downscaleFactor", action.downscaleFactor)
                     action.roiLeft?.let { put("roiLeft", it) }
                     action.roiTop?.let { put("roiTop", it) }
                     action.roiRight?.let { put("roiRight", it) }
@@ -308,6 +309,7 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                         targetColorHex = obj.optString("targetColorHex", "#00F5D4"),
                         colorTolerance = obj.optInt("colorTolerance", 15),
                         notifyOnMatch = obj.optBoolean("notifyOnMatch", false),
+                        downscaleFactor = obj.optInt("downscaleFactor", 0),
                         roiLeft = if (obj.has("roiLeft")) obj.getInt("roiLeft") else null,
                         roiTop = if (obj.has("roiTop")) obj.getInt("roiTop") else null,
                         roiRight = if (obj.has("roiRight")) obj.getInt("roiRight") else null,

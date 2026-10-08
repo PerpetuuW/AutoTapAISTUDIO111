@@ -342,6 +342,12 @@ class OcrCandidatePickerDialog(
             textCol.addView(tvCoords)
             itemRow.addView(textCol, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 
+            fun chooseCandidate() {
+                onCandidateSelected(idx, match)
+                dismiss()
+            }
+            itemRow.setOnClickListener { chooseCandidate() }
+
             val btnPick = Button(context).apply {
                 text = "ВЫБРАТЬ"
                 textSize = 8.5f
@@ -356,8 +362,7 @@ class OcrCandidatePickerDialog(
                 }
                 setPadding(dp(8), dp(4), dp(8), dp(4))
                 setOnClickListener {
-                    dismiss()
-                    onCandidateSelected(idx, match)
+                    chooseCandidate()
                 }
             }
             itemRow.addView(btnPick, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(28)))

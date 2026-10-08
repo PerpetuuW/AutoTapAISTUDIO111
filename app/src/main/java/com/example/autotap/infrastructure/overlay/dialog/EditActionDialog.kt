@@ -47,7 +47,7 @@ class EditActionDialog(
     private val overlayWindowManager: OverlayWindowManager,
     private val templateRepository: ITemplateRepository,
     private val scenarioRepository: IScenarioRepository,
-    private val action: MacroAction,
+    private var action: MacroAction,
     private val totalActionsCount: Int,
     private val onSave: (MacroAction) -> Unit,
     private val onClone: (MacroAction) -> Unit,
@@ -593,9 +593,21 @@ class EditActionDialog(
                 }
             }
 
-            pathControlsRow.addView(btnAddPoint, LinearLayout.LayoutParams(0, dp(24), 1.2f).apply { marginEnd = dp(2) })
-            pathControlsRow.addView(btnRemovePoint, LinearLayout.LayoutParams(0, dp(24), 1.2f).apply { marginEnd = dp(2) })
-            pathControlsRow.addView(btnReversePath, LinearLayout.LayoutParams(0, dp(24), 1.1f))
+            val btnCompressCorners = createSmallButton("УГЛЫ") {
+                if (action.pathPoints.size > 2) {
+                    val opt = com.example.autotap.core.math.PathCompressionEngine.compressPath(action.pathPoints)
+                    onSave(action.copy(pathPoints = opt, endX = opt.last().x, endY = opt.last().y))
+                    dismiss()
+                    Toast.makeText(context, "Оставлены только углы: ${opt.size} точек", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Путь уже минимален (${action.pathPoints.size} точки)", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            pathControlsRow.addView(btnAddPoint, LinearLayout.LayoutParams(0, dp(24), 1.0f).apply { marginEnd = dp(2) })
+            pathControlsRow.addView(btnRemovePoint, LinearLayout.LayoutParams(0, dp(24), 1.0f).apply { marginEnd = dp(2) })
+            pathControlsRow.addView(btnReversePath, LinearLayout.LayoutParams(0, dp(24), 1.0f).apply { marginEnd = dp(2) })
+            pathControlsRow.addView(btnCompressCorners, LinearLayout.LayoutParams(0, dp(24), 1.0f))
             layoutPath.addView(pathControlsRow)
             tabContainerParams.addView(layoutPath)
 
@@ -1489,9 +1501,19 @@ class EditActionDialog(
                         android.widget.Toast.makeText(context, "Совпадений для '$q' не обнаружено", android.widget.Toast.LENGTH_SHORT).show()
                         show()
                     } else if (matches.size == 1) {
+                        val singleMatch = matches[0]
                         selectedTargetOccurrenceIndex = 0
-                        tvOccurrenceStatus.text = "Выбранный вариант совпадения: #1"
-                        android.widget.Toast.makeText(context, "Найдено 1 совпадение в (${matches[0].clickX}, ${matches[0].clickY})", android.widget.Toast.LENGTH_SHORT).show()
+                        lastRecognizedOcrText = singleMatch.matchedText
+                        action = action.copy(
+                            type = ActionType.OCR,
+                            targetScriptOrQuery = singleMatch.matchedText,
+                            targetOccurrenceIndex = 0,
+                            posX = singleMatch.clickX.toFloat(),
+                            posY = singleMatch.clickY.toFloat()
+                        )
+                        selectedType = ActionType.OCR
+                        com.example.autotap.infrastructure.ocr.OcrQueryMetadataManager.saveOcrQueryToHistory(context, singleMatch.matchedText)
+                        android.widget.Toast.makeText(context, "Выбран шаблон '${singleMatch.matchedText}' (#1)", android.widget.Toast.LENGTH_SHORT).show()
                         show()
                     } else {
                         activeOcrPickerDialog?.dismiss()
@@ -1506,11 +1528,21 @@ class EditActionDialog(
                                 show()
                             }
                         ) { idx, selectedMatch ->
-                            selectedTargetOccurrenceIndex = idx
+                            val occurrenceIdx = matches.take(idx).count {
+                                it.matchedText.trim().equals(selectedMatch.matchedText.trim(), ignoreCase = true)
+                            }
+                            selectedTargetOccurrenceIndex = occurrenceIdx
                             lastRecognizedOcrText = selectedMatch.matchedText
-                            etOcrQuery.setText(selectedMatch.matchedText)
+                            action = action.copy(
+                                type = ActionType.OCR,
+                                targetScriptOrQuery = selectedMatch.matchedText,
+                                targetOccurrenceIndex = occurrenceIdx,
+                                posX = selectedMatch.clickX.toFloat(),
+                                posY = selectedMatch.clickY.toFloat()
+                            )
+                            selectedType = ActionType.OCR
                             com.example.autotap.infrastructure.ocr.OcrQueryMetadataManager.saveOcrQueryToHistory(context, selectedMatch.matchedText)
-                            tvOccurrenceStatus.text = "Выбранный вариант совпадения: #${selectedTargetOccurrenceIndex + 1}"
+                            android.widget.Toast.makeText(context, "Выбран шаблон '${selectedMatch.matchedText}' (#${occurrenceIdx + 1})", android.widget.Toast.LENGTH_SHORT).show()
                         }
                         activeOcrPickerDialog = picker
                         picker.show()

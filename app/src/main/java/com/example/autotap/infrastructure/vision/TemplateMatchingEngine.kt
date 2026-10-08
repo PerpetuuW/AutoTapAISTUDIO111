@@ -18,8 +18,21 @@ import kotlin.math.sqrt
 
 object TemplateMatchingEngine {
 
-private val NEIGHBOR_DX = intArrayOf(0, -1, 1, 0, 0)
-private val NEIGHBOR_DY = intArrayOf(0, 0, 0, -1, 1)
+    data class SearchDiagnostics(
+        val roi: Rect? = null,
+        val bestCandidate: MatchCandidate? = null,
+        val rejectedCandidates: List<Pair<MatchCandidate, String>> = emptyList(),
+        val thresholdPct: Int = 80,
+        val methodName: String = "ГИБРИД + УМНЫЙ ЦВЕТ",
+        val downscaleFactor: Int = 1,
+        val elapsedMs: Long = 0L
+    )
+
+    @Volatile
+    var lastDiagnostics: SearchDiagnostics? = null
+
+    private val NEIGHBOR_DX = intArrayOf(0, -1, 1, 0, 0)
+    private val NEIGHBOR_DY = intArrayOf(0, 0, 0, -1, 1)
 
 class TemplateFeatures(
         val tw: Int,
@@ -63,6 +76,8 @@ class TemplateFeatures(
         val calibratedX: Int? = null,
         val calibratedY: Int? = null,
         val optimalGridStepFromMeta: Int = 0,
+        val optimalDownscaleFactorFromMeta: Int = 1,
+        val optimalDownscaleScaleFromMeta: Float = 1.0f,
         val shapeLabL: FloatArray = FloatArray(0),
         val shapeLabA: FloatArray = FloatArray(0),
         val shapeLabB: FloatArray = FloatArray(0),
@@ -145,6 +160,7 @@ class TemplateFeatures(
         var metaCalibX: Int? = null
         var metaCalibY: Int? = null
         var metaGridStep = 0
+        var metaDownscaleFactor = 1
 
         if (tPath.isNotEmpty()) {
             try {
@@ -168,13 +184,26 @@ class TemplateFeatures(
                     else if (meta.has("originalY")) metaCalibY = meta.getInt("originalY")
 
                     if (meta.has("optimalGridStep")) metaGridStep = meta.getInt("optimalGridStep")
+                    if (meta.has("optimalDownscaleFactor")) {
+                        metaDownscaleFactor = meta.getInt("optimalDownscaleFactor").coerceIn(1, 4)
+                    } else if (meta.has("downscaleFactor")) {
+                        metaDownscaleFactor = meta.getInt("downscaleFactor").coerceIn(1, 4)
+                    }
                 }
             } catch (_: Exception) {}
         }
 
-                val area = tw * th
+        val area = tw * th
         val isMicro = area <= 1600 || tw <= 36 || th <= 36
         val isThin = (th in 1..20 && tw >= 20) || (tw in 1..20 && th >= 20)
+
+        val minD = min(tw, th)
+        val calculatedDownscale = if (metaDownscaleFactor > 1) metaDownscaleFactor else when {
+            minD < 28 || isMicro || isThin -> 1
+            minD < 64 -> 2
+            minD < 140 -> 3
+            else -> 4
+        }
 
         // [V12.0] Загрузка истинных RGB цветов из raw_*.png вместо бинарной маски
         var colorSourcePixels = tPixels
@@ -425,6 +454,8 @@ class TemplateFeatures(
             calibratedX = metaCalibX,
             calibratedY = metaCalibY,
             optimalGridStepFromMeta = metaGridStep,
+            optimalDownscaleFactorFromMeta = calculatedDownscale,
+            optimalDownscaleScaleFromMeta = 1.0f / calculatedDownscale.toFloat(),
             shapeLabL = shapeLabL,
             shapeLabA = shapeLabA,
             shapeLabB = shapeLabB,
@@ -474,6 +505,7 @@ class TemplateFeatures(
         var statL2Evals = 0
 
         val allCandidates = ConcurrentHashMap.newKeySet<MatchCandidate>()
+        val rejectedCandidatesList = java.util.Collections.synchronizedList(mutableListOf<Pair<MatchCandidate, String>>())
         val defaultSim = actionOverride?.similarityPercent ?: minSimilarityPercent
 
         val hasRoi = actionOverride?.roiLeft != null && actionOverride.roiTop != null &&
@@ -487,6 +519,7 @@ class TemplateFeatures(
         val isDeltaEMode = actionOverride?.colorDeltaEMode ?: false
         val selectedRoiZones = if (hasRoi) listOf(Rect(roiMinX, roiMinY, roiMaxX, roiMaxY)) else emptyList<Rect>()
         val selectedAnchors = actionOverride?.primaryAnchorPoints ?: emptyList()
+        var lastUsedDownscale = if ((actionOverride?.downscaleFactor ?: 0) in 1..4) actionOverride!!.downscaleFactor else 1
 
         for ((tPath, tBmp) in templates) {
             if (isCancelled() || tBmp.isRecycled) continue
@@ -647,12 +680,18 @@ class TemplateFeatures(
             } else {
                 (templateThreshold * 0.30f).coerceIn(0.18f, 0.35f)
             }
-                        // [V14.0] Адаптивный шаг сетки: для микроиконок и тонких линий (стрелки, крестики) шаг 3..6 px для исключения пропусков штрихов
+            // [V14.0] Адаптивный шаг сетки и масштаб сжатия шаблона для первичного отсева кандидатов
             val metaStep = features.optimalGridStepFromMeta
-            val gridStepX = if (metaStep in 2..16) metaStep else (if (isSmall) (features.tw / 4).coerceIn(3, 6) else (features.tw / 3).coerceIn(8, 24))
-            val gridStepY = if (metaStep in 2..16) metaStep else (if (isSmall) (features.th / 4).coerceIn(3, 6) else (features.th / 3).coerceIn(8, 24))
+            val actionDownscale = actionOverride?.downscaleFactor ?: 0
+            val effectiveDownscale = if (actionDownscale in 1..4) actionDownscale else features.optimalDownscaleFactorFromMeta.coerceIn(1, 4)
+            lastUsedDownscale = effectiveDownscale
+
+            val baseStepX = if (metaStep in 2..16) metaStep else (if (isSmall) (features.tw / 4).coerceIn(3, 6) else (features.tw / 3).coerceIn(8, 24))
+            val baseStepY = if (metaStep in 2..16) metaStep else (if (isSmall) (features.th / 4).coerceIn(3, 6) else (features.th / 3).coerceIn(8, 24))
+            val gridStepX = if (effectiveDownscale > 1) (baseStepX * effectiveDownscale / 2).coerceIn(4, 28) else baseStepX
+            val gridStepY = if (effectiveDownscale > 1) (baseStepY * effectiveDownscale / 2).coerceIn(4, 28) else baseStepY
             val spatialSectors = HashMap<Long, Triple<Int, Int, Float>>()
-            val sectorBinSize = if (isSmall) 16 else 36
+            val sectorBinSize = if (isSmall) 16 else (36 * effectiveDownscale / 2).coerceIn(24, 64)
             var earlyExitFound = false
 
             val scanPoints = mutableListOf<Pair<Int, Int>>()
@@ -687,6 +726,8 @@ class TemplateFeatures(
             }
             val coarseStep = maxOf(gridStepX, gridStepY)
 
+            val sampleStride = if (effectiveDownscale > 1) effectiveDownscale else 1
+
             for (pt in scanPoints) {
                 if (isCancelled()) break
                 val x = pt.first
@@ -696,8 +737,10 @@ class TemplateFeatures(
                 var colorScoreSum = 0f
                 var edgeEnergyHits = 0
                 var gradSampleCount = 0
+                var evaluatedCount = 0
 
-                for (i in 0 until features.l1SampleCount) {
+                for (i in 0 until features.l1SampleCount step sampleStride) {
+                    evaluatedCount++
                     val px = x + features.l1Dx[i]
                     val py = y + features.l1Dy[i]
                     val sIdx = rowOffset + (features.l1Dy[i] * sw) + px
@@ -758,7 +801,7 @@ class TemplateFeatures(
                     }
                 }
 
-                val colorScore = if (!isShapeDriven) colorScoreSum / features.l1SampleCount.toFloat() else 0f
+                val colorScore = if (!isShapeDriven && evaluatedCount > 0) colorScoreSum / evaluatedCount.toFloat() else 0f
                 val edgeEnergyRatio = if (gradSampleCount > 0) edgeEnergyHits.toFloat() / gradSampleCount.toFloat() else 0.5f
                 val coarseScore = if (isShapeDriven) edgeEnergyRatio else (colorScore * (1.0f - features.analysis.suggestedSobelWeight) + edgeEnergyRatio * features.analysis.suggestedSobelWeight)
 
@@ -854,6 +897,17 @@ class TemplateFeatures(
                     if (!findAllMatches && bestScore >= maxOf(0.92f, templateThreshold)) {
                         break
                     }
+                } else if (bestScore >= 0.35f) {
+                    val rejectCand = MatchCandidate(
+                        bestX + features.centroidX, bestY + features.centroidY,
+                        bestX, bestY, bestX + features.tw, bestY + features.th,
+                        bestScore, tPath,
+                        if (features.useCustomOffsetFromMeta) features.clickOffsetXFromMeta else 0f,
+                        if (features.useCustomOffsetFromMeta) features.clickOffsetYFromMeta else 0f,
+                        isShapeDriven
+                    )
+                    val reason = if (isDeltaEMode && !isShapeDriven) "Отличие цвета (ΔE)" else "Ниже порога (${(bestScore * 100).toInt()}% < ${(templateThreshold * 100).toInt()}%)"
+                    rejectedCandidatesList.add(Pair(rejectCand, reason))
                 }
             }
         }
@@ -865,6 +919,17 @@ class TemplateFeatures(
         }
 
         val elapsed = System.currentTimeMillis() - perfStartTime
+        val searchRoi = if (hasRoi) Rect(roiMinX, roiMinY, roiMaxX, roiMaxY) else null
+        val downscaleTag = if (lastUsedDownscale > 1) " [Сжатие: ${lastUsedDownscale}x]" else " [Сжатие: 1:1]"
+        lastDiagnostics = SearchDiagnostics(
+            roi = searchRoi,
+            bestCandidate = topWinner,
+            rejectedCandidates = rejectedCandidatesList.sortedByDescending { it.first.score }.take(3),
+            thresholdPct = defaultSim,
+            methodName = ((if (isDeltaEMode) "ГИБРИД + УМНЫЙ ЦВЕТ (ΔE)" else if (actionOverride?.isShapeOnlyMode == true) "ФОРМА / КОНТУР" else "ГИБРИД CV") + downscaleTag),
+            downscaleFactor = lastUsedDownscale,
+            elapsedMs = elapsed
+        )
         AppLogger.log(null, "CV_PROFILER", "Мультипоиск [${templates.size} масок]: ${elapsed}ms | L0=$statL0Hits, L1=$statL1Sectors, L2=$statL2Evals | Результат: ${finalMatches.size} целей")
 
         return finalMatches

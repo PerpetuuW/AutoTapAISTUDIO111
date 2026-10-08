@@ -55,6 +55,7 @@ data class MacroAction(
 
     val targetColorHex: String = "#00F5D4",
     val colorTolerance: Int = 15,
-    val colorDeltaEMode: Boolean = false,
-    val notifyOnMatch: Boolean = false
+    val colorDeltaEMode: Boolean = true,
+    val notifyOnMatch: Boolean = false,
+    val downscaleFactor: Int = 0
     )

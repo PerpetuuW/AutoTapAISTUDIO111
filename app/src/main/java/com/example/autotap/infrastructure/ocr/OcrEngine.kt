@@ -773,7 +773,12 @@ object OcrEngine {
         // 1. Мгновенная проверка системного UI через Accessibility Service (1-3 мс)
         val service = com.example.autotap.infrastructure.accessibility.AutoTapAccessibilityService.instance
         if (service != null && targetQuery.isNotBlank() && !targetQuery.startsWith("regex:")) {
-            val nativeResults = service.findTextInActiveWindow(targetQuery, roi)
+            val nativeResults = service.findTextInActiveWindow(targetQuery, roi).filterNot { match ->
+                com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.isMatchVisualization(
+                    Rect(match.rectLeft, match.rectTop, match.rectRight, match.rectBottom),
+                    match.matchedText
+                )
+            }
             if (nativeResults.isNotEmpty()) {
                 val elapsed = System.currentTimeMillis() - perfStart
                 AppLogger.log(null, "OCR", "OCR (Accessibility Service): '${nativeResults.first().matchedText}' в (${nativeResults.first().clickX}, ${nativeResults.first().clickY}) за ${elapsed}мс")
@@ -910,13 +915,20 @@ object OcrEngine {
             }
         }
 
-        if (matches.isNotEmpty()) {
-            matches.sortBy { it.rectTop * 10000 + it.rectLeft }
+        val validMatches = matches.filterNot { match ->
+            com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.isMatchVisualization(
+                Rect(match.rectLeft, match.rectTop, match.rectRight, match.rectBottom),
+                match.matchedText
+            )
+        }
+
+        if (validMatches.isNotEmpty()) {
+            val sortedMatches = validMatches.sortedBy { it.rectTop * 10000 + it.rectLeft }
             val elapsed = System.currentTimeMillis() - perfStart
-            AppLogger.log(null, "OCR", "Game OCR Завершен: найдено ${matches.size} вариантов для '$targetQuery' за ${elapsed}мс")
+            AppLogger.log(null, "OCR", "Game OCR Завершен: найдено ${sortedMatches.size} вариантов для '$targetQuery' за ${elapsed}мс")
             if (localBmp != srcBmp && !localBmp.isRecycled) localBmp.recycle()
             if (srcBmp != bitmap && !srcBmp.isRecycled) srcBmp.recycle()
-            return matches
+            return sortedMatches
         }
 
         if (localBmp != srcBmp && !localBmp.isRecycled) localBmp.recycle()

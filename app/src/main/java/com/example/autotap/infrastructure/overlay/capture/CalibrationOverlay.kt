@@ -89,10 +89,12 @@ private val targetStepId: Int? = null,
     private var currentShapeExpansion: Int = existingAction?.shapeExpansion ?: 45
     private var currentPaddingOffset: Int = existingAction?.paddingOffsetPx ?: 2
     private var isAutoContourMode: Boolean = existingAction?.isContourMode ?: true
-    private var isShapeOnlyMode: Boolean = existingAction?.isShapeOnlyMode ?: com.example.autotap.infrastructure.vision.TemplateMorphologyClassifier.analyze(rawTemplateBitmap).isShapeOnlyRecommended
+    private var isShapeOnlyMode: Boolean = existingAction?.isShapeOnlyMode ?: false
     private var isCircleShape: Boolean = existingAction?.isCircleShape ?: false
     private var isNeuralEngineMode: Boolean = existingAction?.isNeuralEngine ?: false
-    private var isSmartColorMode: Boolean = existingAction?.colorDeltaEMode ?: false
+    private var isSmartColorMode: Boolean = existingAction?.colorDeltaEMode ?: true
+    private var activeAnchorX: Int = anchorCropX
+    private var activeAnchorY: Int = anchorCropY
     private var btnSmartColorToggle: Button? = null
 
     private var useCustomClickOffset: Boolean = existingAction?.useCustomClickOffset ?: false
@@ -130,6 +132,39 @@ private val targetStepId: Int? = null,
     private var btnShapeOnlyToggle: Button? = null
     private var btnCircleToggle: Button? = null
     private var btnClickOffsetToggle: Button? = null
+    private var tvDownscaleBadgeRef: TextView? = null
+    private var userDownscaleFactor: Int = existingAction?.downscaleFactor ?: 0
+    private var effectiveDownscaleFactor: Int = 1
+    private var btnDownscaleToggle: Button? = null
+
+    private fun updateDownscaleButtonText() {
+        val btn = btnDownscaleToggle ?: return
+        val currentFactor = if (userDownscaleFactor in 1..4) userDownscaleFactor else effectiveDownscaleFactor
+        val modeLabel = if (userDownscaleFactor == 0) "АВТО" else "РУЧН"
+        btn.text = "СЖАТИЕ: ${currentFactor}x ($modeLabel)"
+        val (cStart, cEnd) = when {
+            userDownscaleFactor > 0 -> intArrayOf("#4F46E5".toColorInt(), "#3730A3".toColorInt())
+            currentFactor == 1 -> intArrayOf("#0284C7".toColorInt(), "#0369A1".toColorInt())
+            else -> intArrayOf("#059669".toColorInt(), "#047857".toColorInt())
+        }
+        btn.background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(cStart, cEnd)).apply {
+            cornerRadius = dpF(4f)
+            setStroke(dp(1), if (userDownscaleFactor > 0) "#818CF8".toColorInt() else "#38BDF8".toColorInt())
+        }
+    }
+
+    private fun calculateOptimalDownscaleFactor(w: Int, h: Int): Int {
+        val minDim = minOf(w, h)
+        val area = w * h
+        val isMicro = minDim < 28 || area <= 1600
+        val isThin = (h in 1..20 && w >= 20) || (w in 1..20 && h >= 20)
+        return when {
+            isMicro || isThin || minDim < 28 -> 1
+            minDim < 64 -> 2
+            minDim < 140 -> 3
+            else -> 4
+        }
+    }
 
     private val dm = context.resources.displayMetrics
     private fun dp(v: Int): Int = (v * dm.density).toInt()
@@ -140,6 +175,19 @@ private val targetStepId: Int? = null,
             if (act.roiLeft != null && act.roiTop != null && act.roiRight != null && act.roiBottom != null) {
                 activeRoiZones.add(Rect(act.roiLeft, act.roiTop, act.roiRight, act.roiBottom))
             }
+        }
+        if (userDownscaleFactor == 0 && existingTemplatePath != null) {
+            try {
+                val f = File(existingTemplatePath)
+                val metaFile = File(f.parentFile, "${f.nameWithoutExtension}.json")
+                if (metaFile.exists()) {
+                    val m = JSONObject(metaFile.readText())
+                    val d = m.optInt("optimalDownscaleFactor", m.optInt("downscaleFactor", 0))
+                    if (d in 1..4) {
+                        userDownscaleFactor = d
+                    }
+                }
+            } catch (_: Exception) {}
         }
         // [V63.0] Автоматическая генерация оптимизированной маски для вновь захваченного шаблона
         if (existingTemplatePath == null && screenshot.width > 0 && screenshot.height > 0) {
@@ -446,6 +494,8 @@ private val targetStepId: Int? = null,
                                     if (clickedIdx > 0) {
                                         val selected = currentCandidates.removeAt(clickedIdx)
                                         currentCandidates.add(0, selected)
+                                        activeAnchorX = selected.rectLeft
+                                        activeAnchorY = selected.rectTop
                                         vibrate(25L)
                                         invalidate()
                                         return true
@@ -722,17 +772,26 @@ private val targetStepId: Int? = null,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // Полноэкранный каскадный поиск ВСЕХ совпадений со сходимостью >= 60% без раннего выхода
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // [V33.4] Реальный расчет NeuralVisualMatcher при переключении на AI
 
+                    val calculatedScale = calculateOptimalDownscaleFactor(currentMask.width, currentMask.height)
+                    val calibDownscale = if (userDownscaleFactor in 1..4) userDownscaleFactor else calculatedScale
+                    effectiveDownscaleFactor = calibDownscale
+                    withContext(Dispatchers.Main) {
+                        tvDownscaleBadgeRef?.text = "МАСШТАБ СЖАТИЯ: ${effectiveDownscaleFactor}x (${if (effectiveDownscaleFactor == 1) "1:1 МИКРО" else "1/${effectiveDownscaleFactor} ОТСЕВ"})"
+                        updateDownscaleButtonText()
+                    }
+
                     // [V33.5] Реальный расчет NeuralVisualMatcher при переключении на AI
                     val effectiveActionOverride = (existingAction ?: MacroAction(id = targetStepId ?: 1)).copy(
                         colorDeltaEMode = isSmartColorMode,
                         isShapeOnlyMode = isShapeOnlyMode,
+                        downscaleFactor = calibDownscale,
                         roiLeft = activeRoiZones.firstOrNull()?.left,
                         roiTop = activeRoiZones.firstOrNull()?.top,
                         roiRight = activeRoiZones.firstOrNull()?.right,
                         roiBottom = activeRoiZones.firstOrNull()?.bottom,
                         primaryAnchorPoints = activeRoiZones.map { com.example.autotap.domain.model.Point2D(it.centerX().toFloat(), it.centerY().toFloat()) }
                     )
-                    val cascadeMatches = if (isNeuralEngineMode) {
+                    var cascadeMatches = if (isNeuralEngineMode) {
                         try {
                             com.example.autotap.infrastructure.vision.NeuralVisualMatcher.findMatches(
                                 screenshot = screenshot,
@@ -747,6 +806,24 @@ private val targetStepId: Int? = null,
                             minSimilarityPercent = 60, templatePath = existingTemplatePath ?: "",
                             actionOverride = effectiveActionOverride, enableL0Cache = false, findAllMatches = true
                         ) { evalJob?.isCancelled == true }
+                    }
+
+                    // Интеллектуальный подбор: если при сжатии > 1x в авто-режиме цели не найдены, калибровка верифицирует исходный 1:1 масштаб
+                    if (userDownscaleFactor == 0 && calibDownscale > 1 && cascadeMatches.isEmpty() && localAnchorMatch == null && !isNeuralEngineMode) {
+                        val fallbackOverride = effectiveActionOverride.copy(downscaleFactor = 1)
+                        val fullResMatches = TemplateMatchingEngine.findTemplateFastCascade(
+                            sPixels = sPixels, sw = sw, sh = sh, template = currentMask,
+                            minSimilarityPercent = 60, templatePath = existingTemplatePath ?: "",
+                            actionOverride = fallbackOverride, enableL0Cache = false, findAllMatches = true
+                        ) { evalJob?.isCancelled == true }
+                        if (fullResMatches.isNotEmpty()) {
+                            cascadeMatches = fullResMatches
+                            effectiveDownscaleFactor = 1
+                            withContext(Dispatchers.Main) {
+                                tvDownscaleBadgeRef?.text = "МАСШТАБ СЖАТИЯ: 1x (1:1 АВТО-КОРРЕКЦИЯ)"
+                                updateDownscaleButtonText()
+                            }
+                        }
                     }
 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 val candidateList = mutableListOf<MatchCandidate>()
@@ -1353,7 +1430,24 @@ private val targetStepId: Int? = null,
                 reevaluateMatching()
             }
         }
-        modesRow3.addView(btnSmartColorToggle, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(30)))
+        modesRow3.addView(btnSmartColorToggle, LinearLayout.LayoutParams(0, dp(30), 1f).apply { marginEnd = dp(4) })
+
+        btnDownscaleToggle = Button(context).apply {
+            textSize = 8f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            setTextColor(Color.WHITE)
+            minHeight = 0; minimumHeight = 0
+            setPadding(dp(6), dp(4), dp(6), dp(4))
+            setOnClickListener {
+                userDownscaleFactor = (userDownscaleFactor + 1) % 5
+                updateDownscaleButtonText()
+                vibrate(15L)
+                reevaluateMatching()
+            }
+        }
+        updateDownscaleButtonText()
+        modesRow3.addView(btnDownscaleToggle, LinearLayout.LayoutParams(0, dp(30), 1f))
         modesContainer.addView(modesRow3)
         modesContainer.tag = "MODES"
         card.addView(modesContainer)
@@ -1925,6 +2019,8 @@ private val targetStepId: Int? = null,
                 val minDim = kotlin.math.min(finalMask.width, finalMask.height)
                 val calculatedGridStep = kotlin.math.max(2, kotlin.math.min(minDim / 4, 8))
 
+                val finalDownscale = if (userDownscaleFactor in 1..4) userDownscaleFactor else effectiveDownscaleFactor
+
                 val metaObj = JSONObject().apply {
                     put("similarityPercent", currentSimilarity.coerceAtLeast(60))
                     put("shapeExpansion", currentShapeExpansion)
@@ -1934,6 +2030,8 @@ private val targetStepId: Int? = null,
                     put("isCircleShape", isCircleShape)
                     put("colorDeltaEMode", isSmartColorMode)
                     put("isSmartColorMode", isSmartColorMode)
+                    put("optimalDownscaleFactor", finalDownscale)
+                    put("downscaleFactor", finalDownscale)
                     put("useCustomClickOffset", useCustomClickOffset)
                     put("clickOffsetX", clickOffsetX.toDouble())
                     put("clickOffsetY", clickOffsetY.toDouble())
@@ -2003,6 +2101,7 @@ private val targetStepId: Int? = null,
                     isCircleShape = isCircleShape,
                     isNeuralEngine = isNeuralEngineMode,
                     colorDeltaEMode = isSmartColorMode,
+                    downscaleFactor = finalDownscale,
                     useCustomClickOffset = useCustomClickOffset,
                     clickOffsetX = clickOffsetX,
                     clickOffsetY = clickOffsetY,

@@ -19,6 +19,24 @@ object AppLogger {
     var appContext: Context? = null
     
     private var isCrashHandlerInstalled = false
+    private val recentEngineLogs = java.util.concurrent.ConcurrentLinkedQueue<String>()
+    @Volatile
+    var onRecentLogUpdated: ((String) -> Unit)? = null
+
+    fun logEngine(category: String, message: String) {
+        log(null, category, message)
+        val shortTime = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
+        val entry = "[$shortTime][$category] $message"
+        recentEngineLogs.add(entry)
+        while (recentEngineLogs.size > 20) {
+            recentEngineLogs.poll()
+        }
+        onRecentLogUpdated?.invoke(entry)
+    }
+
+    fun getRecentEngineLogs(count: Int = 4): List<String> {
+        return recentEngineLogs.toList().takeLast(count)
+    }
 
     fun init(context: Context) {
         appContext = context.applicationContext

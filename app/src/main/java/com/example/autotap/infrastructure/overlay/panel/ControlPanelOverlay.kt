@@ -437,9 +437,20 @@ class ControlPanelOverlay(
         }
         mainRow.addView(btnToggle)
 
+        // 6.5. Обучение (?) (перенесено на первую строчку перед крестиком)
+        val btnTut = createIconButton(VectorIconDrawer.IconType.HELP, "", "#38BDF8", dp(38), "BTN_TUTORIAL") {
+            InteractiveTutorialOverlay(
+                context = context,
+                overlayWindowManager = overlayWindowManager,
+                mode = InteractiveTutorialOverlay.TutorialMode.CONTROL_PANEL,
+                hostViewProvider = { rootView }
+            ).show()
+        }
+        mainRow.addView(btnTut)
+
         // 7. Закрыть пульт
-            val btnClose = createIconButton(VectorIconDrawer.IconType.CLOSE, "", "#F04438", dp(38), "BTN_CLOSE") { listener.onCloseClicked() }
-            mainRow.addView(btnClose)
+        val btnClose = createIconButton(VectorIconDrawer.IconType.CLOSE, "", "#F04438", dp(38), "BTN_CLOSE") { listener.onCloseClicked() }
+        mainRow.addView(btnClose)
 
         rootLinear.addView(mainRow)
 
@@ -493,17 +504,6 @@ class ControlPanelOverlay(
         // 7. Настройки (Активный лазурный синий)
         val btnSettings = createIconButton(VectorIconDrawer.IconType.SETTINGS, "", "#38BDF8", dp(36), "BTN_SETTINGS") { listener.onSettingsClicked() }
         subRow.addView(btnSettings)
-
-        // 8. Обучение (?) (Активный лазурный синий)
-        val btnTut = createIconButton(VectorIconDrawer.IconType.HELP, "", "#38BDF8", dp(36), "BTN_TUTORIAL") {
-            InteractiveTutorialOverlay(
-                context = context,
-                overlayWindowManager = overlayWindowManager,
-                mode = InteractiveTutorialOverlay.TutorialMode.CONTROL_PANEL,
-                hostViewProvider = { rootView }
-            ).show()
-        }
-        subRow.addView(btnTut)
 
         rootLinear.addView(subRow)
         container.addView(rootLinear)
