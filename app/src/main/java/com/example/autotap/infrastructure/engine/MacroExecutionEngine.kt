@@ -74,8 +74,6 @@ class MacroExecutionEngine(
     @Volatile
     private var isStepByStepDebug = false
 
-    override val isDebugRunning: Boolean get() = isStepByStepDebug
-
     @Volatile
     private var isPaused = false
 
@@ -284,7 +282,21 @@ class MacroExecutionEngine(
                                     val currentSw = dm?.widthPixels ?: 1080
                                     val currentSh = dm?.heightPixels ?: 2400
 
-                                    ensureCleanScreenBeforeCapture()
+                                    var hadHighlights = false
+                                    withContext(Dispatchers.Main) {
+                                        val ctx = service?.applicationContext
+                                        if (ctx != null) {
+                                            if (com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hasActiveHighlights()) {
+                                                hadHighlights = true
+                                                com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hideAllHighlights(
+                                                    com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    if (hadHighlights) {
+                                        delay(100L)
+                                    }
 
                                     if (MediaProjectionService.isStreaming) {
                                         val sPixels = PixelBufferPool.obtain(currentSw * currentSh)
@@ -407,32 +419,14 @@ class MacroExecutionEngine(
                                     withContext(kotlinx.coroutines.Dispatchers.Main) {
                                         val ctx = accessibilityServiceProvider()?.applicationContext
                                         if (ctx != null) {
-                                            if (isStepByStepDebug || com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.isVisualDebugEnabled) {
-                                                val diag = TemplateMatchingEngine.lastDiagnostics
-                                                val curRoi = if (action.roiLeft != null && action.roiTop != null && action.roiRight != null && action.roiBottom != null) {
-                                                    android.graphics.Rect(action.roiLeft!!, action.roiTop!!, action.roiRight!!, action.roiBottom!!)
-                                                } else null
-                                                com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showSearchDebugVisualization(
-                                                    context = ctx,
-                                                    overlayWindowManager = com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx),
-                                                    roi = curRoi,
-                                                    bestCandidate = bestMatchCand,
-                                                    rejectedCandidates = diag?.rejectedCandidates ?: emptyList(),
-                                                    thresholdPct = baseSimilarity,
-                                                    methodName = diag?.methodName ?: "ГИБРИД + УМНЫЙ ЦВЕТ",
-                                                    elapsedMs = diag?.elapsedMs ?: 0L,
-                                                    durationMs = 1800L
-                                                )
-                                            } else {
-                                                com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showConfidenceHighlight(
-                                                    context = ctx,
-                                                    overlayWindowManager = com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx),
-                                                    rect = matchRect,
-                                                    scorePercent = matchScorePct,
-                                                    durationMs = 1400L,
-                                                    templateBitmap = templateBmp
-                                                )
-                                            }
+                                            com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showConfidenceHighlight(
+                                                context = ctx,
+                                                overlayWindowManager = com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx),
+                                                rect = matchRect,
+                                                scorePercent = matchScorePct,
+                                                durationMs = 1400L,
+                                                templateBitmap = templateBmp
+                                            )
                                         }
                                     }
 
@@ -466,28 +460,6 @@ class MacroExecutionEngine(
                                     }
                                 } else if (!isMatched) {
                                     AppLogger.log(null, "TRIGGER_EXEC", String.format(Locale.US, "ШАГ #%d: таймаут поиска (цель не найдена за %d сек)", action.id, action.aiTimeoutSeconds))
-                                    if (isStepByStepDebug || com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.isVisualDebugEnabled) {
-                                        withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                            val ctx = accessibilityServiceProvider()?.applicationContext
-                                            if (ctx != null) {
-                                                val diag = TemplateMatchingEngine.lastDiagnostics
-                                                val curRoi = if (action.roiLeft != null && action.roiTop != null && action.roiRight != null && action.roiBottom != null) {
-                                                    android.graphics.Rect(action.roiLeft!!, action.roiTop!!, action.roiRight!!, action.roiBottom!!)
-                                                } else null
-                                                com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showSearchDebugVisualization(
-                                                    context = ctx,
-                                                    overlayWindowManager = com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx),
-                                                    roi = curRoi,
-                                                    bestCandidate = null,
-                                                    rejectedCandidates = diag?.rejectedCandidates ?: emptyList(),
-                                                    thresholdPct = baseSimilarity,
-                                                    methodName = diag?.methodName ?: "ГИБРИД CV",
-                                                    elapsedMs = diag?.elapsedMs ?: 0L,
-                                                    durationMs = 2400L
-                                                )
-                                            }
-                                        }
-                                    }
                                     // Экспресс-лечение маски при неудачной автоматизации
                                     onAutoHealRequested?.let { healHandler ->
                                         val service = accessibilityServiceProvider()
@@ -549,8 +521,6 @@ class MacroExecutionEngine(
                                         stepType = ActionType.OCR
                                     )
 
-                                    ensureCleanScreenBeforeCapture()
-
                                     val service = accessibilityServiceProvider()
                                     val nativeMatches = service?.findTextInActiveWindow(query, roi) ?: emptyList()
                                     if (nativeMatches.isNotEmpty() && !query.startsWith("regex:") && !(query.contains("{") && query.contains("}"))) {
@@ -566,7 +536,6 @@ class MacroExecutionEngine(
                                         break
                                     }
 
-                                    ensureCleanScreenBeforeCapture()
                                     val screenshot = service?.captureScreenshotSync(1500L)
                                     if (screenshot != null) {
                                         try {
@@ -691,7 +660,6 @@ class MacroExecutionEngine(
                                     )
 
                                     val service = accessibilityServiceProvider()
-                                    ensureCleanScreenBeforeCapture()
                                     val screenshot = service?.captureScreenshotSync(1000L)
                                     if (screenshot != null) {
                                         try {
@@ -955,7 +923,21 @@ class MacroExecutionEngine(
                             val currentSw = dm?.widthPixels ?: 1080
                             val currentSh = dm?.heightPixels ?: 2400
 
-                            ensureCleanScreenBeforeCapture()
+                            var hadHighlights = false
+                            withContext(Dispatchers.Main) {
+                                val ctx = service?.applicationContext
+                                if (ctx != null) {
+                                    if (com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hasActiveHighlights()) {
+                                        hadHighlights = true
+                                        com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hideAllHighlights(
+                                            com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx)
+                                        )
+                                    }
+                                }
+                            }
+                            if (hadHighlights) {
+                                delay(100L)
+                            }
 
                             if (MediaProjectionService.isStreaming) {
                                 val sPixels = PixelBufferPool.obtain(currentSw * currentSh)
@@ -1314,25 +1296,6 @@ class MacroExecutionEngine(
         debugStepDeferred?.complete(Unit)
     }
 
-
-    private suspend fun ensureCleanScreenBeforeCapture() {
-        var hadHighlights = false
-        withContext(Dispatchers.Main) {
-            val service = accessibilityServiceProvider()
-            val ctx = service?.applicationContext
-            if (ctx != null) {
-                if (com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hasActiveHighlights()) {
-                    hadHighlights = true
-                    com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hideAllHighlights(
-                        com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx)
-                    )
-                }
-            }
-        }
-        if (hadHighlights) {
-            delay(350L) // Генерация детерминированной чистой задержки 350мс для прогрузки кадра без оверлея дебага
-        }
-    }
 
     private fun createStrokeCompat(
         path: android.graphics.Path,

@@ -161,8 +161,8 @@ class GestureRecorderOverlay(
 
         canvas.setOnTouchListener { _, event ->
             if (isDispatchingSyntheticClick) {
-                com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "Синтетический тач не перехватывается оверлеем (passthrough=true, action=${event.actionMasked})")
-                return@setOnTouchListener false
+                com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "Тач пропущен: идет синтетическая инжекция")
+                return@setOnTouchListener true
             }
 
             val curX = event.rawX
@@ -213,9 +213,8 @@ class GestureRecorderOverlay(
                     val nextId = recordedActions.size + 1
                     val dispatcher = AutoTapAccessibilityService.instance?.gestureDispatcher
 
-                    canvasParams.flags = canvasParams.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                    canvasParams.flags = canvasParams.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
                     overlayWindowManager.updateViewSafe(canvasLayer, canvasParams)
-                    com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "ACTION_UP: Оверлей переведен в passthrough (FLAG_NOT_TOUCHABLE), totalDist=%.1f, duration=${duration}ms".format(totalDistance))
 
                     val gestureDuration: Long
 
@@ -237,7 +236,6 @@ class GestureRecorderOverlay(
                             // Оффлоад тяжелой задачи в фоновый поток (Zero Main Thread Block)
                             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                                 val service = AutoTapAccessibilityService.instance
-                                com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "SmartRecord IO: Запуск захвата скриншота...")
 
                                 // [V12.0] Активация экрана перед захватом
                                 val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as? android.os.PowerManager
@@ -248,10 +246,8 @@ class GestureRecorderOverlay(
                                 // Делаем скриншот ДО инжекции жеста (чистый кадр без кружка нажатия)
                                 val screenshot = service?.captureScreenshotSync(1200L)
 
-                                kotlinx.coroutines.delay(60L) // Пауза для синхронизации WindowManager в System Server
-                                com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "SmartRecord IO: Вызов performClick в (${startPt.x}, ${startPt.y})...")
-                                val clickDispatched = service?.gestureDispatcher?.performClick(startPt.x, startPt.y, gestureDuration) ?: false
-                                com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "SmartRecord IO: performClick результат=$clickDispatched")
+                                // Мгновенно выполняем клик
+                                service?.gestureDispatcher?.performClick(startPt.x, startPt.y, gestureDuration)
                                 kotlinx.coroutines.delay(120L)
 
                                 if (screenshot != null && !screenshot.isRecycled) {
@@ -369,33 +365,23 @@ class GestureRecorderOverlay(
                                             } else {
                                             // Режим обычных жестов: мгновенный вброс и запись
                                             val orch = com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(context)
-                                            com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "RegularRecord: Вызов performClick в (${startPt.x}, ${startPt.y})...")
-                                            mainHandler.postDelayed({
-                                                val res = dispatcher?.performClick(startPt.x, startPt.y, gestureDuration) ?: false
-                                                com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "RegularRecord: performClick результат=$res")
-                                            }, 50L)
+                                            dispatcher?.performClick(startPt.x, startPt.y, gestureDuration)
                                             recordedActions.add(MacroAction(id = nextId, type = ActionType.CLICK, posX = startPt.x, posY = startPt.y, holdDurationMs = gestureDuration, delayMs = orch.globalClickPauseMs))
                                             canvas.alpha = 1f
-                                            restoreTouchAfter(gestureDuration + 100L)
+                                            restoreTouchAfter(gestureDuration + 40L)
                                             }
-                                             } else if (totalDistance < dpF(12f) && duration >= 350L) {
+                                            } else if (totalDistance < dpF(12f) && duration >= 350L) {
                         val gestureDuration = duration.coerceAtLeast(350L)
-                        com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "LongPressRecord: Вызов performClick в (${startPt.x}, ${startPt.y}), duration=${gestureDuration}ms")
-                        mainHandler.postDelayed({
-                            dispatcher?.performClick(startPt.x, startPt.y, gestureDuration)
-                        }, 50L)
+                        dispatcher?.performClick(startPt.x, startPt.y, gestureDuration)
                         val actualDelay = if (lastRecordEventTime > 0L) (touchStartTime - lastRecordEventTime).coerceIn(20L, 60000L) else 250L
                         lastRecordEventTime = System.currentTimeMillis()
                         recordedActions.add(MacroAction(id = nextId, type = ActionType.LONG_PRESS, posX = startPt.x, posY = startPt.y, holdDurationMs = gestureDuration, delayMs = actualDelay))
-                        restoreTouchAfter(gestureDuration + 100L)
+                        restoreTouchAfter(gestureDuration + 40L)
                     } else {
                         // [Сегментированная запись путей]: завершение текущего участка и сохранение параметров
                         val compressedPoints = PathCompressionEngine.compressPath(currentTouchPoints.toList(), maxPoints = 80)
                         val instantDuration = duration.coerceIn(100L, 2500L)
-                        com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "Path/SwipeRecord: Вызов performPath (${compressedPoints.size} точек), duration=${instantDuration}ms")
-                        mainHandler.postDelayed({
-                            dispatcher?.performPath(compressedPoints, instantDuration)
-                        }, 50L)
+                        dispatcher?.performPath(compressedPoints, instantDuration)
                         val actualDelay = if (lastRecordEventTime > 0L) (touchStartTime - lastRecordEventTime).coerceIn(20L, 60000L) else 100L
                         lastRecordEventTime = System.currentTimeMillis()
                         val defaultPathDur = com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(context).globalPathDurationMs

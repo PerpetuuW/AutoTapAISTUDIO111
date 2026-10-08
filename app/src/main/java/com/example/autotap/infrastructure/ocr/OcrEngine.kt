@@ -128,18 +128,7 @@ object OcrEngine {
      */
     private fun mergeAdjacentLineBoxes(boxes: List<Rect>): List<Rect> {
         if (boxes.size <= 1) return boxes
-        // Сортировка: слова на одной высоте (высокий vOverlap) упорядочиваются слева направо
-        val sorted = boxes.sortedWith { a, b ->
-            val vOverlapMin = maxOf(a.top, b.top)
-            val vOverlapMax = minOf(a.bottom, b.bottom)
-            val vOverlap = vOverlapMax - vOverlapMin
-            val minH = minOf(a.height(), b.height()).coerceAtLeast(1)
-            if (vOverlap >= minH * 0.45f) {
-                a.left.compareTo(b.left)
-            } else {
-                a.top.compareTo(b.top)
-            }
-        }
+        val sorted = boxes.sortedWith(compareBy({ it.top / 12 }, { it.left }))
         val merged = mutableListOf<Rect>()
 
         var current = Rect(sorted[0])
@@ -150,11 +139,10 @@ object OcrEngine {
             val vOverlap = vOverlapMax - vOverlapMin
             val minH = minOf(current.height(), next.height()).coerceAtLeast(1)
 
-            val isSameLine = vOverlap >= minH * 0.40f
+            val isSameLine = vOverlap >= minH * 0.45f
             val hGap = next.left - current.right
-            val maxAllowedGap = (minH * 1.5f).toInt().coerceIn(16, 48)
 
-            if (isSameLine && hGap in -12..maxAllowedGap) {
+            if (isSameLine && hGap in -10..32) {
                 // Объединяем близкие боксы в единую текстовую строку
                 current.left = minOf(current.left, next.left)
                 current.top = minOf(current.top, next.top)
@@ -237,17 +225,18 @@ object OcrEngine {
 
         // Высокое разрешение для полноэкранного детектирования мелких шрифтов HUD/иконок (до 1280px)
         val maxSide = maxOf(960, minOf(1280, max(origW, origH)))
-        val scale = maxSide.toFloat() / max(origW, origH).toFloat()
-        val scaledW = (origW * scale).toInt().coerceAtLeast(16)
-        val scaledH = (origH * scale).toInt().coerceAtLeast(16)
+        val ratio = maxSide.toFloat() / max(origW, origH).toFloat()
+        var targetW = (origW * ratio).toInt()
+        var targetH = (origH * ratio).toInt()
+        targetW = maxOf(32, ((targetW + 31) / 32) * 32)
+        targetH = maxOf(32, ((targetH + 31) / 32) * 32)
 
-        // Размеры тензора с выравниванием по кратности 32 без искажения пропорций (zero padding)
-        val targetW = maxOf(32, ((scaledW + 31) / 32) * 32)
-        val targetH = maxOf(32, ((scaledH + 31) / 32) * 32)
+        val scaleW = targetW.toFloat() / origW.toFloat()
+        val scaleH = targetH.toFloat() / origH.toFloat()
 
-        val scaledBmp = Bitmap.createScaledBitmap(bmp, scaledW, scaledH, true)
-        val pixels = IntArray(scaledW * scaledH)
-        scaledBmp.getPixels(pixels, 0, scaledW, 0, 0, scaledW, scaledH)
+        val scaledBmp = Bitmap.createScaledBitmap(bmp, targetW, targetH, true)
+        val pixels = IntArray(targetW * targetH)
+        scaledBmp.getPixels(pixels, 0, targetW, 0, 0, targetW, targetH)
         if (scaledBmp != bmp && !scaledBmp.isRecycled) {
             scaledBmp.recycle()
         }
@@ -260,9 +249,9 @@ object OcrEngine {
             val m = mean[c]
             val s = std[c]
             for (y in 0 until targetH) {
-                val rowOffInScaled = if (y < scaledH) y * scaledW else -1
+                val rowOff = y * targetW
                 for (x in 0 until targetW) {
-                    val p = if (x < scaledW && rowOffInScaled >= 0) pixels[rowOffInScaled + x] else 0
+                    val p = pixels[rowOff + x]
                     val raw = when (c) {
                         0 -> (p shr 16) and 0xFF // R
                         1 -> (p shr 8) and 0xFF  // G
@@ -354,15 +343,24 @@ object OcrEngine {
 
                             val unclipL = max(0, (minX - distance).toInt())
                             val unclipT = max(0, (minY - distance).toInt())
-                            val unclipR = min(scaledW - 1, (maxX + distance).toInt())
-                            val unclipB = min(scaledH - 1, (maxY + distance).toInt())
+                            val unclipR = min(targetW - 1, (maxX + distance).toInt())
+                            val unclipB = min(targetH - 1, (maxY + distance).toInt())
 
-                            val origL = (unclipL / scale).toInt().coerceIn(0, origW - 1)
-                            val origT = (unclipT / scale).toInt().coerceIn(0, origH - 1)
-                            val origR = (unclipR / scale).toInt().coerceIn(origL + 1, origW)
-                            val origB = (unclipB / scale).toInt().coerceIn(origT + 1, origH)
+                            val origL = (unclipL / scaleW).toInt().coerceIn(0, origW - 1)
+                            val origT = (unclipT / scaleH).toInt().coerceIn(0, origH - 1)
+                            val origR = (unclipR / scaleW).toInt().coerceIn(origL + 1, origW)
+                            val origB = (unclipB / scaleH).toInt().coerceIn(origT + 1, origH)
 
-                            detectedBoxes.add(Rect(origL, origT, origR, origB))
+                            val bhOrig = origB - origT
+                            val extraPadW = (bhOrig * 0.55f).toInt().coerceIn(12, 45)
+                            val extraPadH = (bhOrig * 0.10f).toInt().coerceIn(3, 8)
+
+                            val expandedL = (origL - extraPadW).coerceAtLeast(0)
+                            val expandedT = (origT - extraPadH).coerceAtLeast(0)
+                            val expandedR = (origR + extraPadW).coerceAtMost(origW)
+                            val expandedB = (origB + extraPadH).coerceAtMost(origH)
+
+                            detectedBoxes.add(Rect(expandedL, expandedT, expandedR, expandedB))
                         }
                     }
                 }
@@ -383,9 +381,7 @@ object OcrEngine {
                     if (inter.setIntersect(m, box)) {
                         val interArea = inter.width() * inter.height()
                         val boxArea = box.width() * box.height()
-                        val mArea = m.width() * m.height()
-                        val minArea = minOf(boxArea, mArea)
-                        if (interArea >= minArea * 0.85f) {
+                        if (interArea >= boxArea * 0.75f) {
                             isDuplicate = true
                             break
                         }
@@ -504,12 +500,21 @@ object OcrEngine {
                     val bw = maxX - minX + 1
                     val bh = maxY - minY + 1
                     if (bw in 8..600 && bh in 6..120 && compPixels >= 6) {
-                        val origL = ((minX - 2) * invScale).toInt().coerceIn(0, w - 1)
-                        val origT = ((minY - 2) * invScale).toInt().coerceIn(0, h - 1)
-                        val origR = ((maxX + 3) * invScale).toInt().coerceIn(origL + 1, w)
-                        val origB = ((maxY + 3) * invScale).toInt().coerceIn(origT + 1, h)
+                        val origL = ((minX - 4) * invScale).toInt().coerceIn(0, w - 1)
+                        val origT = ((minY - 3) * invScale).toInt().coerceIn(0, h - 1)
+                        val origR = ((maxX + 5) * invScale).toInt().coerceIn(origL + 1, w)
+                        val origB = ((maxY + 4) * invScale).toInt().coerceIn(origT + 1, h)
 
-                        rawBoxes.add(Rect(origL, origT, origR, origB))
+                        val bhOrig = origB - origT
+                        val extraPadW = (bhOrig * 0.55f).toInt().coerceIn(12, 45)
+                        val extraPadH = (bhOrig * 0.10f).toInt().coerceIn(3, 8)
+
+                        val expandedL = (origL - extraPadW).coerceAtLeast(0)
+                        val expandedT = (origT - extraPadH).coerceAtLeast(0)
+                        val expandedR = (origR + extraPadW).coerceAtMost(w)
+                        val expandedB = (origB + extraPadH).coerceAtMost(h)
+
+                        rawBoxes.add(Rect(expandedL, expandedT, expandedR, expandedB))
                     }
                 }
             }
@@ -571,7 +576,7 @@ object OcrEngine {
             val sb = StringBuilder()
             var lastIndex = -1
             val timeSteps = output[0]
-            val validSteps = kotlin.math.ceil((timeSteps.size.toFloat() * resizedW) / targetW).toInt().coerceIn(1, timeSteps.size)
+            val validSteps = ((timeSteps.size.toFloat() * resizedW) / targetW).toInt().coerceIn(1, timeSteps.size)
 
             for (s in 0 until validSteps) {
                 val step = timeSteps[s]
@@ -773,12 +778,7 @@ object OcrEngine {
         // 1. Мгновенная проверка системного UI через Accessibility Service (1-3 мс)
         val service = com.example.autotap.infrastructure.accessibility.AutoTapAccessibilityService.instance
         if (service != null && targetQuery.isNotBlank() && !targetQuery.startsWith("regex:")) {
-            val nativeResults = service.findTextInActiveWindow(targetQuery, roi).filterNot { match ->
-                com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.isMatchVisualization(
-                    Rect(match.rectLeft, match.rectTop, match.rectRight, match.rectBottom),
-                    match.matchedText
-                )
-            }
+            val nativeResults = service.findTextInActiveWindow(targetQuery, roi)
             if (nativeResults.isNotEmpty()) {
                 val elapsed = System.currentTimeMillis() - perfStart
                 AppLogger.log(null, "OCR", "OCR (Accessibility Service): '${nativeResults.first().matchedText}' в (${nativeResults.first().clickX}, ${nativeResults.first().clickY}) за ${elapsed}мс")
@@ -860,9 +860,9 @@ object OcrEngine {
             for (box in filteredBoxes) {
                 val f = threadPool.submit(java.util.concurrent.Callable {
                     val bH = box.height()
-                    // Просторный горизонтальный паддинг исключительно при кропе для нейросети распознавания, не искажающий координаты бокса
-                    val padX = (bH * 0.45f).toInt().coerceIn(14, 36)
-                    val padY = (bH * 0.18f).toInt().coerceIn(3, 10)
+                    // Добавляем горизонтальный и вертикальный паддинг, чтобы предотвратить "проглатывание" первых и последних букв
+                    val padX = (bH * 0.45f).toInt().coerceAtLeast(16)
+                    val padY = (bH * 0.25f).toInt().coerceAtLeast(8)
 
                     val cropL = (box.left - padX).coerceIn(0, localBmp.width - 1)
                     val cropT = (box.top - padY).coerceIn(0, localBmp.height - 1)
@@ -915,20 +915,13 @@ object OcrEngine {
             }
         }
 
-        val validMatches = matches.filterNot { match ->
-            com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.isMatchVisualization(
-                Rect(match.rectLeft, match.rectTop, match.rectRight, match.rectBottom),
-                match.matchedText
-            )
-        }
-
-        if (validMatches.isNotEmpty()) {
-            val sortedMatches = validMatches.sortedBy { it.rectTop * 10000 + it.rectLeft }
+        if (matches.isNotEmpty()) {
+            matches.sortBy { it.rectTop * 10000 + it.rectLeft }
             val elapsed = System.currentTimeMillis() - perfStart
-            AppLogger.log(null, "OCR", "Game OCR Завершен: найдено ${sortedMatches.size} вариантов для '$targetQuery' за ${elapsed}мс")
+            AppLogger.log(null, "OCR", "Game OCR Завершен: найдено ${matches.size} вариантов для '$targetQuery' за ${elapsed}мс")
             if (localBmp != srcBmp && !localBmp.isRecycled) localBmp.recycle()
             if (srcBmp != bitmap && !srcBmp.isRecycled) srcBmp.recycle()
-            return sortedMatches
+            return matches
         }
 
         if (localBmp != srcBmp && !localBmp.isRecycled) localBmp.recycle()

@@ -262,10 +262,6 @@ class AutoTapAccessibilityService : AccessibilityService() {
         if (badgeShowing) {
             orchestrator.runningBadgeOverlay.setTemporarilyTransparent(true)
         }
-        val highlightsShowing = com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hasActiveHighlights()
-        if (highlightsShowing) {
-            com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.setTemporarilyTransparent(true)
-        }
 
         try {
             takeScreenshot(Display.DEFAULT_DISPLAY, bgScreenshotExecutor, object : AccessibilityService.TakeScreenshotCallback {
@@ -290,7 +286,6 @@ class AutoTapAccessibilityService : AccessibilityService() {
         } finally {
             if (lockScreenShowing) orchestrator.screenLockOverlay.setTemporarilyTransparent(false)
             if (badgeShowing) orchestrator.runningBadgeOverlay.setTemporarilyTransparent(false)
-            if (highlightsShowing) com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.setTemporarilyTransparent(false)
             isScreenshotInProgress.set(false)
         }
         return capturedBitmap
@@ -325,8 +320,7 @@ class AutoTapAccessibilityService : AccessibilityService() {
                         val screenW = resources.displayMetrics.widthPixels
                         val screenH = resources.displayMetrics.heightPixels
                         val isTooLarge = rect.width() >= screenW * 0.85f && rect.height() >= screenH * 0.35f
-                        val isVisualizer = com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.isMatchVisualization(rect, nodeText)
-                        if (!isTooLarge && !isVisualizer && (roi == null || Rect.intersects(rect, roi))) {
+                        if (!isTooLarge && (roi == null || Rect.intersects(rect, roi))) {
                             results.add(
                                 com.example.autotap.domain.model.OcrMatchResult(
                                     matchedText = nodeText,
