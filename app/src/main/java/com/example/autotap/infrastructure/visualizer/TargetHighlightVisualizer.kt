@@ -26,7 +26,6 @@ object TargetHighlightVisualizer {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val activeHighlightViews = java.util.Collections.synchronizedList(mutableListOf<java.lang.ref.WeakReference<View>>())
-    private val activeHighlightRects = java.util.Collections.synchronizedList(mutableListOf<Rect>())
 
     /**
      * Глобальный флаг включения визуального дебага (настраивается в глобальных настройках).
@@ -46,79 +45,6 @@ object TargetHighlightVisualizer {
         prefs.edit().putBoolean("PREF_VISUAL_DEBUG", enabled).apply()
     }
 
-    /**
-     * Возвращает список текущих активных рамок подсветки на экране.
-     */
-    fun getActiveHighlightBounds(): List<Rect> {
-        synchronized(activeHighlightRects) {
-            return ArrayList(activeHighlightRects)
-        }
-    }
-
-    /**
-     * Проверяет, является ли обнаруженный OCR текст или прямоугольник элементом визуализации совпадения.
-     * Защищает от ложных срабатываний OCR на бейджи процентов уверенности (например '100%', '85%', 'ΔE'),
-     * отладочные HUD-баннеры и графические рамки подсветки.
-     */
-    fun isMatchVisualization(rect: Rect, text: String): Boolean {
-        val clean = text.trim()
-        val upper = clean.uppercase(java.util.Locale.ROOT)
-        if (clean.matches(Regex("^[0-9]{1,3}%$")) ||
-            clean.matches(Regex("""^[0-9]{1,3}\s*ΔE$""")) ||
-            clean.matches(Regex("""^[0-9]{1,4}\s*(ms|мс)$""")) ||
-            clean == "%" || clean == "ΔE" ||
-            upper.contains("НАЙДЕНО") || upper.contains("ОТКЛОНЕНО") ||
-            upper.contains("ОТЛАДКА") || upper.contains("ПОРОГ") ||
-            upper.contains("ЦЕЛЬ НАЙДЕНА") || upper.contains("НЕ НАЙДЕНО") ||
-            upper.contains("MATCH") || upper.contains("REJECT") ||
-            upper.contains("DEBUG") || upper.contains("ВХОЖДЕНИЕ") ||
-            upper.contains("ЦЕНТР КЛИКА") || upper.contains("ОБУЧЕНИЕ ИИ") ||
-            upper.contains("СЖАТИЕ") || upper.contains("МАСШТАБ") || upper.contains("DOWNSCALE")
-        ) {
-            return true
-        }
-        synchronized(activeHighlightRects) {
-            for (r in activeHighlightRects) {
-                // Если область текста полностью или частично внутри или пересекает активную рамку подсветки
-                val expanded = Rect(r.left - 24, r.top - 24, r.right + 24, r.bottom + 24)
-                if (Rect.intersects(expanded, rect)) {
-                    return true
-                }
-            }
-        }
-        return false
-    }
-
-    /**
-     * Скрывает рамки и бейджи на время снятия скриншота, чтобы они не попадали в кадр для OCR и CV.
-     */
-    fun setTemporarilyTransparent(transparent: Boolean) {
-        val action = Runnable {
-            synchronized(activeHighlightViews) {
-                for (ref in activeHighlightViews) {
-                    ref.get()?.alpha = if (transparent) 0f else 1f
-                }
-            }
-            trainingViewRef?.get()?.alpha = if (transparent) 0f else 1f
-        }
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            action.run()
-        } else {
-            if (transparent) {
-                val latch = java.util.concurrent.CountDownLatch(1)
-                mainHandler.post {
-                    action.run()
-                    latch.countDown()
-                }
-                try {
-                    latch.await(35, java.util.concurrent.TimeUnit.MILLISECONDS)
-                } catch (_: InterruptedException) {}
-            } else {
-                mainHandler.post(action)
-            }
-        }
-    }
-
     fun hideAllHighlights(overlayWindowManager: OverlayWindowManager) {
         synchronized(activeHighlightViews) {
             val iterator = activeHighlightViews.iterator()
@@ -130,9 +56,6 @@ object TargetHighlightVisualizer {
                 }
                 iterator.remove()
             }
-        }
-        synchronized(activeHighlightRects) {
-            activeHighlightRects.clear()
         }
         hideTrainingHighlight(overlayWindowManager)
     }
@@ -186,11 +109,11 @@ object TargetHighlightVisualizer {
         val boxW = safeRight - safeLeft
         val boxH = safeBottom - safeTop
 
-        // Soft inverted neon color palette with ultra-low alpha fill to prevent CV edge detection
+        // Цветовая дифференциация: >=85% Изумрудный/Неоновый, 70-84% Янтарный, <70% Коралловый
         val (primaryColorHex, gradStartHex, gradEndHex) = when {
-            scorePercent >= 85 -> Triple("#34D399", "#2034D399", "#0D38BDF8")
-            scorePercent >= 70 -> Triple("#FBBF24", "#20FBBF24", "#0DFCD34D")
-            else -> Triple("#F87171", "#20F87171", "#0DF87171")
+            scorePercent >= 85 -> Triple("#10B981", "#4D10B981", "#1538BDF8")
+            scorePercent >= 70 -> Triple("#F59E0B", "#4DF59E0B", "#15FCD34D")
+            else -> Triple("#EF4444", "#4DEF4444", "#15F87171")
         }
 
         val primaryColor = primaryColorHex.toColorInt()
@@ -202,18 +125,28 @@ object TargetHighlightVisualizer {
             clipToPadding = false
         }
 
-        // 1. Контейнер целевой области с инвертированной пунктирной рамкой и сглаженными овалами/пиллами (защита от срабатывания Canny/Sobel)
+        // 1. Контейнер целевой области с градиентной подсветкой и неоновой рамкой
         val boxContainer = FrameLayout(context).apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 intArrayOf(gradStart, gradEnd)
             ).apply {
-                setStroke(dp(1.8f), primaryColor, dp(10f).toFloat(), dp(8f).toFloat())
-                cornerRadius = kotlin.math.min(24f * density, kotlin.math.min(boxW, boxH) / 2.1f)
+                setStroke(dp(2.2f), primaryColor)
+                cornerRadius = 8f * density
             }
             alpha = 0f
             scaleX = 1.05f
             scaleY = 1.05f
+        }
+
+        // 1.1 Если передан шаблон — накладываем его с мягким альфа-блендингом для моментального визуального сравнения
+        if (templateBitmap != null && !templateBitmap.isRecycled) {
+            val ivTemplate = ImageView(context).apply {
+                scaleType = ImageView.ScaleType.FIT_XY
+                setImageBitmap(templateBitmap)
+                alpha = 0.78f
+            }
+            boxContainer.addView(ivTemplate, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         }
 
         val boxParams = FrameLayout.LayoutParams(boxW, boxH).apply {
@@ -293,11 +226,6 @@ object TargetHighlightVisualizer {
             gravity = Gravity.TOP or Gravity.START
         }
 
-        val highlightRect = Rect(safeLeft, safeTop, safeRight, safeBottom)
-        synchronized(activeHighlightRects) {
-            activeHighlightRects.add(highlightRect)
-        }
-
         overlayWindowManager.addViewSafe(rootContainer, windowParams)
         activeHighlightViews.add(java.lang.ref.WeakReference(rootContainer))
 
@@ -313,9 +241,6 @@ object TargetHighlightVisualizer {
                         rootContainer.animate().alpha(0f).setDuration(220).withEndAction {
                             if (rootContainer.isAttachedToWindow) {
                                 overlayWindowManager.removeViewSafe(rootContainer)
-                                synchronized(activeHighlightRects) {
-                                    activeHighlightRects.remove(highlightRect)
-                                }
                             }
                         }.start()
                     }
@@ -349,15 +274,13 @@ object TargetHighlightVisualizer {
             clipToPadding = false
         }
 
-        val addedRects = mutableListOf<Rect>()
-
         candidates.take(6).forEachIndexed { idx, cand ->
             val scorePct = (cand.score * 100).toInt().coerceIn(0, 100)
             val isBest = (idx == 0)
             val (primaryColorHex, gradStartHex, gradEndHex) = when {
-                scorePct >= requiredThreshold -> if (isBest) Triple("#34D399", "#2034D399", "#0D38BDF8") else Triple("#38BDF8", "#2038BDF8", "#0D0284C7")
-                scorePct >= (requiredThreshold - 10) -> Triple("#FBBF24", "#20FBBF24", "#0DFCD34D")
-                else -> Triple("#F87171", "#20F87171", "#0DF87171")
+                scorePct >= requiredThreshold -> if (isBest) Triple("#10B981", "#4D10B981", "#1538BDF8") else Triple("#38BDF8", "#4038BDF8", "#150284C7")
+                scorePct >= (requiredThreshold - 10) -> Triple("#F59E0B", "#4DF59E0B", "#15FCD34D")
+                else -> Triple("#EF4444", "#4DEF4444", "#15F87171")
             }
             val primaryColor = primaryColorHex.toColorInt()
             val gradStart = gradStartHex.toColorInt()
@@ -375,9 +298,19 @@ object TargetHighlightVisualizer {
                     GradientDrawable.Orientation.TL_BR,
                     intArrayOf(gradStart, gradEnd)
                 ).apply {
-                    setStroke(dp(if (isBest) 1.8f else 1.2f), primaryColor, dp(10f).toFloat(), dp(8f).toFloat())
-                    cornerRadius = kotlin.math.min(24f * density, kotlin.math.min(boxW, boxH) / 2.1f)
+                    setStroke(dp(if (isBest) 2.2f else 1.6f), primaryColor)
+                    cornerRadius = 8f * density
                 }
+            }
+
+            val tplBmp = templateBitmaps[cand.templatePath]
+            if (tplBmp != null && !tplBmp.isRecycled) {
+                val iv = ImageView(context).apply {
+                    scaleType = ImageView.ScaleType.FIT_XY
+                    setImageBitmap(tplBmp)
+                    alpha = 0.72f
+                }
+                boxContainer.addView(iv, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
             }
 
             val boxParams = FrameLayout.LayoutParams(boxW, boxH).apply {
@@ -386,7 +319,6 @@ object TargetHighlightVisualizer {
                 topMargin = safeTop
             }
             rootContainer.addView(boxContainer, boxParams)
-            addedRects.add(Rect(safeLeft, safeTop, safeRight, safeBottom))
 
             val badge = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -455,10 +387,6 @@ object TargetHighlightVisualizer {
             gravity = Gravity.TOP or Gravity.START
         }
 
-        synchronized(activeHighlightRects) {
-            activeHighlightRects.addAll(addedRects)
-        }
-
         overlayWindowManager.addViewSafe(rootContainer, windowParams)
         activeHighlightViews.add(java.lang.ref.WeakReference(rootContainer))
 
@@ -469,214 +397,6 @@ object TargetHighlightVisualizer {
                     rootContainer.animate().alpha(0f).setDuration(220).withEndAction {
                         if (rootContainer.isAttachedToWindow) {
                             overlayWindowManager.removeViewSafe(rootContainer)
-                            synchronized(activeHighlightRects) {
-                                activeHighlightRects.removeAll(addedRects)
-                            }
-                        }
-                    }.start()
-                }
-            }, durationMs)
-        }.start()
-    }
-
-    /**
-     * Интерактивная отладочная визуализация процесса поиска для понимания проблем и ложных срабатываний:
-     * 1) Подсветка зоны поиска (ROI)
-     * 2) Зеленая рамка для принятого кандидата (MATCH)
-     * 3) Янтарные/красные рамки для отклонённых кандидатов с указанием причины (REJECT)
-     * 4) Информационный HUD вверху экрана с методом, порогом и временем
-     */
-    fun showSearchDebugVisualization(
-        context: Context,
-        overlayWindowManager: OverlayWindowManager,
-        roi: Rect? = null,
-        bestCandidate: MatchCandidate? = null,
-        rejectedCandidates: List<Pair<MatchCandidate, String>> = emptyList(),
-        thresholdPct: Int = 80,
-        methodName: String = "ГИБРИД + УМНЫЙ ЦВЕТ",
-        elapsedMs: Long = 0L,
-        durationMs: Long = 1800L
-    ) {
-        if (!isVisualDebugEnabled) return
-        hideAllHighlights(overlayWindowManager)
-
-        val dm = context.resources.displayMetrics
-        val density = dm.density
-        fun dp(v: Float): Int = (v * density).toInt()
-
-        val screenW = dm.widthPixels
-        val screenH = dm.heightPixels
-
-        val rootContainer = FrameLayout(context).apply {
-            clipChildren = false
-            clipToPadding = false
-        }
-
-        val addedRects = mutableListOf<Rect>()
-
-        // 1. Зона поиска ROI (если задана)
-        if (roi != null) {
-            val safeLeft = roi.left.coerceIn(0, max(0, screenW - dp(16f)))
-            val safeTop = roi.top.coerceIn(0, max(0, screenH - dp(16f)))
-            val safeRight = roi.right.coerceIn(safeLeft + dp(16f), screenW)
-            val safeBottom = roi.bottom.coerceIn(safeTop + dp(16f), screenH)
-            val roiW = safeRight - safeLeft
-            val roiH = safeBottom - safeTop
-
-            val roiBox = FrameLayout(context).apply {
-                background = GradientDrawable().apply {
-                    setStroke(dp(1.2f), "#38BDF8".toColorInt(), dp(6f).toFloat(), dp(4f).toFloat())
-                    setColor("#0838BDF8".toColorInt())
-                    cornerRadius = dp(6f).toFloat()
-                }
-            }
-            rootContainer.addView(roiBox, FrameLayout.LayoutParams(roiW, roiH).apply {
-                gravity = Gravity.TOP or Gravity.START
-                leftMargin = safeLeft
-                topMargin = safeTop
-            })
-            addedRects.add(Rect(safeLeft, safeTop, safeRight, safeBottom))
-        }
-
-        // 2. Отклонённые кандидаты (красные / янтарные пунктирные рамки)
-        rejectedCandidates.take(3).forEach { (cand, reason) ->
-            val safeLeft = cand.rectLeft.coerceIn(0, max(0, screenW - dp(16f)))
-            val safeTop = cand.rectTop.coerceIn(0, max(0, screenH - dp(16f)))
-            val safeRight = cand.rectRight.coerceIn(safeLeft + dp(16f), screenW)
-            val safeBottom = cand.rectBottom.coerceIn(safeTop + dp(16f), screenH)
-            val boxW = safeRight - safeLeft
-            val boxH = safeBottom - safeTop
-
-            val rejectBox = FrameLayout(context).apply {
-                background = GradientDrawable().apply {
-                    setStroke(dp(1.2f), "#F43F5E".toColorInt(), dp(4f).toFloat(), dp(4f).toFloat())
-                    setColor("#10F43F5E".toColorInt())
-                    cornerRadius = dp(6f).toFloat()
-                }
-            }
-            rootContainer.addView(rejectBox, FrameLayout.LayoutParams(boxW, boxH).apply {
-                gravity = Gravity.TOP or Gravity.START
-                leftMargin = safeLeft
-                topMargin = safeTop
-            })
-
-            val rejectBadge = TextView(context).apply {
-                val scorePct = (cand.score * 100).toInt()
-                text = "ОТКЛОНЕНО $scorePct%: $reason"
-                textSize = 8f
-                typeface = Typeface.DEFAULT_BOLD
-                setTextColor("#FCA5A5".toColorInt())
-                background = GradientDrawable().apply {
-                    setColor("#EE18181B".toColorInt())
-                    setStroke(dp(1f), "#F43F5E".toColorInt())
-                    cornerRadius = dp(4f).toFloat()
-                }
-                setPadding(dp(4f), dp(2f), dp(4f), dp(2f))
-            }
-            rootContainer.addView(rejectBadge, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
-                gravity = Gravity.TOP or Gravity.START
-                leftMargin = safeLeft
-                topMargin = (safeTop - dp(18f)).coerceAtLeast(0)
-            })
-            addedRects.add(Rect(safeLeft, safeTop, safeRight, safeBottom))
-        }
-
-        // 3. Лучший принятый кандидат (зеленая рамка)
-        if (bestCandidate != null) {
-            val safeLeft = bestCandidate.rectLeft.coerceIn(0, max(0, screenW - dp(16f)))
-            val safeTop = bestCandidate.rectTop.coerceIn(0, max(0, screenH - dp(16f)))
-            val safeRight = bestCandidate.rectRight.coerceIn(safeLeft + dp(16f), screenW)
-            val safeBottom = bestCandidate.rectBottom.coerceIn(safeTop + dp(16f), screenH)
-            val boxW = safeRight - safeLeft
-            val boxH = safeBottom - safeTop
-
-            val bestBox = FrameLayout(context).apply {
-                background = GradientDrawable().apply {
-                    setStroke(dp(2f), "#10B981".toColorInt())
-                    setColor("#2010B981".toColorInt())
-                    cornerRadius = dp(8f).toFloat()
-                }
-            }
-            rootContainer.addView(bestBox, FrameLayout.LayoutParams(boxW, boxH).apply {
-                gravity = Gravity.TOP or Gravity.START
-                leftMargin = safeLeft
-                topMargin = safeTop
-            })
-
-            val matchBadge = TextView(context).apply {
-                val scorePct = (bestCandidate.score * 100).toInt()
-                text = "НАЙДЕНО $scorePct% (ПОРОГ $thresholdPct%)"
-                textSize = 8.5f
-                typeface = Typeface.DEFAULT_BOLD
-                setTextColor("#6EE7B7".toColorInt())
-                background = GradientDrawable().apply {
-                    setColor("#EE064E3B".toColorInt())
-                    setStroke(dp(1f), "#10B981".toColorInt())
-                    cornerRadius = dp(4f).toFloat()
-                }
-                setPadding(dp(6f), dp(2.5f), dp(6f), dp(2.5f))
-            }
-            rootContainer.addView(matchBadge, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
-                gravity = Gravity.TOP or Gravity.START
-                leftMargin = safeLeft
-                topMargin = (safeTop - dp(20f)).coerceAtLeast(0)
-            })
-            addedRects.add(Rect(safeLeft, safeTop, safeRight, safeBottom))
-        }
-
-        // 4. Верхний информационный HUD баннер
-        val hudLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            background = GradientDrawable().apply {
-                setColor("#EE0F172A".toColorInt())
-                setStroke(dp(1f), "#38BDF8".toColorInt())
-                cornerRadius = dp(14f).toFloat()
-            }
-            setPadding(dp(10f), dp(4f), dp(10f), dp(4f))
-            elevation = dp(8f).toFloat()
-        }
-        val tvHud = TextView(context).apply {
-            val status = if (bestCandidate != null) "ЦЕЛЬ НАЙДЕНА" else "НЕ НАЙДЕНО"
-            text = "ОТЛАДКА: $methodName | $status (${elapsedMs}мс)"
-            textSize = 9f
-            typeface = Typeface.MONOSPACE
-            setTextColor(if (bestCandidate != null) "#10B981".toColorInt() else "#F59E0B".toColorInt())
-        }
-        hudLayout.addView(tvHud)
-        rootContainer.addView(hudLayout, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            topMargin = dp(24f)
-        })
-
-        synchronized(activeHighlightRects) {
-            activeHighlightRects.addAll(addedRects)
-        }
-
-        val windowParams = overlayWindowManager.createLayoutParams(
-            width = WindowManager.LayoutParams.MATCH_PARENT,
-            height = WindowManager.LayoutParams.MATCH_PARENT,
-            flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-        }
-
-        overlayWindowManager.addViewSafe(rootContainer, windowParams)
-        activeHighlightViews.add(java.lang.ref.WeakReference(rootContainer))
-
-        rootContainer.alpha = 0f
-        rootContainer.animate().alpha(1f).setDuration(120).withEndAction {
-            mainHandler.postDelayed({
-                if (rootContainer.isAttachedToWindow) {
-                    rootContainer.animate().alpha(0f).setDuration(180).withEndAction {
-                        if (rootContainer.isAttachedToWindow) {
-                            overlayWindowManager.removeViewSafe(rootContainer)
-                            synchronized(activeHighlightRects) {
-                                activeHighlightRects.removeAll(addedRects)
-                            }
                         }
                     }.start()
                 }

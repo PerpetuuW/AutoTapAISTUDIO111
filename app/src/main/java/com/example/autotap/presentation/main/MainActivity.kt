@@ -31,7 +31,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvHeroSubtitle: TextView
     private lateinit var btnPermAcc: TextView
     private lateinit var btnPermStream: TextView
-    private lateinit var btnPermRestricted: TextView
     private lateinit var tvTopShieldStatus: TextView
 
     private lateinit var btnMainLogs: android.widget.Button
@@ -123,7 +122,6 @@ class MainActivity : AppCompatActivity() {
         tvHeroSubtitle = findViewById(R.id.tv_hero_subtitle)
         btnPermAcc = findViewById(R.id.btn_perm_acc)
         btnPermStream = findViewById(R.id.btn_perm_stream)
-        btnPermRestricted = findViewById(R.id.btn_perm_restricted)
         tvTopShieldStatus = findViewById(R.id.tv_top_shield_status)
 
         btnMainLogs = findViewById(R.id.btn_main_logs)
@@ -142,10 +140,6 @@ class MainActivity : AppCompatActivity() {
 
         btnPermAcc.setOnClickListener {
             showAccessibilitySafetyDialog()
-        }
-
-        btnPermRestricted.setOnClickListener {
-            showRestrictedSettingsGuideDialog()
         }
 
         tvTopShieldStatus.setOnClickListener {
@@ -287,13 +281,6 @@ class MainActivity : AppCompatActivity() {
             com.example.autotap.core.logger.AppLogger.shareLogs(this, tvLogs.text.toString())
         }
         actionsRow.addView(btnSend)
-
-        val btnClear = createBtn("ОЧИСТИТЬ", "#1F2937", "#EF4444", 1.2f) {
-            com.example.autotap.core.logger.AppLogger.clearLogs(this)
-            tvLogs.text = "Журнал логов пуст."
-            android.widget.Toast.makeText(this, "Логи полностью очищены!", android.widget.Toast.LENGTH_SHORT).show()
-        }
-        actionsRow.addView(btnClear)
 
         val btnClose = createBtn("ЗАКРЫТЬ", "#2A1420", "#F43F5E", 1f) {
             dialogRef?.dismiss()
@@ -742,9 +729,9 @@ class MainActivity : AppCompatActivity() {
 Если Android заблокировал включение службы («Ограниченные настройки»):
 
 1. Откройте карточку приложения в настройках.
-2. Нажмите на три точки в верхнем правом углу (может быть в расширенных настройках в нижнем меню).
-3. Выберите «Разрешить запрещенные/ограниченные настройки».
-4. Подтвердите паролем, отпечатком пальца или кнопкой «ОК».
+2. Нажмите на три точки в верхнем правом углу.
+3. Выберите «Разрешить ограниченные настройки».
+4. Подтвердите паролем или отпечатком пальца.
         """.trimIndent()
 
         AlertDialog.Builder(this)

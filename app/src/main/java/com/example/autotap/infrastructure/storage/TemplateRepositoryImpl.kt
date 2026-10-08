@@ -114,33 +114,6 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
         return names.distinct().sorted()
     }
 
-    fun deleteFolder(folderName: String, deleteTemplates: Boolean): Boolean {
-        if (folderName == "default") return false
-        return try {
-            val folder = File(baseTemplatesDir, folderName)
-            if (!folder.exists() || !folder.isDirectory) return false
-            val files = folder.listFiles() ?: emptyArray()
-            if (files.isEmpty()) {
-                return folder.delete()
-            }
-            if (deleteTemplates) {
-                for (file in files) {
-                    file.delete()
-                }
-                folder.delete()
-            } else {
-                val defaultDir = File(baseTemplatesDir, "default").apply { mkdirs() }
-                for (file in files) {
-                    file.renameTo(File(defaultDir, file.name))
-                }
-                folder.delete()
-            }
-        } catch (e: Exception) {
-            AppLogger.logError(context, "STORAGE", e)
-            false
-        }
-    }
-
     override fun moveToTrash(templatePath: String): Boolean {
         return try {
             val maskFile = File(templatePath)

@@ -108,7 +108,7 @@ class EyedropperOverlay(
                 setStroke(dp(1), "#58A6FF".toColorInt())
             }
             val p = dp(6)
-            setPadding(p * 2, p, p, p)
+            setPadding(dp(8), p, dp(8), p)
             elevation = dpF(16f)
         }
 

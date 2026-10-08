@@ -254,7 +254,8 @@ class CaptureFrameOverlay(
                 setStroke(dp(1), android.graphics.Color.parseColor("#38BDF8"))
             }
         }
-        controls.addView(btnSnap, LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginEnd = dp(4) })
+        val btnGap = dp(5)
+        controls.addView(btnSnap, LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginEnd = btnGap })
 
         // Векторная пиктограмма рамки видоискателя ROI [ ] без центральной точки фокуса
         var isRoiActive = false
@@ -292,7 +293,7 @@ class CaptureFrameOverlay(
                 cornerRadius = dpF(8f)
                 setStroke(dp(1), Color.parseColor("#38BDF8"))
             }
-            layoutParams = LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginEnd = dp(4) }
+            layoutParams = LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginEnd = btnGap }
             elevation = dpF(4f)
             setOnClickListener {
                 val location = IntArray(2)
@@ -375,7 +376,7 @@ class CaptureFrameOverlay(
                 cornerRadius = dpF(8f)
                 setStroke(dp(1), "#FFB703".toColorInt())
             }
-            layoutParams = LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginEnd = dp(4) }
+            layoutParams = LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginEnd = btnGap }
             elevation = dpF(4f)
             setOnClickListener {
                 isCircle = !isCircle
@@ -394,7 +395,7 @@ class CaptureFrameOverlay(
                 hostViewProvider = { rootView }
             ).show()
         }
-        controls.addView(btnHelp, LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginEnd = dp(4) })
+        controls.addView(btnHelp, LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginEnd = btnGap })
 
         val btnCancel = createIconButton(VectorIconDrawer.IconType.CLOSE, "#21262D", "#F04438", dp(38), "CANCEL") {
             dismiss()
@@ -409,8 +410,8 @@ class CaptureFrameOverlay(
                 View.MeasureSpec.makeMeasureSpec(screenW, View.MeasureSpec.AT_MOST),
                 View.MeasureSpec.makeMeasureSpec(screenH, View.MeasureSpec.AT_MOST)
             )
-            val ctrlW = maxOf(controls.measuredWidth, dp(220))
-            val ctrlH = maxOf(controls.measuredHeight, dp(48))
+            val ctrlW = if (controls.measuredWidth > 0) controls.measuredWidth else dp(216)
+            val ctrlH = if (controls.measuredHeight > 0) controls.measuredHeight else dp(48)
             val margin = dp(10)
 
             val posX = (cropRect.centerX() - ctrlW / 2).coerceIn(margin, (screenW - ctrlW - margin).coerceAtLeast(margin))

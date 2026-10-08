@@ -23,15 +23,10 @@ class DebuggerToolbarOverlay(
 ) {
 
     private var toolbarView: View? = null
-    private var tvInfoRef: TextView? = null
     private var windowParams: WindowManager.LayoutParams? = null
     private val dm = context.resources.displayMetrics
     private fun dp(v: Int): Int = (v * dm.density).toInt()
     private fun dpF(v: Float): Float = v * dm.density
-
-    fun updateStepInfo(currentStep: Int, totalSteps: Int, stepType: String = "") {
-        tvInfoRef?.text = if (stepType.isNotEmpty()) "ШАГ $currentStep/$totalSteps [$stepType]" else "ШАГ $currentStep/$totalSteps"
-    }
 
     fun show(onStepNext: () -> Unit, onStop: () -> Unit) {
         if (toolbarView != null) return
@@ -59,7 +54,6 @@ class DebuggerToolbarOverlay(
             includeFontPadding = false
             setPadding(0, 0, dp(6), 0)
         }
-        tvInfoRef = tvInfo
         container.addView(tvInfo)
 
         val btnStep = Button(context).apply {
@@ -67,11 +61,10 @@ class DebuggerToolbarOverlay(
             textSize = 9.5f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
-            setTextColor("#A78BFA".toColorInt())
+            setTextColor(Color.WHITE)
             background = GradientDrawable().apply {
-                setColor("#1E1B4B".toColorInt())
+                setColor("#8B5CF6".toColorInt())
                 cornerRadius = dpF(6f)
-                setStroke(dp(1), "#8B5CF6".toColorInt())
             }
             minHeight = 0
             minimumHeight = 0
@@ -85,11 +78,10 @@ class DebuggerToolbarOverlay(
             textSize = 9.5f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
-            setTextColor("#F43F5E".toColorInt())
+            setTextColor(Color.WHITE)
             background = GradientDrawable().apply {
-                setColor("#3A1016".toColorInt())
+                setColor("#F43F5E".toColorInt())
                 cornerRadius = dpF(6f)
-                setStroke(dp(1), "#F43F5E".toColorInt())
             }
             minHeight = 0
             minimumHeight = 0

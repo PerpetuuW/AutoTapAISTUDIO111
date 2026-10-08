@@ -15,7 +15,6 @@ def run_check(root_dir: str) -> tuple[bool, str]:
         '"BTN_RECORD"',
         '"BTN_ADD"',
         '"BTN_TOGGLE_VIEW"',
-        '"BTN_TUTORIAL"',
         '"BTN_CLOSE"',
         '"BTN_GRAPH"',
         '"BTN_SCRIPTS"',
@@ -23,7 +22,8 @@ def run_check(root_dir: str) -> tuple[bool, str]:
         '"BTN_HIDE"',
         '"BTN_CLEAR"',
         '"BTN_LOGS"',
-        '"BTN_SETTINGS"'
+        '"BTN_SETTINGS"',
+        '"BTN_TUTORIAL"'
     ]
 
     last_idx = -1

@@ -171,21 +171,23 @@ class RoiSelectorOverlay(
                 cornerRadius = dpF(10f)
                 setStroke(dp(1), "#38BDF8".toColorInt())
             }
-            setPadding(dp(8), dp(6), dp(8), dp(6))
+            val p = dp(6)
+            setPadding(p, p, p, p)
             elevation = dpF(16f)
         }
 
+        val btnGap = dp(6)
         val btnOk = createIconButton(VectorIconDrawer.IconType.CHECK, "#10B981", "#38BDF8", dp(36), "OK") {
             dismiss()
             onRoiConfirmed(roi)
         }
-        bar.addView(btnOk, LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(6) })
+        bar.addView(btnOk, LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = btnGap })
 
         val btnReset = createIconButton(VectorIconDrawer.IconType.SELECT_ALL, "#21262D", "#FFFFFF", dp(36), "RESET") {
             dismiss()
             onRoiConfirmed(null)
         }
-        bar.addView(btnReset, LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(6) })
+        bar.addView(btnReset, LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = btnGap })
 
         val btnHelp = createIconButton(VectorIconDrawer.IconType.HELP, "#21262D", "#38BDF8", dp(36), "HELP") {
             InteractiveTutorialOverlay(
@@ -195,14 +197,19 @@ class RoiSelectorOverlay(
                 hostViewProvider = { rootView }
             ).show()
         }
-        bar.addView(btnHelp, LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(6) })
+        bar.addView(btnHelp, LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = btnGap })
 
         val btnCancel = createIconButton(VectorIconDrawer.IconType.CLOSE, "#21262D", "#F04438", dp(36), "CANCEL") {
             dismiss()
             onCancelled()
         }
         bar.addView(btnCancel, LinearLayout.LayoutParams(dp(36), dp(36)))
-        hudLayout.addView(bar)
+        hudLayout.addView(bar, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+        })
 
         root.addView(hudLayout, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT))
 
@@ -215,16 +222,16 @@ class RoiSelectorOverlay(
                 View.MeasureSpec.makeMeasureSpec(screenW, View.MeasureSpec.AT_MOST),
                 View.MeasureSpec.makeMeasureSpec(screenH, View.MeasureSpec.AT_MOST)
             )
-            val hudW = maxOf(hudLayout.measuredWidth, bar.measuredWidth, dp(200))
-            val hudH = maxOf(hudLayout.measuredHeight, bar.measuredHeight, dp(70))
+            val actualW = if (hudLayout.measuredWidth > 0) hudLayout.measuredWidth else if (bar.measuredWidth > 0) bar.measuredWidth else dp(174)
+            val actualH = if (hudLayout.measuredHeight > 0) hudLayout.measuredHeight else dp(70)
             val margin = dp(10)
             val safeTop = dp(30)
 
-            val posX = (roi.centerX() - hudW / 2).coerceIn(margin, (screenW - hudW - margin).coerceAtLeast(margin))
-            val posY = if (roi.top - hudH - margin >= safeTop) {
-                roi.top - hudH - margin
+            val posX = (roi.centerX() - actualW / 2).coerceIn(margin, (screenW - actualW - margin).coerceAtLeast(margin))
+            val posY = if (roi.top - actualH - margin >= safeTop) {
+                roi.top - actualH - margin
             } else {
-                (roi.bottom + dp(15)).coerceAtMost((screenH - hudH - dp(10)).coerceAtLeast(safeTop))
+                (roi.bottom + dp(15)).coerceAtMost((screenH - actualH - dp(10)).coerceAtLeast(safeTop))
             }
 
             val hudLp = hudLayout.layoutParams as? FrameLayout.LayoutParams
