@@ -40,8 +40,11 @@ class RunningBadgeOverlay(
     private var badgeView: View? = null
     private var tvStepHeader: TextView? = null
     private var tvActionStatus: TextView? = null
+    private var tvEngineLogs: TextView? = null
     private var actionProgressBar: ProgressBar? = null
     private var fillProgressDrawable: GradientDrawable? = null
+
+    private val engineLogsQueue = java.util.concurrent.ConcurrentLinkedDeque<String>()
 
     private val mainHandler = Handler(Looper.getMainLooper())
 

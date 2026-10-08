@@ -119,16 +119,11 @@ class OcrCandidatePickerDialog(
 
             override fun onDraw(canvas: Canvas) {
                 super.onDraw(canvas)
-                val screenW = dm.widthPixels.toFloat()
-                val screenH = dm.heightPixels.toFloat()
-                val scaleX = if (width > 0 && screenW > 0) width / screenW else 1f
-                val scaleY = if (height > 0 && screenH > 0) height / screenH else 1f
-
                 candidates.forEachIndexed { idx, match ->
-                    val l = match.rectLeft * scaleX
-                    val t = match.rectTop * scaleY
-                    val r = match.rectRight * scaleX
-                    val b = match.rectBottom * scaleY
+                    val l = match.rectLeft.toFloat()
+                    val t = match.rectTop.toFloat()
+                    val r = match.rectRight.toFloat()
+                    val b = match.rectBottom.toFloat()
                     boxRectF.set(l, t, r, b)
                     canvas.drawRoundRect(boxRectF, dpF(4f), dpF(4f), boxFillPaint)
                     canvas.drawRoundRect(boxRectF, dpF(4f), dpF(4f), boxPaint)
@@ -148,11 +143,6 @@ class OcrCandidatePickerDialog(
 
             override fun onTouchEvent(event: MotionEvent): Boolean {
                 if (event.action == MotionEvent.ACTION_DOWN) {
-                    val screenW = dm.widthPixels.toFloat()
-                    val screenH = dm.heightPixels.toFloat()
-                    val scaleX = if (width > 0 && screenW > 0) width / screenW else 1f
-                    val scaleY = if (height > 0 && screenH > 0) height / screenH else 1f
-
                     val touchX = event.x
                     val touchY = event.y
 
@@ -160,17 +150,17 @@ class OcrCandidatePickerDialog(
                     var minDistance = Float.MAX_VALUE
 
                     candidates.forEachIndexed { idx, match ->
-                        val l = match.rectLeft * scaleX - dp(12)
-                        val t = match.rectTop * scaleY - dp(12)
-                        val r = match.rectRight * scaleX + dp(12)
-                        val b = match.rectBottom * scaleY + dp(12)
+                        val l = match.rectLeft.toFloat() - dp(12)
+                        val t = match.rectTop.toFloat() - dp(12)
+                        val r = match.rectRight.toFloat() + dp(12)
+                        val b = match.rectBottom.toFloat() + dp(12)
                         val hitBox = RectF(l, t, r, b)
                         if (hitBox.contains(touchX, touchY)) {
                             bestIdx = idx
                             minDistance = 0f
                         } else {
-                            val cX = match.clickX * scaleX
-                            val cY = match.clickY * scaleY
+                            val cX = match.clickX.toFloat()
+                            val cY = match.clickY.toFloat()
                             val dist = hypot((touchX - cX).toDouble(), (touchY - cY).toDouble()).toFloat()
                             if (dist < minDistance && dist < dpF(80f)) {
                                 minDistance = dist
@@ -352,6 +342,12 @@ class OcrCandidatePickerDialog(
             textCol.addView(tvCoords)
             itemRow.addView(textCol, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 
+            fun chooseCandidate() {
+                onCandidateSelected(idx, match)
+                dismiss()
+            }
+            itemRow.setOnClickListener { chooseCandidate() }
+
             val btnPick = Button(context).apply {
                 text = "ВЫБРАТЬ"
                 textSize = 8.5f
@@ -366,8 +362,7 @@ class OcrCandidatePickerDialog(
                 }
                 setPadding(dp(8), dp(4), dp(8), dp(4))
                 setOnClickListener {
-                    dismiss()
-                    onCandidateSelected(idx, match)
+                    chooseCandidate()
                 }
             }
             itemRow.addView(btnPick, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(28)))

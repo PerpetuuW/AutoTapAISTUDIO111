@@ -105,6 +105,10 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         }
     }
 
+    private var isRestoringOrLoadingScenario = false
+    private var lastObservedActionIds = emptySet<Int>()
+    private val sessionCreatedActionIds = mutableSetOf<Int>()
+
     var globalClickDurationMs: Long = 30L
     var globalClickPauseMs: Long = 60L
     var globalSwipeDurationMs: Long = 300L
@@ -143,7 +147,21 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             }
         }
 
-        targetManager.onActionsChanged = { persistActiveSession() }
+        targetManager.onActionsChanged = { list ->
+            val currentIds = list.map { it.id }.toSet()
+            if (isRestoringOrLoadingScenario) {
+                sessionCreatedActionIds.clear()
+            } else {
+                val addedIds = currentIds - lastObservedActionIds
+                sessionCreatedActionIds.addAll(addedIds)
+                sessionCreatedActionIds.retainAll(currentIds)
+                if (list.isEmpty()) {
+                    sessionCreatedActionIds.clear()
+                }
+            }
+            lastObservedActionIds = currentIds
+            persistActiveSession()
+        }
         appScope.launch { macroEngine.executionState.collect { handleExecutionState(it) } }
         AutoTapAccessibilityService.instance?.gestureDispatcher?.onGesturePassthroughToggle = { enabled, x, y -> screenLockOverlay.setPassthroughEnabled(enabled, x, y) }
     }
@@ -155,6 +173,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         targetManager.setOverlaysVisible(true)
 
         // [V80.0] Гарантированное восстановление последней активной сессии и шагов, которые использовались
+        isRestoringOrLoadingScenario = true
         if (targetManager.getActions().isEmpty()) {
             val prefs = appContext.getSharedPreferences("autotap_prefs", Context.MODE_PRIVATE)
             val lastScript = prefs.getString("last_active_scenario_name", null)
@@ -165,6 +184,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 }
             }
         }
+        isRestoringOrLoadingScenario = false
 
         val currentActions = targetManager.getActions()
         if (currentActions.isEmpty()) {
@@ -206,6 +226,18 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         val specs = DeviceDisplaySpecs(dm.widthPixels, dm.heightPixels, dm.densityDpi, dm.density, dm.widthPixels > dm.heightPixels)
         val scenario = MacroScenario("ActiveSession", 1, specs, actions, globalClickDurationMs, globalSwipeDurationMs)
         scenarioRepository.saveScenario(scenario)
+
+        // [V152.0] Граф активной сессии обновляется новой сессией, удовлетворяющей условиям (наличие действий/триггеров/мультипоиска)
+        if (actions.isNotEmpty()) {
+            val hasMultiSearch = actions.any { it.multiTemplatePaths.size > 1 }
+            val hasDetection = actions.any { it.type == ActionType.TRIGGER || it.type == ActionType.OCR || it.type == ActionType.COLOR_CHECK }
+            val isEligible = actions.size >= 2 || hasMultiSearch || hasDetection
+            if (isEligible || scenarioRepository.hasGraphScenario("ActiveSession")) {
+                val graph = LinearToGraphMigrator.linearToGraph(scenario)
+                scenarioRepository.saveGraphScenario(graph)
+            }
+        }
+
         appContext.getSharedPreferences("autotap_prefs", Context.MODE_PRIVATE)
             .edit()
             .putString("last_active_scenario_name", if (actions.isNotEmpty()) "ActiveSession" else "")
@@ -243,16 +275,29 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             return
         }
         val allActions = targetManager.getActions()
-        val isComplex = allActions.size >= 3
+        val sessionActions = allActions.filter { it.id in sessionCreatedActionIds }
+        val hasMultiSearchMoreThan3 = sessionActions.any { it.multiTemplatePaths.size > 3 }
+        val isComplex = sessionActions.size > 3 || hasMultiSearchMoreThan3
+        if (!isComplex) {
+            onCompleted()
+            return
+        }
+        val sessionHash = allActions.map { "${it.id}_${it.type}_${it.posX.toInt()}_${it.posY.toInt()}" }.hashCode()
+        val lastPromptedHash = prefs.getInt("LAST_PROMPTED_GRAPH_SESSION_HASH", 0)
+        if (lastPromptedHash == sessionHash) {
+            onCompleted()
+            return
+        }
+
         val currentScenarioName = prefs.getString("LAST_ACTIVE_SCRIPT", "ActiveSession") ?: "ActiveSession"
         val hasGraph = scenarioRepository.hasGraphScenario(currentScenarioName)
         val dm = appContext.resources.displayMetrics
         val dp = { v: Int -> (v * dm.density).toInt() }
         val dpF = { v: Float -> v * dm.density }
-        if (isComplex && !hasGraph) {
+        if (!hasGraph) {
             targetManager.setOverlaysVisible(false)
             controlPanelOverlay.hide()
-            val msg = "Обнаружено ${allActions.size} действий/шаблонов. Сгенерировать визуальный ГРАФ логики? Он свяжет все шаги, условия и переходы в наглядную схему принятия решений."
+            val msg = "Обнаружено ${allActions.size} действий/шаблонов в сессии (>3). Сгенерировать визуальный ГРАФ логики? Он свяжет все шаги, условия и переходы в наглядную схему принятия решений."
             val root = android.widget.FrameLayout(appContext).apply {
                 setBackgroundColor(android.graphics.Color.parseColor("#99000000"))
             }
@@ -266,6 +311,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 setPadding(dp(16), dp(16), dp(16), dp(16))
             }
             val dismissPrompt = {
+                prefs.edit().putInt("LAST_PROMPTED_GRAPH_SESSION_HASH", sessionHash).apply()
                 overlayWindowManager.removeViewSafe(root)
             }
             root.setOnClickListener {
@@ -316,6 +362,12 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             lp.dimAmount = 0.6f
             overlayWindowManager.addViewSafe(root, lp)
         } else {
+            // [V152.0] Если граф сценария уже существует и сессия удовлетворяет условиям,
+            // актуализируем граф активной сессии новой конфигурацией шагов
+            val linearScenario = scenarioRepository.loadScenario(currentScenarioName) ?: com.example.autotap.domain.model.MacroScenario(currentScenarioName, 1, com.example.autotap.domain.model.DeviceDisplaySpecs(1080, 2400, 480, 3f, false), allActions, globalClickDurationMs, globalSwipeDurationMs)
+            val updatedGraph = com.example.autotap.core.math.LinearToGraphMigrator.linearToGraph(linearScenario)
+            scenarioRepository.saveGraphScenario(updatedGraph)
+            prefs.edit().putInt("LAST_PROMPTED_GRAPH_SESSION_HASH", sessionHash).apply()
             onCompleted()
         }
     }
@@ -364,9 +416,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                                     targetManager.setOverlaysVisible(true)
                                     TemplateMatchingEngine.lastMatchedPositions[path] = Pair(updatedAction.posX.toInt(), updatedAction.posY.toInt())
                                     targetManager.updateAction(updatedAction)
-                                    if (targetManager.getActions().size >= 3) {
-                                        checkAndPromptGraphGeneration(updatedAction) {}
-                                    }
+                                    checkAndPromptGraphGeneration(updatedAction) {}
                                 },
                                 onCancelled = {
                                     controlPanelOverlay.show()
@@ -389,21 +439,26 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
 
 
     private fun startRecaptureForStep(action: MacroAction) {
-        if (action.templatePath.isEmpty()) {
+        val primaryPath = if (action.selectedTemplateIndex in action.multiTemplatePaths.indices) {
+            action.multiTemplatePaths[action.selectedTemplateIndex]
+        } else {
+            action.templatePath.ifBlank { action.multiTemplatePaths.firstOrNull { it.isNotBlank() } ?: "" }
+        }
+        if (primaryPath.isEmpty()) {
             Toast.makeText(appContext, "Шаблон отсутствует, запуск обычного захвата", Toast.LENGTH_SHORT).show()
             startCaptureForStep(action)
             return
         }
 
         // [V20.1] Надежный поиск файлов шаблона с поддержкой относительных путей
-        val maskFile = if (File(action.templatePath).isAbsolute && File(action.templatePath).exists()) {
-            File(action.templatePath)
+        val maskFile = if (File(primaryPath).isAbsolute && File(primaryPath).exists()) {
+            File(primaryPath)
         } else {
             val tDir = File(appContext.filesDir, "templates")
-            val direct = File(tDir, action.templatePath)
+            val direct = File(tDir, primaryPath)
             if (direct.exists()) direct else {
-                val fName = File(action.templatePath).name
-                tDir.walkTopDown().filter { it.isFile && it.name == fName }.firstOrNull() ?: File(action.templatePath)
+                val fName = File(primaryPath).name
+                tDir.walkTopDown().filter { it.isFile && it.name == fName }.firstOrNull() ?: File(primaryPath)
             }
         }
 
@@ -422,7 +477,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         val rawCropBitmap = when {
             rawFile.exists() -> BitmapFactory.decodeFile(rawFile.absolutePath)
             maskFile.exists() -> BitmapFactory.decodeFile(maskFile.absolutePath)
-            else -> templateRepository.getTemplate(action.templatePath)
+            else -> templateRepository.getTemplate(primaryPath)
         }
 
         if (rawCropBitmap == null) {
@@ -510,16 +565,25 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
     }
 
     private fun executeCleanCalibration(service: AutoTapAccessibilityService, action: MacroAction) {
+        val primaryPath = if (action.selectedTemplateIndex in action.multiTemplatePaths.indices) {
+            action.multiTemplatePaths[action.selectedTemplateIndex]
+        } else {
+            action.templatePath.ifBlank { action.multiTemplatePaths.firstOrNull { it.isNotBlank() } ?: "" }
+        }
         var savedScreenBmp: Bitmap? = null
-        if (action.templatePath.isNotEmpty()) {
+        if (primaryPath.isNotEmpty()) {
             try {
-                val maskFile = File(action.templatePath)
-                val screenFile = File(maskFile.parentFile, "screen_" + maskFile.name.removePrefix("mask_").substringBeforeLast(".") + ".jpg")
+                val maskFile = File(primaryPath)
+                var screenFile = File(maskFile.parentFile, "screen_" + maskFile.name.removePrefix("mask_").substringBeforeLast(".") + ".jpg")
+                if (!screenFile.exists()) {
+                    screenFile = File(maskFile.parentFile, "screen_" + maskFile.name.removePrefix("mask_"))
+                }
+                if (!screenFile.exists()) {
+                    val baseName = maskFile.nameWithoutExtension.removePrefix("mask_")
+                    screenFile = File(maskFile.parentFile, "screen_$baseName.png")
+                }
                 if (screenFile.exists()) {
                     savedScreenBmp = BitmapFactory.decodeFile(screenFile.absolutePath)
-                } else {
-                    val screenPngFile = File(maskFile.parentFile, "screen_" + maskFile.name.removePrefix("mask_"))
-                    if (screenPngFile.exists()) savedScreenBmp = BitmapFactory.decodeFile(screenPngFile.absolutePath)
                 }
             } catch (_: Exception) {}
         }
@@ -530,10 +594,14 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             return
         }
 
-        val rawSourceBitmap: Bitmap? = if (action.templatePath.isNotEmpty()) {
-            val maskFile = File(action.templatePath)
-            val rawFile = File(maskFile.parentFile, "raw_" + maskFile.name.removePrefix("mask_"))
-            if (rawFile.exists()) BitmapFactory.decodeFile(rawFile.absolutePath) else templateRepository.getTemplate(action.templatePath)
+        val rawSourceBitmap: Bitmap? = if (primaryPath.isNotEmpty()) {
+            val maskFile = File(primaryPath)
+            var rawFile = File(maskFile.parentFile, "raw_" + maskFile.name.removePrefix("mask_"))
+            if (!rawFile.exists()) {
+                val baseName = maskFile.nameWithoutExtension.removePrefix("mask_")
+                rawFile = File(maskFile.parentFile, "raw_$baseName.png")
+            }
+            if (rawFile.exists()) BitmapFactory.decodeFile(rawFile.absolutePath) else templateRepository.getTemplate(primaryPath)
         } else null
 
         val template = rawSourceBitmap ?: run {
@@ -548,7 +616,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         var foundX = action.posX.toInt()
         var foundY = action.posY.toInt()
 
-        if (action.templatePath.isNotEmpty()) {
+        if (primaryPath.isNotEmpty()) {
             val sPixels = PixelBufferPool.obtain(screenshot.width * screenshot.height)
             try {
                 screenshot.getPixels(sPixels, 0, screenshot.width, 0, 0, screenshot.width, screenshot.height)
@@ -592,8 +660,8 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 screenshot = screenshot,
                 rawTemplateBitmap = template,
                 initialCandidates = listOf(anchorCandidate),
-                existingAction = action,
-                existingTemplatePath = action.templatePath,
+                existingAction = action.copy(templatePath = primaryPath),
+                existingTemplatePath = primaryPath,
                 allActions = targetManager.getActions(),
                 targetStepId = action.id,
                 anchorCropX = anchorCandidate.rectLeft,
@@ -910,9 +978,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 controlPanelOverlay.show()
                 targetManager.setOverlaysVisible(true)
                 actions.forEach { act -> targetManager.addAction(act) }
-                if (targetManager.getActions().size >= 3 || actions.size >= 3) {
-                    checkAndPromptGraphGeneration(targetManager.getActions().lastOrNull() ?: actions.last()) {}
-                }
+                checkAndPromptGraphGeneration(targetManager.getActions().lastOrNull() ?: actions.last()) {}
             },
             onCancelled = {
                 com.example.autotap.core.logger.AppLogger.log(appContext, "RECORDER", "Запись отменена пользователем")
@@ -985,9 +1051,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                                         TemplateMatchingEngine.lastMatchedPositions[path] = Pair(updatedAction.posX.toInt(), updatedAction.posY.toInt())
                                         targetManager.addAction(updatedAction)
                                     }
-                                    if (targetManager.getActions().size >= 3) {
-                                        checkAndPromptGraphGeneration(updatedAction) {}
-                                    }
+                                    checkAndPromptGraphGeneration(updatedAction) {}
                                 },
                                 onCancelled = { controlPanelOverlay.show(); targetManager.setOverlaysVisible(true) }
                             ).show()
@@ -1009,7 +1073,11 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 val specs = DeviceDisplaySpecs(dm.widthPixels, dm.heightPixels, dm.densityDpi, dm.density, dm.widthPixels > dm.heightPixels)
                 scenarioRepository.saveScenario(MacroScenario(it, 1, specs, targetManager.getActions(), globalClickDurationMs, globalSwipeDurationMs))
             },
-            onLoadRequested = { scenarioRepository.loadScenario(it)?.let { s -> targetManager.loadActions(s.actions) } },
+            onLoadRequested = { 
+                isRestoringOrLoadingScenario = true
+                scenarioRepository.loadScenario(it)?.let { s -> targetManager.loadActions(s.actions) }
+                isRestoringOrLoadingScenario = false
+            },
             onExportRequested = { backupManager.exportSingleScriptZip(it)?.let { z -> backupManager.shareZipFile(z, "Export") } },
             onOpenGraphRequested = { openGraphEditor(it) }
         ).show()
@@ -1136,9 +1204,16 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     wasExecutingBeforeStop = true
                     controlPanelOverlay.hide(); targetManager.setTargetsTouchable(false); targetManager.setOverlaysVisible(false)
 
-                    runningBadgeOverlay.show(onLockClick = { screenLockOverlay.show() }, onStopClick = { macroEngine.stop() })
-                    runningBadgeOverlay.forceVisible() // Гарантирует появление кнопки СТОП
-                    runningBadgeOverlay.updateState(state)
+                    if (state.isDebugPaused) {
+                        debuggerToolbarOverlay.updateStepInfo(state.currentStepIndex, state.totalSteps, state.stepType.name)
+                    }
+                    if (!macroEngine.isDebugRunning) {
+                        runningBadgeOverlay.show(onLockClick = { screenLockOverlay.show() }, onStopClick = { macroEngine.stop() })
+                        runningBadgeOverlay.forceVisible() // Гарантирует появление кнопки СТОП
+                        runningBadgeOverlay.updateState(state)
+                    } else {
+                        runningBadgeOverlay.dismiss()
+                    }
                 }
 
                 is ExecutionState.Completed -> {
@@ -1152,25 +1227,12 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                         val specs = DeviceDisplaySpecs(dm.widthPixels, dm.heightPixels, dm.densityDpi, dm.density, dm.widthPixels > dm.heightPixels)
                         scenarioRepository.saveScenario(MacroScenario("_last_active_session", 1, specs, currentActions, globalClickDurationMs, globalSwipeDurationMs))
                     }
-                    if (wasRunning && currentActions.size >= 3) {
-                        mainHandler.postDelayed({
-                            checkAndPromptGraphGeneration(currentActions.first()) {}
-                        }, 350L)
-                    }
                 }
                 ExecutionState.Idle, is ExecutionState.Error -> {
                     val wasRunning = wasExecutingBeforeStop
                     wasExecutingBeforeStop = false
                     runningBadgeOverlay.dismiss(); debuggerToolbarOverlay.dismiss(); screenLockOverlay.dismiss()
                     controlPanelOverlay.show(); controlPanelOverlay.setPlayState(false); targetManager.setOverlaysVisible(true); targetManager.setTargetsTouchable(true)
-                    if (wasRunning && state is ExecutionState.Idle) {
-                        val currentActions = targetManager.getActions()
-                        if (currentActions.size >= 3) {
-                            mainHandler.postDelayed({
-                                checkAndPromptGraphGeneration(currentActions.first()) {}
-                            }, 350L)
-                        }
-                    }
                 }
 
                 is ExecutionState.Paused -> {
