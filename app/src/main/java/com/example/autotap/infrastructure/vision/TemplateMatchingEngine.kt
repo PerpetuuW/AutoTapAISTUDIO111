@@ -680,18 +680,14 @@ class TemplateFeatures(
             } else {
                 (templateThreshold * 0.30f).coerceIn(0.18f, 0.35f)
             }
-            // [V14.0] Адаптивный шаг сетки и масштаб сжатия шаблона для первичного отсева кандидатов
+            // [V14.0] Адаптивный шаг сетки шаблона для первичного отсева кандидатов (нативный 1:1 масштаб)
             val metaStep = features.optimalGridStepFromMeta
-            val actionDownscale = actionOverride?.downscaleFactor ?: 0
-            val effectiveDownscale = if (actionDownscale in 1..4) actionDownscale else features.optimalDownscaleFactorFromMeta.coerceIn(1, 4)
-            lastUsedDownscale = effectiveDownscale
-
-            val baseStepX = if (metaStep in 2..16) metaStep else (if (isSmall) (features.tw / 4).coerceIn(3, 6) else (features.tw / 3).coerceIn(8, 24))
-            val baseStepY = if (metaStep in 2..16) metaStep else (if (isSmall) (features.th / 4).coerceIn(3, 6) else (features.th / 3).coerceIn(8, 24))
-            val gridStepX = if (effectiveDownscale > 1) (baseStepX * effectiveDownscale / 2).coerceIn(4, 28) else baseStepX
-            val gridStepY = if (effectiveDownscale > 1) (baseStepY * effectiveDownscale / 2).coerceIn(4, 28) else baseStepY
+            val baseStepX = if (metaStep in 2..16) metaStep else (if (isSmall) (features.tw / 4).coerceIn(3, 6) else (features.tw / 3).coerceIn(6, 18))
+            val baseStepY = if (metaStep in 2..16) metaStep else (if (isSmall) (features.th / 4).coerceIn(3, 6) else (features.th / 3).coerceIn(6, 18))
+            val gridStepX = baseStepX
+            val gridStepY = baseStepY
             val spatialSectors = HashMap<Long, Triple<Int, Int, Float>>()
-            val sectorBinSize = if (isSmall) 16 else (36 * effectiveDownscale / 2).coerceIn(24, 64)
+            val sectorBinSize = if (isSmall) 16 else 32
             var earlyExitFound = false
 
             val scanPoints = mutableListOf<Pair<Int, Int>>()
@@ -726,7 +722,7 @@ class TemplateFeatures(
             }
             val coarseStep = maxOf(gridStepX, gridStepY)
 
-            val sampleStride = if (effectiveDownscale > 1) effectiveDownscale else 1
+            val sampleStride = 1
 
             for (pt in scanPoints) {
                 if (isCancelled()) break
@@ -908,136 +904,6 @@ class TemplateFeatures(
                     )
                     val reason = if (isDeltaEMode && !isShapeDriven) "Отличие цвета (ΔE)" else "Ниже порога (${(bestScore * 100).toInt()}% < ${(templateThreshold * 100).toInt()}%)"
                     rejectedCandidatesList.add(Pair(rejectCand, reason))
-                }
-            }
-
-            // [Каскадное ускорение] Если быстрый поиск со сжатием не дал совпадений, каскад автоматически переходит к детальному 1:1 сканированию
-            if (allCandidates.isEmpty() && effectiveDownscale > 1 && !isCancelled()) {
-                val fallbackScanPoints = mutableListOf<Pair<Int, Int>>()
-                for (gy in roiMinY..scanLimitY step baseStepY) {
-                    for (gx in roiMinX..scanLimitX step baseStepX) {
-                        fallbackScanPoints.add(Pair(gx, gy))
-                    }
-                }
-                val fallbackSectors = HashMap<Long, Triple<Int, Int, Float>>()
-                for (pt in fallbackScanPoints) {
-                    if (isCancelled()) break
-                    val x = pt.first
-                    val y = pt.second
-                    val rowOffset = y * sw
-                    var colorScoreSum = 0f
-                    var edgeEnergyHits = 0
-                    var gradSampleCount = 0
-                    var evaluatedCount = 0
-
-                    for (i in 0 until features.l1SampleCount) {
-                        evaluatedCount++
-                        val px = x + features.l1Dx[i]
-                        val py = y + features.l1Dy[i]
-                        val sIdx = rowOffset + (features.l1Dy[i] * sw) + px
-
-                        if (!isShapeDriven && sIdx in sPixels.indices) {
-                            val sc = sPixels[sIdx]
-                            if (isDeltaEMode || features.isSmartColorFromMeta) {
-                                val dE = if (features.l1LabL.isNotEmpty()) {
-                                    ColorDetector.computeDeltaEFast(sc, features.l1LabL[i], features.l1LabA[i], features.l1LabB[i])
-                                } else {
-                                    val expColor = (features.l1R[i] shl 16) or (features.l1G[i] shl 8) or features.l1B[i]
-                                    ColorDetector.computeDeltaE(sc, expColor).toFloat()
-                                }
-                                colorScoreSum += when {
-                                    dE <= 10.0f -> 1.0f
-                                    dE <= 30.0f -> (1.0f - ((dE - 10.0f) / 20.0f))
-                                    else -> 0.0f
-                                }
-                            } else {
-                                val totalDiff = abs(((sc ushr 16) and 0xFF) - features.l1R[i]) +
-                                    abs(((sc ushr 8) and 0xFF) - features.l1G[i]) +
-                                    abs((sc and 0xFF) - features.l1B[i])
-                                colorScoreSum += if (totalDiff <= 25) 1.0f else (1.0f - (totalDiff - 25) / 125.0f).coerceIn(0.0f, 1.0f)
-                            }
-                        }
-
-                        if (features.l1HasGrad[i]) {
-                            gradSampleCount++
-                            var isHit = false
-                            for (d in 0..4) {
-                                val nx = px + NEIGHBOR_DX[d]
-                                val ny = py + NEIGHBOR_DY[d]
-                                if (nx in 1 until sw - 1 && ny in 1 until sh - 1) {
-                                    val nIdx = ny * sw + nx
-                                    val pL = sPixels[nIdx - 1]
-                                    val pR = sPixels[nIdx + 1]
-                                    val pT = sPixels[nIdx - sw]
-                                    val pB = sPixels[nIdx + sw]
-                                    val lumaL = (((pL ushr 16) and 0xFF) * 77 + ((pL ushr 8) and 0xFF) * 150 + (pL and 0xFF) * 29) ushr 8
-                                    val lumaR = (((pR ushr 16) and 0xFF) * 77 + ((pR ushr 8) and 0xFF) * 150 + (pR and 0xFF) * 29) ushr 8
-                                    val lumaT = (((pT ushr 16) and 0xFF) * 77 + ((pT ushr 8) and 0xFF) * 150 + (pT and 0xFF) * 29) ushr 8
-                                    val lumaB = (((pB ushr 16) and 0xFF) * 77 + ((pB ushr 8) and 0xFF) * 150 + (pB and 0xFF) * 29) ushr 8
-
-                                    val sgx = (lumaR - lumaL).toFloat()
-                                    val sgy = (lumaB - lumaT).toFloat()
-                                    val smag = abs(sgx) + abs(sgy)
-                                    if (smag > 8f) {
-                                        val dot = abs(sgx * features.l1Gx[i] + sgy * features.l1Gy[i]) / smag
-                                        if (dot > 0.35f) {
-                                            isHit = true
-                                            break
-                                        }
-                                    }
-                                }
-                            }
-                            if (isHit) edgeEnergyHits++
-                        }
-                    }
-
-                    val colorScore = if (!isShapeDriven && evaluatedCount > 0) colorScoreSum / evaluatedCount.toFloat() else 0f
-                    val edgeEnergyRatio = if (gradSampleCount > 0) edgeEnergyHits.toFloat() / gradSampleCount.toFloat() else 0.5f
-                    val coarseScore = if (isShapeDriven) edgeEnergyRatio else (colorScore * (1.0f - features.analysis.suggestedSobelWeight) + edgeEnergyRatio * features.analysis.suggestedSobelWeight)
-
-                    if (coarseScore >= safeCoarseThreshold) {
-                        val sectorKey = ((y / 16).toLong() shl 32) or ((x / 16).toLong() and 0xFFFFFFFFL)
-                        val prev = fallbackSectors[sectorKey]
-                        if (prev == null || coarseScore > prev.third) {
-                            fallbackSectors[sectorKey] = Triple(x, y, coarseScore)
-                        }
-                    }
-                }
-
-                for (spot in fallbackSectors.values.sortedByDescending { it.third }.take(10)) {
-                    if (isCancelled()) break
-                    var bestScore = 0f
-                    var bestX = spot.first
-                    var bestY = spot.second
-
-                    val stepLimit = maxOf(baseStepX, baseStepY)
-                    for (fy in max(roiMinY, spot.second - stepLimit)..min(scanLimitY, spot.second + stepLimit)) {
-                        for (fx in max(roiMinX, spot.first - stepLimit)..min(scanLimitX, spot.first + stepLimit)) {
-                            val score = evaluateCandidateScore(sPixels, sw, sh, fx, fy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
-                            if (score > bestScore) {
-                                bestScore = score
-                                bestX = fx
-                                bestY = fy
-                            }
-                        }
-                    }
-
-                    if (bestScore >= templateThreshold) {
-                        val candidate = MatchCandidate(
-                            bestX + features.centroidX, bestY + features.centroidY,
-                            bestX, bestY, bestX + features.tw, bestY + features.th,
-                            bestScore, tPath,
-                            if (features.useCustomOffsetFromMeta) features.clickOffsetXFromMeta else 0f,
-                            if (features.useCustomOffsetFromMeta) features.clickOffsetYFromMeta else 0f,
-                            isShapeDriven
-                        )
-                        allCandidates.add(candidate)
-                        lastUsedDownscale = 1
-                        if (tPath.isNotEmpty()) {
-                            lastMatchedPositions[tPath] = Pair(candidate.clickX, candidate.clickY)
-                        }
-                        if (!findAllMatches) break
-                    }
                 }
             }
         }
