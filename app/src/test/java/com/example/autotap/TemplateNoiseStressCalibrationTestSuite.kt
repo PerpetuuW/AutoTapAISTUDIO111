@@ -295,6 +295,53 @@ class TemplateNoiseStressCalibrationTestSuite {
         assertTrue("Оптимальный рабочий порог калибровки AutoTap лежит в диапазоне [0.55..0.85], найден: $optimalThreshold", optimalThreshold!! in 0.55f..0.85f)
     }
 
+    /**
+     * Создание синтетического шаблона: Крестик закрытия рекламы ('X' close button).
+     * Тонкие диагональные линии толщиной 2-3px, типичный микро-глиф 24x24..32x32.
+     */
+    private fun generateSyntheticCrossTemplate(size: Int = 28): IntArray {
+        val pixels = IntArray(size * size)
+        val strokeHalf = 2
+        for (y in 0 until size) {
+            for (x in 0 until size) {
+                val idx = y * size + x
+                // Две диагонали: x == y и x + y == size - 1
+                val onDiag1 = abs(x - y) <= strokeHalf
+                val onDiag2 = abs((x + y) - (size - 1)) <= strokeHalf
+                if ((onDiag1 || onDiag2) && x in 3 until size - 3 && y in 3 until size - 3) {
+                    pixels[idx] = 0xFFFFFFFF.toInt() // Белый крестик
+                } else {
+                    pixels[idx] = 0x00000000 // Прозрачный фон
+                }
+            }
+        }
+        return pixels
+    }
+
+    /**
+     * Создание синтетического шаблона: Стрелка в рекламе (Chevron / Arrow right/skip).
+     * Наконечник стрелки '>' толщиной 2-3px.
+     */
+    private fun generateSyntheticArrowTemplate(tw: Int = 24, th: Int = 30): IntArray {
+        val pixels = IntArray(tw * th)
+        val cy = th / 2
+        val stroke = 2
+        for (y in 0 until th) {
+            val distY = abs(y - cy)
+            // Координата X вершины стрелки для данной строки Y
+            val arrowTipX = tw - 4 - distY
+            for (x in 0 until tw) {
+                val idx = y * tw + x
+                if (arrowTipX >= 4 && abs(x - arrowTipX) <= stroke && y in 3 until th - 3) {
+                    pixels[idx] = 0xFF38BDF8.toInt() // Неоновая стрелка перехода
+                } else {
+                    pixels[idx] = 0x00000000
+                }
+            }
+        }
+        return pixels
+    }
+
     @Test
     fun testShapeOnlyMode_ExtremeColorInversionImmunity() {
         val tw = 36
@@ -326,5 +373,79 @@ class TemplateNoiseStressCalibrationTestSuite {
 
         assertTrue("При инверсии цветов балл чистой формы ($shapeScore) обязан значительно превышать гибридный ($hybridScore)", shapeScore > hybridScore + 0.30f)
         assertTrue("Балл формы при сохранении контуров обязан быть >= 75%", shapeScore >= 0.75f)
+    }
+
+    @Test
+    fun testAdCloseCross_DetectionUnderRealisticAdNoiseAndVideoCompression() {
+        // Микро-крестик рекламы 28x28 на фоне баннера 200x200
+        val size = 28
+        val sw = 200
+        val sh = 200
+        val targetX = 160 // Правый верхний угол (типичное расположение крестика в рекламе)
+        val targetY = 12
+
+        val crossPixels = generateSyntheticCrossTemplate(size)
+        val cleanScreen = generateScreenWithGroundTruth(sw, sh, crossPixels, size, size, targetX, targetY, numDistractors = 3)
+
+        // Стресс-тест шума рекламного видео: цветной дрейф ±15 RGB + битые пиксели + артефакты сжатия MediaProjection
+        val noisyScreen = injectNoises(cleanScreen, sw, sh, colorDriftRgb = 15, saltPepperRate = 0.005f, applyBoxBlur = true)
+
+        val features = TemplateMatchingEngine.extractFeatures(crossPixels, size, size, "ad_close_x", 70)
+        assertNotNull("Экстракция дескрипторов крестика обязана быть успешной", features)
+        val feat = features ?: return
+
+        // 1. Проверяем обнаружение в целевой позиции (чистая форма и гибрид)
+        val scoreHybrid = TemplateMatchingEngine.evaluateCandidateScore(noisyScreen, sw, sh, targetX, targetY, feat, isShapeOnly = false)
+        val scoreShape = TemplateMatchingEngine.evaluateCandidateScore(noisyScreen, sw, sh, targetX, targetY, feat, isShapeOnly = true)
+
+        assertTrue("Крестик закрытия под шумом обязан иметь уверенный отклик формы >= 65%, получено: $scoreShape", scoreShape >= 0.65f)
+        assertTrue("Крестик закрытия под шумом обязан иметь отклик гибрида >= 65%, получено: $scoreHybrid", scoreHybrid >= 0.65f)
+
+        // 2. Сканирование окрестности (Grid Search): пик отклика должен строго совпадать с крестиком
+        var peakScore = 0f
+        var peakX = -1
+        var peakY = -1
+        for (y in 0 until (sh - size) step 2) {
+            for (x in 0 until (sw - size) step 2) {
+                val sc = TemplateMatchingEngine.evaluateCandidateScore(noisyScreen, sw, sh, x, y, feat, isShapeOnly = true)
+                if (sc > peakScore) {
+                    peakScore = sc
+                    peakX = x
+                    peakY = y
+                }
+            }
+        }
+        val errX = abs(peakX - targetX)
+        val errY = abs(peakY - targetY)
+        assertTrue("Пик отклика ($peakX, $peakY) обязан точно локализовать крестик в углу рекламы ($targetX, $targetY)", errX <= 3 && errY <= 3)
+    }
+
+    @Test
+    fun testAdArrowSkip_DetectionUnderHighNoiseAndDownscaling() {
+        // Тонкая стрелка пропуска рекламы (Chevron) 24x30
+        val tw = 24
+        val th = 30
+        val sw = 180
+        val sh = 180
+        val targetX = 140
+        val targetY = 75
+
+        val arrowPixels = generateSyntheticArrowTemplate(tw, th)
+        val cleanScreen = generateScreenWithGroundTruth(sw, sh, arrowPixels, tw, th, targetX, targetY, numDistractors = 4)
+
+        // Наложение физического шума экрана
+        val noisyScreen = injectNoises(cleanScreen, sw, sh, colorDriftRgb = 16, saltPepperRate = 0.005f, applyBoxBlur = false)
+
+        val features = TemplateMatchingEngine.extractFeatures(arrowPixels, tw, th, "ad_arrow_skip", 70)
+        assertNotNull(features)
+        val feat = features ?: return
+
+        assertTrue("Стрелка должна классифицироваться как тонкая линия или микро-глиф", feat.isThinLine || feat.isMicroIcon)
+
+        val targetScore = TemplateMatchingEngine.evaluateCandidateScore(noisyScreen, sw, sh, targetX, targetY, feat, isShapeOnly = false)
+        val bgScore = TemplateMatchingEngine.evaluateCandidateScore(noisyScreen, sw, sh, 20, 20, feat, isShapeOnly = false)
+
+        assertTrue("Отклик на стрелке пропуска рекламы ($targetScore) обязан быть >= 65%", targetScore >= 0.65f)
+        assertTrue("Контраст отклика цели над шумом фона ($bgScore) обязан превышать 0.35", targetScore - bgScore > 0.35f)
     }
 }

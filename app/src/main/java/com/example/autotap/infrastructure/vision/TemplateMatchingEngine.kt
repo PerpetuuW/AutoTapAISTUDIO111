@@ -1048,14 +1048,17 @@ class TemplateFeatures(
 
 
     if (k >= features.shapeCount / 3) {
-    val evalCount = (k / evalStride) + 1
-    val currentNormColor = if (colorWeightSum > 0f) (colorScoreSum / colorWeightSum) else 0f
-    if (!isShapeOnly && evalCount >= 8 && currentNormColor < 0.22f) {
-    return 0f
-    }
-    if (edgeWeightSum > 3f && (edgeScoreSum / edgeWeightSum) < 0.18f) {
-    return 0f
-    }
+        val evalCount = (k / evalStride) + 1
+        val currentNormColor = if (colorWeightSum > 0f) (colorScoreSum / colorWeightSum) else 0f
+        val currentEdgeRatio = if (edgeWeightSum > 0f) (edgeScoreSum / edgeWeightSum) else 0f
+        val minColorThresh = if (features.isThinLine || features.isMicroIcon) 0.12f else 0.22f
+        if (!isShapeOnly && evalCount >= 8 && currentNormColor < minColorThresh && currentEdgeRatio < 0.40f) {
+            return 0f
+        }
+        val minEdgeThresh = if (features.isThinLine || features.isMicroIcon) 0.10f else 0.18f
+        if (edgeWeightSum > 3f && currentEdgeRatio < minEdgeThresh) {
+            return 0f
+        }
     }
     }
 
@@ -1068,21 +1071,46 @@ class TemplateFeatures(
     val edScore = if (edgeWeightSum > 0f) (edgeScoreSum / edgeWeightSum).coerceIn(0f, 1f) else 0.5f
 
     val normalizedScreenEdges = screenTotalEdges * evalStride
-    val clutterThreshold = max(features.shapeEdgeCount * 3.5f, features.shapeCount * 0.75f)
+    val isMicroOrThin = features.isMicroIcon || features.isThinLine || min(features.tw, features.th) <= 32
+    val clutterThreshold = if (isMicroOrThin) {
+        max(features.shapeEdgeCount * 5.0f, features.shapeCount * 1.2f)
+    } else {
+        max(features.shapeEdgeCount * 3.5f, features.shapeCount * 0.75f)
+    }
     val clutterPenalty = if (normalizedScreenEdges > clutterThreshold) {
-        (clutterThreshold / normalizedScreenEdges.toFloat()).coerceIn(0.35f, 1.0f)
+        val minFloor = if (isMicroOrThin) 0.55f else 0.35f
+        (clutterThreshold / normalizedScreenEdges.toFloat()).coerceIn(minFloor, 1.0f)
     } else 1.0f
 
     val colScore = if (colorWeightSum > 0f) (colorScoreSum / colorWeightSum) else edScore
 
     if (isShapeOnly) {
-        val completeness = if (missingQuadrants >= 3) 0.65f else if (missingQuadrants == 2) 0.88f else 1.0f
-        return (edScore * completeness).coerceIn(0f, 1f)
+        val completeness = when {
+            isMicroOrThin && missingQuadrants <= 1 -> 1.0f
+            isMicroOrThin && missingQuadrants == 2 -> 0.92f
+            missingQuadrants >= 3 -> 0.65f
+            missingQuadrants == 2 -> 0.88f
+            else -> 1.0f
+        }
+        return (edScore * completeness * clutterPenalty).coerceIn(0f, 1f)
     }
 
     // Мягкая комбинация: если совпадение по цвету высокое (>0.60), не отсекаем из-за размытых границ
-    val effectiveEdgeWeight = if (features.shapeEdgeCount >= 6 && edScore >= 0.60f) 0.40f else if (edgeWeightSum > 0f) 0.25f else 0.05f
-    val completenessFactor = if (missingQuadrants >= 3) 0.80f else if (missingQuadrants == 2) 0.90f else 1.0f
+    val effectiveEdgeWeight = when {
+        isMicroOrThin && edScore >= 0.70f -> 0.55f
+        isMicroOrThin && edScore >= 0.55f -> 0.45f
+        features.isThinLine -> 0.45f
+        features.shapeEdgeCount >= 6 && edScore >= 0.60f -> 0.40f
+        edgeWeightSum > 0f -> 0.25f
+        else -> 0.05f
+    }
+    val completenessFactor = when {
+        isMicroOrThin && missingQuadrants <= 1 -> 1.0f
+        isMicroOrThin && missingQuadrants == 2 -> 0.94f
+        missingQuadrants >= 3 -> 0.80f
+        missingQuadrants == 2 -> 0.90f
+        else -> 1.0f
+    }
 
     var spatialFactor = 1.0f
     if (selectedZones.isNotEmpty() || selectedAnchors.isNotEmpty()) {
