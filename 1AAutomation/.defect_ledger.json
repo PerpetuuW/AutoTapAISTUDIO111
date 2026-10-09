@@ -1001,6 +1001,15 @@
             "checker_file": "check_template_calibration_downscale_pipeline.py",
             "checker": "check_template_calibration_downscale_pipeline.py",
             "status": "FIXED"
+        },
+        {
+            "id": "DEFECT_CLEAN_FEEDBACK_AND_BUBBLE_RESILIENCE",
+            "description": "Устранение неинформативного текста 'Найдено' в пользу чистого отображения метрик, защита геометрии плавающих пузырей от разлома и каскадное ускорение сжатием",
+            "target_file": "TargetHighlightVisualizer.kt",
+            "checker_module": "check_clean_feedback_and_bubble_resilience.py",
+            "checker_file": "check_clean_feedback_and_bubble_resilience.py",
+            "checker": "check_clean_feedback_and_bubble_resilience.py",
+            "status": "FIXED"
         }
     ]
 }

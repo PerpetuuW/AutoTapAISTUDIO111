@@ -538,6 +538,8 @@ object TargetHighlightVisualizer {
             addedRects.add(Rect(safeLeft, safeTop, safeRight, safeBottom))
         }
 
+        val edgePadding = dp(8f)
+
         // 2. Отклонённые кандидаты (красные / янтарные пунктирные рамки)
         rejectedCandidates.take(3).forEach { (cand, reason) ->
             val safeLeft = cand.rectLeft.coerceIn(0, max(0, screenW - dp(16f)))
@@ -562,21 +564,46 @@ object TargetHighlightVisualizer {
 
             val rejectBadge = TextView(context).apply {
                 val scorePct = (cand.score * 100).toInt()
-                text = "ОТКЛОНЕНО $scorePct%: $reason"
-                textSize = 8f
+                text = "$scorePct% • $reason"
+                textSize = 8.5f
                 typeface = Typeface.DEFAULT_BOLD
                 setTextColor("#FCA5A5".toColorInt())
+                includeFontPadding = false
+                isSingleLine = true
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
                 background = GradientDrawable().apply {
                     setColor("#EE18181B".toColorInt())
                     setStroke(dp(1f), "#F43F5E".toColorInt())
-                    cornerRadius = dp(4f).toFloat()
+                    cornerRadius = dp(6f).toFloat()
                 }
-                setPadding(dp(4f), dp(2f), dp(4f), dp(2f))
+                setPadding(dp(6f), dp(3f), dp(6f), dp(3f))
+                elevation = dp(3f).toFloat()
             }
+
+            rejectBadge.measure(
+                View.MeasureSpec.makeMeasureSpec(screenW - 2 * edgePadding, View.MeasureSpec.AT_MOST),
+                View.MeasureSpec.makeMeasureSpec(screenH, View.MeasureSpec.AT_MOST)
+            )
+            val rW = rejectBadge.measuredWidth
+            val rH = rejectBadge.measuredHeight
+            val rLeft = if (safeLeft + rW <= screenW - edgePadding) {
+                safeLeft.coerceAtLeast(edgePadding)
+            } else {
+                (screenW - rW - edgePadding).coerceAtLeast(edgePadding)
+            }
+            val rTop = if (safeTop >= rH + dp(4f)) {
+                safeTop - rH - dp(2f)
+            } else if (safeBottom + rH + dp(4f) <= screenH) {
+                safeBottom + dp(2f)
+            } else {
+                (safeTop + dp(2f)).coerceIn(edgePadding, screenH - rH - edgePadding)
+            }
+
             rootContainer.addView(rejectBadge, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
                 gravity = Gravity.TOP or Gravity.START
-                leftMargin = safeLeft
-                topMargin = (safeTop - dp(18f)).coerceAtLeast(0)
+                leftMargin = rLeft
+                topMargin = rTop
             })
             addedRects.add(Rect(safeLeft, safeTop, safeRight, safeBottom))
         }
@@ -604,22 +631,51 @@ object TargetHighlightVisualizer {
             })
 
             val matchBadge = TextView(context).apply {
-                val scorePct = (bestCandidate.score * 100).toInt()
-                text = "НАЙДЕНО $scorePct% (ПОРОГ $thresholdPct%)"
-                textSize = 8.5f
+                val scorePct = (bestCandidate.score * 100).toInt().coerceIn(0, 100)
+                text = if (thresholdPct > 0) "$scorePct% [≥$thresholdPct%]" else "$scorePct%"
+                textSize = 9.5f
                 typeface = Typeface.DEFAULT_BOLD
                 setTextColor("#6EE7B7".toColorInt())
-                background = GradientDrawable().apply {
-                    setColor("#EE064E3B".toColorInt())
-                    setStroke(dp(1f), "#10B981".toColorInt())
-                    cornerRadius = dp(4f).toFloat()
+                includeFontPadding = false
+                isSingleLine = true
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                background = GradientDrawable(
+                    GradientDrawable.Orientation.TOP_BOTTOM,
+                    intArrayOf("#EE064E3B".toColorInt(), "#EE022C22".toColorInt())
+                ).apply {
+                    setStroke(dp(1.2f), "#10B981".toColorInt())
+                    cornerRadius = dp(10f).toFloat()
                 }
-                setPadding(dp(6f), dp(2.5f), dp(6f), dp(2.5f))
+                setPadding(dp(8f), dp(3.5f), dp(8f), dp(3.5f))
+                elevation = dp(4f).toFloat()
             }
+
+            matchBadge.measure(
+                View.MeasureSpec.makeMeasureSpec(screenW - 2 * edgePadding, View.MeasureSpec.AT_MOST),
+                View.MeasureSpec.makeMeasureSpec(screenH, View.MeasureSpec.AT_MOST)
+            )
+            val bW = matchBadge.measuredWidth
+            val bH = matchBadge.measuredHeight
+
+            val bLeft = if (safeLeft + bW <= screenW - edgePadding) {
+                safeLeft.coerceAtLeast(edgePadding)
+            } else {
+                (screenW - bW - edgePadding).coerceAtLeast(edgePadding)
+            }
+
+            val bTop = if (safeTop >= bH + dp(5f)) {
+                safeTop - bH - dp(3f)
+            } else if (safeBottom + bH + dp(5f) <= screenH) {
+                safeBottom + dp(3f)
+            } else {
+                (safeTop + dp(3f)).coerceIn(edgePadding, screenH - bH - edgePadding)
+            }
+
             rootContainer.addView(matchBadge, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
                 gravity = Gravity.TOP or Gravity.START
-                leftMargin = safeLeft
-                topMargin = (safeTop - dp(20f)).coerceAtLeast(0)
+                leftMargin = bLeft
+                topMargin = bTop
             })
             addedRects.add(Rect(safeLeft, safeTop, safeRight, safeBottom))
         }
@@ -637,10 +693,11 @@ object TargetHighlightVisualizer {
             elevation = dp(8f).toFloat()
         }
         val tvHud = TextView(context).apply {
-            val status = if (bestCandidate != null) "ЦЕЛЬ НАЙДЕНА" else "НЕ НАЙДЕНО"
-            text = "ОТЛАДКА: $methodName | $status (${elapsedMs}мс)"
+            val scorePct = if (bestCandidate != null) (bestCandidate.score * 100).toInt() else 0
+            text = "$methodName • ${elapsedMs}ms • $scorePct%"
             textSize = 9f
             typeface = Typeface.MONOSPACE
+            includeFontPadding = false
             setTextColor(if (bestCandidate != null) "#10B981".toColorInt() else "#F59E0B".toColorInt())
         }
         hudLayout.addView(tvHud)

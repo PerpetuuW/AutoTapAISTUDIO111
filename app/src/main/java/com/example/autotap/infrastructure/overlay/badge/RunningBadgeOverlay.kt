@@ -153,10 +153,13 @@ class RunningBadgeOverlay(
         val tvHeader = TextView(context).apply {
             text = "ШАГ 1/1"
             setTextColor("#58A6FF".toColorInt())
-            textSize = 10.5f
+            textSize = 10f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
             gravity = Gravity.CENTER
+            isSingleLine = true
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
             layoutParams = LinearLayout.LayoutParams(contentW, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = dp(2)
             }
@@ -167,7 +170,7 @@ class RunningBadgeOverlay(
         val infoContainer = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(contentW, dp(20)).apply {
+            layoutParams = LinearLayout.LayoutParams(contentW, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = dp(4)
             }
         }
@@ -178,9 +181,13 @@ class RunningBadgeOverlay(
             textSize = 9.5f
             typeface = Typeface.MONOSPACE
             includeFontPadding = false
+            isSingleLine = true
             maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(contentW, LinearLayout.LayoutParams.WRAP_CONTENT)
+            layoutParams = LinearLayout.LayoutParams(contentW, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(2)
+            }
         }
         tvActionStatus = tvStatus
         infoContainer.addView(tvStatus)

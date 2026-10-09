@@ -803,9 +803,9 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                                             val finalClickY = best.clickY + (if (action.useCustomClickOffset) action.clickOffsetY else 0f)
                                             fallbackGestureGateway.performClick(finalClickX, finalClickY, 50L)
                                         }
-                                        Toast.makeText(appContext, "Найдено: $scorePct% в (${best.clickX}, ${best.clickY})", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(appContext, "$scorePct% • (${best.clickX.toInt()}, ${best.clickY.toInt()})", Toast.LENGTH_SHORT).show()
                                     } else {
-                                        Toast.makeText(appContext, "Цель не найдена на экране", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(appContext, "Цель не найдена", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             }

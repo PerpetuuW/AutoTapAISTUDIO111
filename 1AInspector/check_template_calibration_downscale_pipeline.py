@@ -33,8 +33,8 @@ def run_check(root_dir: str) -> tuple[bool, str]:
         return False, "В CalibrationOverlay.kt отсутствует расчет оптимального масштаба сжатия calculateOptimalDownscaleFactor"
     if "userDownscaleFactor" not in calib_src or "effectiveDownscaleFactor" not in calib_src:
         return False, "В CalibrationOverlay.kt отсутствуют переменные состояния масштаба сжатия userDownscaleFactor / effectiveDownscaleFactor"
-    if "btnDownscaleToggle" not in calib_src:
-        return False, "В CalibrationOverlay.kt отсутствует кнопка переключения масштаба сжатия btnDownscaleToggle"
+    if "btnDownscaleToggle" in calib_src:
+        return False, "В CalibrationOverlay.kt не должно быть ручной кнопки btnDownscaleToggle: сжатие обязано работать как автоматическое каскадное ускорение"
     if '"optimalDownscaleFactor"' not in calib_src or '"downscaleFactor"' not in calib_src:
         return False, "В CalibrationOverlay.kt отсутствует сохранение downscaleFactor в metaObj"
     if "downscaleFactor = finalDownscale" not in calib_src:

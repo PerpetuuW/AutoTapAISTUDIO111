@@ -135,23 +135,6 @@ private val targetStepId: Int? = null,
     private var tvDownscaleBadgeRef: TextView? = null
     private var userDownscaleFactor: Int = existingAction?.downscaleFactor ?: 0
     private var effectiveDownscaleFactor: Int = 1
-    private var btnDownscaleToggle: Button? = null
-
-    private fun updateDownscaleButtonText() {
-        val btn = btnDownscaleToggle ?: return
-        val currentFactor = if (userDownscaleFactor in 1..4) userDownscaleFactor else effectiveDownscaleFactor
-        val modeLabel = if (userDownscaleFactor == 0) "АВТО" else "РУЧН"
-        btn.text = "СЖАТИЕ: ${currentFactor}x ($modeLabel)"
-        val (cStart, cEnd) = when {
-            userDownscaleFactor > 0 -> intArrayOf("#4F46E5".toColorInt(), "#3730A3".toColorInt())
-            currentFactor == 1 -> intArrayOf("#0284C7".toColorInt(), "#0369A1".toColorInt())
-            else -> intArrayOf("#059669".toColorInt(), "#047857".toColorInt())
-        }
-        btn.background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(cStart, cEnd)).apply {
-            cornerRadius = dpF(4f)
-            setStroke(dp(1), if (userDownscaleFactor > 0) "#818CF8".toColorInt() else "#38BDF8".toColorInt())
-        }
-    }
 
     private fun calculateOptimalDownscaleFactor(w: Int, h: Int): Int {
         val minDim = minOf(w, h)
@@ -777,7 +760,6 @@ private val targetStepId: Int? = null,
                     effectiveDownscaleFactor = calibDownscale
                     withContext(Dispatchers.Main) {
                         tvDownscaleBadgeRef?.text = "МАСШТАБ СЖАТИЯ: ${effectiveDownscaleFactor}x (${if (effectiveDownscaleFactor == 1) "1:1 МИКРО" else "1/${effectiveDownscaleFactor} ОТСЕВ"})"
-                        updateDownscaleButtonText()
                     }
 
                     // [V33.5] Реальный расчет NeuralVisualMatcher при переключении на AI
@@ -821,7 +803,6 @@ private val targetStepId: Int? = null,
                             effectiveDownscaleFactor = 1
                             withContext(Dispatchers.Main) {
                                 tvDownscaleBadgeRef?.text = "МАСШТАБ СЖАТИЯ: 1x (1:1 АВТО-КОРРЕКЦИЯ)"
-                                updateDownscaleButtonText()
                             }
                         }
                     }
@@ -1430,24 +1411,7 @@ private val targetStepId: Int? = null,
                 reevaluateMatching()
             }
         }
-        modesRow3.addView(btnSmartColorToggle, LinearLayout.LayoutParams(0, dp(30), 1f).apply { marginEnd = dp(4) })
-
-        btnDownscaleToggle = Button(context).apply {
-            textSize = 8f
-            typeface = Typeface.DEFAULT_BOLD
-            includeFontPadding = false
-            setTextColor(Color.WHITE)
-            minHeight = 0; minimumHeight = 0
-            setPadding(dp(6), dp(4), dp(6), dp(4))
-            setOnClickListener {
-                userDownscaleFactor = (userDownscaleFactor + 1) % 5
-                updateDownscaleButtonText()
-                vibrate(15L)
-                reevaluateMatching()
-            }
-        }
-        updateDownscaleButtonText()
-        modesRow3.addView(btnDownscaleToggle, LinearLayout.LayoutParams(0, dp(30), 1f))
+        modesRow3.addView(btnSmartColorToggle, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(30)))
         modesContainer.addView(modesRow3)
         modesContainer.tag = "MODES"
         card.addView(modesContainer)
