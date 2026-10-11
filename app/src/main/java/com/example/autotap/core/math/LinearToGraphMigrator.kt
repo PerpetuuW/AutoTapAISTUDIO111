@@ -12,6 +12,7 @@ import com.example.autotap.domain.model.graph.ScenarioEdge
 import com.example.autotap.domain.model.graph.ScenarioNode
 import java.io.File
 import java.util.UUID
+import org.json.JSONObject
 
 object LinearToGraphMigrator {
 
@@ -121,9 +122,34 @@ object LinearToGraphMigrator {
                     val branchNodes = ArrayList<ScenarioNode>()
 
                     for ((idx, path) in allTemplatePaths.withIndex()) {
-                        val templateName = java.io.File(path).nameWithoutExtension.removePrefix("mask_").take(14).ifEmpty { "цель_${idx + 1}" }
+                        val templateFile = File(path)
+                        val templateName = templateFile.nameWithoutExtension.removePrefix("mask_").take(14).ifEmpty { "цель_${idx + 1}" }
                         val trigId = "trig_${action.id}_${idx + 1}"
                         val matchPortId = "out_match_$trigId"
+
+                        var tplCalibX: Float? = null
+                        var tplCalibY: Float? = null
+                        var tplSimPct = action.similarityPercent
+                        var tplShapeOnly = action.isShapeOnlyMode
+                        var tplColorDeltaE = action.colorDeltaEMode
+                        var tplClickOffX = action.clickOffsetX
+                        var tplClickOffY = action.clickOffsetY
+                        var tplUseCustomOff = action.useCustomClickOffset
+
+                        try {
+                            val metaFile = File(templateFile.parentFile, "${templateFile.nameWithoutExtension}.json")
+                            if (metaFile.exists()) {
+                                val json = JSONObject(metaFile.readText())
+                                if (json.has("calibratedX")) tplCalibX = json.getDouble("calibratedX").toFloat()
+                                if (json.has("calibratedY")) tplCalibY = json.getDouble("calibratedY").toFloat()
+                                if (json.has("similarityPercent")) tplSimPct = json.getInt("similarityPercent")
+                                if (json.has("isShapeOnlyMode")) tplShapeOnly = json.getBoolean("isShapeOnlyMode")
+                                if (json.has("colorDeltaEMode")) tplColorDeltaE = json.getBoolean("colorDeltaEMode")
+                                if (json.has("clickOffsetX")) tplClickOffX = json.getDouble("clickOffsetX").toFloat()
+                                if (json.has("clickOffsetY")) tplClickOffY = json.getDouble("clickOffsetY").toFloat()
+                                if (json.has("useCustomClickOffset")) tplUseCustomOff = json.getBoolean("useCustomClickOffset")
+                            }
+                        } catch (_: Exception) {}
 
                         val trigSpec = NodeTriggerSpec(
                             id = trigId,
@@ -131,13 +157,13 @@ object LinearToGraphMigrator {
                             type = ActionType.TRIGGER,
                             templatePath = path,
                             multiTemplatePaths = listOf(path),
-                            similarityThreshold = action.similarityPercent,
+                            similarityThreshold = tplSimPct,
                             targetQueryOrColor = action.targetScriptOrQuery,
                             colorTolerance = action.colorTolerance,
                             isContourMode = action.isContourMode,
-                            isShapeOnlyMode = action.isShapeOnlyMode,
+                            isShapeOnlyMode = tplShapeOnly,
                             isMultiScaleMode = action.isMultiScaleMode,
-                            colorDeltaEMode = action.colorDeltaEMode,
+                            colorDeltaEMode = tplColorDeltaE,
                             shapeExpansion = action.shapeExpansion,
                             paddingOffsetPx = action.paddingOffsetPx,
                             isCircleShape = action.isCircleShape,
@@ -146,19 +172,22 @@ object LinearToGraphMigrator {
                             roiRight = action.roiRight,
                             roiBottom = action.roiBottom,
                             autoClickTarget = false,
-                            useCustomClick = action.useCustomClickOffset,
-                            clickOffset = Point2D(action.clickOffsetX, action.clickOffsetY),
+                            useCustomClick = tplUseCustomOff,
+                            clickOffset = Point2D(tplClickOffX, tplClickOffY),
                             targetPortId = matchPortId
                         )
                         triggerSpecs.add(trigSpec)
+
+                        val branchClickX = (tplCalibX ?: action.posX) + if (tplUseCustomOff) tplClickOffX else 0f
+                        val branchClickY = (tplCalibY ?: action.posY) + if (tplUseCustomOff) tplClickOffY else 0f
 
                         val branchNodeId = "node_${action.id}_branch_${idx + 1}"
                         val branchActionSpec = if (action.clickAiTarget) {
                             NodeActionSpec(
                                 id = "act_${action.id}_${idx + 1}",
                                 type = ActionType.CLICK,
-                                x = action.posX,
-                                y = action.posY,
+                                x = branchClickX,
+                                y = branchClickY,
                                 holdDurationMs = action.holdDurationMs.coerceAtLeast(30L),
                                 delayAfterMs = action.delayMs
                             )
