@@ -1019,6 +1019,15 @@
       "checker_file": "check_ocr_table_and_tap_selection.py",
       "checker": "check_ocr_table_and_tap_selection.py",
       "status": "FIXED"
+    },
+    {
+      "id": "DEFECT_SEARCH_MESSAGE_CONCISENESS_AND_CACHE_HYGIENE",
+      "description": "Лаконичность статусов поиска в бейдже и сброс устаревшего L0 кэша позиций перед запуском макроса",
+      "target_file": "app/src/main/java/com/example/autotap/infrastructure/engine/MacroExecutionEngine.kt",
+      "checker_module": "check_search_message_conciseness_and_cache_hygiene.py",
+      "checker_file": "check_search_message_conciseness_and_cache_hygiene.py",
+      "checker": "check_search_message_conciseness_and_cache_hygiene.py",
+      "status": "FIXED"
     }
   ]
 }

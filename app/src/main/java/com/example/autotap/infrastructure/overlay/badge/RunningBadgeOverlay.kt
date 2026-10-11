@@ -58,7 +58,7 @@ class RunningBadgeOverlay(
     private fun dp(v: Int): Int = (v * dm.density).toInt()
     private fun dpF(v: Float): Float = v * dm.density
 
-    private val contentWidthDp = 78
+    private val contentWidthDp = 100
 
     fun isShowing(): Boolean = badgeView != null
 

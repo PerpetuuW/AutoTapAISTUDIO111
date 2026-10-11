@@ -905,6 +905,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         val scenario = MacroScenario("ActiveSession", 1, specs, actions, globalClickDurationMs, globalSwipeDurationMs)
 
         templateRepository.clearCache()
+        TemplateMatchingEngine.clearTemplateCache()
         val templatesMap = LinkedHashMap<String, Bitmap>()
         templateRepository.loadAllTemplates().forEach { (path, bmp) -> templatesMap[path] = bmp }
         macroEngine.start(scenario, templatesMap, isDebug = false)
@@ -922,6 +923,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         val scenario = MacroScenario("DebugSession", 1, specs, actions, globalClickDurationMs, globalSwipeDurationMs)
 
         templateRepository.clearCache()
+        TemplateMatchingEngine.clearTemplateCache()
         val templatesMap = LinkedHashMap<String, Bitmap>()
         templateRepository.loadAllTemplates().forEach { (path, bmp) -> templatesMap[path] = bmp }
         macroEngine.start(scenario, templatesMap, isDebug = true)
