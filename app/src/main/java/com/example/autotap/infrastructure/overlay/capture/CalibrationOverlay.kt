@@ -2045,6 +2045,7 @@ private val targetStepId: Int? = null,
                     existingPath = existingTemplatePath,
                     maskBmp = finalMask,
                     rawBmp = finalRawCropped,
+                    screenBmp = screenshot,
                     metadata = metaObj
                 )
                 com.example.autotap.infrastructure.vision.TemplateMatchingEngine.clearTemplateCache()

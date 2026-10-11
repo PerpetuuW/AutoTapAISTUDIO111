@@ -103,8 +103,8 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
         return tPath
     }
 
-    override fun saveTemplate(folderName: String, existingPath: String?, maskBmp: android.graphics.Bitmap, rawBmp: android.graphics.Bitmap?, metadata: org.json.JSONObject): String {
-        return saveTemplateWithScreen(folderName, existingPath, maskBmp, rawBmp, null, metadata)
+    override fun saveTemplate(folderName: String, existingPath: String?, maskBmp: android.graphics.Bitmap, rawBmp: android.graphics.Bitmap?, metadata: org.json.JSONObject, screenBmp: android.graphics.Bitmap?): String {
+        return saveTemplateWithScreen(folderName, existingPath, maskBmp, rawBmp, screenBmp, metadata)
     }
 
     fun listFolders(): List<String> {
