@@ -1046,6 +1046,15 @@
       "checker_file": "check_badge_symmetry_and_calibration_accuracy.py",
       "checker": "check_badge_symmetry_and_calibration_accuracy.py",
       "status": "FIXED"
+    },
+    {
+      "id": "DEFECT_CALIBRATION_SEARCH_ALIGNMENT_AND_MARQUEE_BADGE",
+      "description": "Согласование порогов калибровки и поиска, сброс кэша при сохранении шаблона, компактный бейдж с marquee-строкой",
+      "target_file": "app/src/main/java/com/example/autotap/infrastructure/overlay/capture/CalibrationOverlay.kt",
+      "checker_module": "check_calibration_and_badge_updates.py",
+      "checker_file": "check_calibration_and_badge_updates.py",
+      "checker": "check_calibration_and_badge_updates.py",
+      "status": "FIXED"
     }
   ]
 }

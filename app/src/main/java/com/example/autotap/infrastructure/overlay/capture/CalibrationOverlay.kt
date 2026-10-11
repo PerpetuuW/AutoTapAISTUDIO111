@@ -764,6 +764,7 @@ private val targetStepId: Int? = null,
 
                     // [V33.5] Реальный расчет NeuralVisualMatcher при переключении на AI
                     val effectiveActionOverride = (existingAction ?: MacroAction(id = targetStepId ?: 1)).copy(
+                        similarityPercent = currentSimilarity,
                         colorDeltaEMode = isSmartColorMode,
                         isShapeOnlyMode = isShapeOnlyMode,
                         downscaleFactor = calibDownscale,
@@ -2046,6 +2047,8 @@ private val targetStepId: Int? = null,
                     rawBmp = finalRawCropped,
                     metadata = metaObj
                 )
+                com.example.autotap.infrastructure.vision.TemplateMatchingEngine.clearTemplateCache()
+                com.example.autotap.infrastructure.vision.TemplateMatchingEngine.lastMatchedPositions[tPath] = Pair(finalCalibX, finalCalibY)
 
                 val best = currentCandidates.firstOrNull()
                 val targetX = if (existingAction != null && existingAction.posX > 10f && best == null) existingAction.posX

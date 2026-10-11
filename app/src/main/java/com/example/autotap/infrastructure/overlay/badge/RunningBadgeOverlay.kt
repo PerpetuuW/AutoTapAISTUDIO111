@@ -58,7 +58,7 @@ class RunningBadgeOverlay(
     private fun dp(v: Int): Int = (v * dm.density).toInt()
     private fun dpF(v: Float): Float = v * dm.density
 
-    private val contentWidthDp = 100
+    private val contentWidthDp = 78
 
     fun isShowing(): Boolean = badgeView != null
 
@@ -175,7 +175,9 @@ class RunningBadgeOverlay(
             }
         }
 
-        val tvStatus = TextView(context).apply {
+        val tvStatus = object : TextView(context) {
+            override fun isFocused(): Boolean = true
+        }.apply {
             text = "Запуск..."
             setTextColor("#34D399".toColorInt())
             textSize = 9.5f
@@ -183,8 +185,13 @@ class RunningBadgeOverlay(
             includeFontPadding = false
             isSingleLine = true
             maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END
+            ellipsize = android.text.TextUtils.TruncateAt.MARQUEE
+            marqueeRepeatLimit = -1
+            isSelected = true
+            isFocusable = true
+            isFocusableInTouchMode = true
             gravity = Gravity.CENTER
+            setHorizontallyScrolling(true)
             layoutParams = LinearLayout.LayoutParams(contentW, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = dp(2)
             }
@@ -248,7 +255,7 @@ class RunningBadgeOverlay(
                 setStroke(dp(1), "#58A6FF".toColorInt())
             }
             layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply {
-                marginEnd = dp(8)
+                marginEnd = dp(4)
             }
             setOnClickListener {
                 vibrate(30L)
