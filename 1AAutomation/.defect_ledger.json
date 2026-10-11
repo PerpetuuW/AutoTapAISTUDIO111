@@ -1055,6 +1055,15 @@
       "checker_file": "check_calibration_and_badge_updates.py",
       "checker": "check_calibration_and_badge_updates.py",
       "status": "FIXED"
+    },
+    {
+      "id": "DEFECT_METADATA_CALIBRATION_ANCHORS",
+      "description": "Мгновенное обнаружение свежеоткалиброванного шаблона через метаданные начальной координаты выреза/калибровки в TIER 0",
+      "target_file": "app/src/main/java/com/example/autotap/infrastructure/vision/TemplateMatchingEngine.kt",
+      "checker_module": "check_metadata_calibration_anchors.py",
+      "checker_file": "check_metadata_calibration_anchors.py",
+      "checker": "check_metadata_calibration_anchors.py",
+      "status": "FIXED"
     }
   ]
 }

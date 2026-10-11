@@ -535,11 +535,16 @@ class TemplateFeatures(
             var tier0Found = false
             val anchorProbes = mutableListOf<com.example.autotap.domain.model.Point2D>()
 
-            // 1. БАЗОВОЕ МЕСТО ПО УМОЛЧАНИЮ: координаты создания шаблона (posX, posY / calibratedX, calibratedY)
-            if (actionOverride != null && (actionOverride.posX > 1f || actionOverride.posY > 1f)) {
-                anchorProbes.add(com.example.autotap.domain.model.Point2D(actionOverride.posX, actionOverride.posY))
-            } else if (features.calibratedX != null && features.calibratedY != null) {
+            // 1. МЕТАДАННЫЕ КАЛИБРОВКИ И ВЫРЕЗА: всегда используем calibratedX / calibratedY из JSON метаданных шаблона
+            if (features.calibratedX != null && features.calibratedY != null) {
                 anchorProbes.add(com.example.autotap.domain.model.Point2D(features.calibratedX.toFloat(), features.calibratedY.toFloat()))
+            }
+            // 2. Координаты из действия макроса
+            if (actionOverride != null && (actionOverride.posX > 1f || actionOverride.posY > 1f)) {
+                val pt = com.example.autotap.domain.model.Point2D(actionOverride.posX, actionOverride.posY)
+                if (anchorProbes.none { abs(it.x - pt.x) < 4f && abs(it.y - pt.y) < 4f }) {
+                    anchorProbes.add(0, pt)
+                }
             }
 
             // 2. Дополнительные динамические позиции (L0 Cache и последние обнаруженные точки)
