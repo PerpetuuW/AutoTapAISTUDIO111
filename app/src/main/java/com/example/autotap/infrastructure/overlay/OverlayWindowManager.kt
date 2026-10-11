@@ -74,7 +74,8 @@ class OverlayWindowManager(private val context: Context) {
         
         val flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or 
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or 
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                    WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
 
         return WindowManager.LayoutParams(width, height, windowType, flags, PixelFormat.TRANSLUCENT).apply {
             this.gravity = gravity
