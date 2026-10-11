@@ -398,12 +398,6 @@ class ControlPanelOverlay(
             showAddActionTypeMenu(mainRow)
         }
         mainRow.addView(btnAdd)
-
-        // 5.5. Быстрое сохранение текущих шагов в сценарий [дискета]
-        val btnSave = createIconButton(VectorIconDrawer.IconType.SAVE, "", "#34D399", dp(38), "BTN_SAVE") {
-            listener.onSaveClicked()
-        }
-        mainRow.addView(btnSave)
         mainRow.addView(createSeparatorView())
 
         // 6. Кнопка шторки инструментов:
