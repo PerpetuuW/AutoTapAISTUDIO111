@@ -527,7 +527,7 @@ class TemplateFeatures(
 // [V12.2] Полная изоляция: каждый шаблон использует строго свои метаданные из JSON
             val features = extractFeatures(tBmp, tPath, tPath, defaultSim) ?: continue
             val templateThreshold = features.individualThreshold.coerceIn(0.60f, 0.98f)
-            val isShapeDriven = features.isShapeOnlyFromMeta
+            val isShapeDriven = (actionOverride?.isShapeOnlyMode == true) || features.isShapeOnlyFromMeta
 
             val scanLimitX = (roiMaxX - features.tw).coerceAtLeast(roiMinX)
             val scanLimitY = (roiMaxY - features.th).coerceAtLeast(roiMinY)
