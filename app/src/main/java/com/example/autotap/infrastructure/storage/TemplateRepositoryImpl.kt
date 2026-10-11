@@ -71,11 +71,19 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
     }
 
     // [V12.0] Перегрузка метода для поддержки полноэкранного скриншота
-    fun saveTemplateWithScreen(folderName: String, existingPath: String?, maskBmp: Bitmap, rawBmp: Bitmap?, screenBmp: Bitmap?, metadata: JSONObject): String {
+    fun saveTemplateWithScreen(folderName: String, existingPath: String?, maskBmp: Bitmap, rawBmp: Bitmap?, screenBmp: Bitmap?, metadata: JSONObject, customFileName: String? = null): String {
         val targetDir = File(baseTemplatesDir, folderName).apply { mkdirs() }
+        val cleanName = customFileName?.takeIf { it.isNotBlank() }?.let { if (it.startsWith("mask_")) it else "mask_$it" }
         val tPath = if (existingPath.isNullOrBlank()) {
-            File(targetDir, "mask_${System.currentTimeMillis()}.png").absolutePath
-        } else existingPath
+            File(targetDir, cleanName ?: "mask_${System.currentTimeMillis()}.png").absolutePath
+        } else {
+            if (cleanName != null && File(existingPath).name != cleanName) {
+                val oldFile = File(existingPath)
+                val newFile = File(targetDir, if (cleanName.endsWith(".png")) cleanName else "$cleanName.png")
+                oldFile.renameTo(newFile)
+                newFile.absolutePath
+            } else existingPath
+        }
 
         val maskFile = File(tPath)
         val rawFile = File(maskFile.parentFile, "raw_" + maskFile.name.removePrefix("mask_"))
@@ -103,8 +111,8 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
         return tPath
     }
 
-    override fun saveTemplate(folderName: String, existingPath: String?, maskBmp: android.graphics.Bitmap, rawBmp: android.graphics.Bitmap?, metadata: org.json.JSONObject, screenBmp: android.graphics.Bitmap?): String {
-        return saveTemplateWithScreen(folderName, existingPath, maskBmp, rawBmp, screenBmp, metadata)
+    override fun saveTemplate(folderName: String, existingPath: String?, maskBmp: android.graphics.Bitmap, rawBmp: android.graphics.Bitmap?, metadata: org.json.JSONObject, screenBmp: android.graphics.Bitmap?, customFileName: String?): String {
+        return saveTemplateWithScreen(folderName, existingPath, maskBmp, rawBmp, screenBmp, metadata, customFileName)
     }
 
     fun listFolders(): List<String> {

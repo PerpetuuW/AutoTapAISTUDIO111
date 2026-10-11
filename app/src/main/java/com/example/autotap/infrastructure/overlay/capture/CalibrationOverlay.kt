@@ -1893,6 +1893,47 @@ private val targetStepId: Int? = null,
         coVerifRow.addView(btnClearCoVerif, LinearLayout.LayoutParams(dp(54), dp(28)))
         card.addView(coVerifRow)
 
+        val nameRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, dp(4))
+        }
+        val tvNameLabel = TextView(context).apply {
+            text = "ИМЯ:"
+            textSize = 8f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor("#8B949E".toColorInt())
+            layoutParams = LinearLayout.LayoutParams(dp(50), LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
+        nameRow.addView(tvNameLabel)
+
+        val defaultTplName = if (existingTemplatePath != null) File(existingTemplatePath).nameWithoutExtension.removePrefix("mask_") else "цель_${System.currentTimeMillis().toString().takeLast(4)}"
+        val etTemplateName = EditText(context).apply {
+            setText(defaultTplName)
+            setTextColor(Color.WHITE)
+            setHintTextColor("#8B949E".toColorInt())
+            textSize = 10f
+            background = GradientDrawable().apply {
+                setColor("#161B22".toColorInt())
+                cornerRadius = dpF(4f)
+                setStroke(dp(1), "#30363D".toColorInt())
+            }
+            val p = dp(4)
+            setPadding(p, p, p, p)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(28))
+            setOnTouchListener { v, event ->
+                if (event.action == MotionEvent.ACTION_UP) {
+                    v.requestFocus()
+                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                    @Suppress("DEPRECATION")
+                    imm?.showSoftInput(v, InputMethodManager.SHOW_IMPLICIT)
+                }
+                false
+            }
+        }
+        nameRow.addView(etTemplateName)
+        card.addView(nameRow)
+
         val folderRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -2040,13 +2081,15 @@ private val targetStepId: Int? = null,
                     currentWorkingRaw
                 }
 
+                val customName = etTemplateName.text.toString().trim().ifEmpty { "цель_${System.currentTimeMillis()}" }
                 val tPath = templateRepository.saveTemplate(
                     folderName = folderName,
                     existingPath = existingTemplatePath,
                     maskBmp = finalMask,
                     rawBmp = finalRawCropped,
                     screenBmp = screenshot,
-                    metadata = metaObj
+                    metadata = metaObj,
+                    customFileName = customName
                 )
                 com.example.autotap.infrastructure.vision.TemplateMatchingEngine.clearTemplateCache()
                 com.example.autotap.infrastructure.vision.TemplateMatchingEngine.lastMatchedPositions[tPath] = Pair(finalCalibX, finalCalibY)

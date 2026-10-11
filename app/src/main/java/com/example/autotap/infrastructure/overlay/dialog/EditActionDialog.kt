@@ -668,6 +668,9 @@ class EditActionDialog(
         }
         layoutTriggerCard.addView(tvCardHeader)
 
+        var allTemplates = templateRepository.loadAllTemplates().toMutableList()
+        var refreshActiveTemplateCard: () -> Unit = {}
+
         val previewRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -683,12 +686,59 @@ class EditActionDialog(
             orientation = LinearLayout.VERTICAL
             setPadding(dp(8), 0, 0, 0)
         }
+        val nameHeaderRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
         val tvTplName = TextView(context).apply {
             textSize = 8.5f
             typeface = Typeface.MONOSPACE
             setTextColor(Color.WHITE)
         }
-        metaInfoLayout.addView(tvTplName)
+        nameHeaderRow.addView(tvTplName, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
+        val btnRenameTpl = createSmallButton("ИМЯ") {
+            val effectivePrimary = boundTemplatePath.ifBlank { selectedMultiPaths.firstOrNull() ?: "" }
+            if (effectivePrimary.isBlank()) {
+                Toast.makeText(context, "Шаблон не выбран", Toast.LENGTH_SHORT).show()
+                return@createSmallButton
+            }
+            val oldFile = File(effectivePrimary)
+            val currentName = oldFile.nameWithoutExtension.removePrefix("mask_")
+
+            val input = EditText(context).apply {
+                setText(currentName)
+                setSelection(currentName.length)
+                setTextColor(Color.WHITE)
+                setBackgroundColor(Color.parseColor("#161B22"))
+            }
+            android.app.AlertDialog.Builder(context)
+                .setTitle("Переименовать шаблон")
+                .setView(input)
+                .setPositiveButton("ОК") { dialog, _ ->
+                    val newName = input.text.toString().trim()
+                    if (newName.isNotBlank()) {
+                        val newPath = templateRepository.renameTemplate(effectivePrimary, newName)
+                        if (newPath != null) {
+                            boundTemplatePath = newPath
+                            if (selectedMultiPaths.contains(effectivePrimary)) {
+                                selectedMultiPaths.remove(effectivePrimary)
+                                selectedMultiPaths.add(newPath)
+                            }
+                            allTemplates = templateRepository.loadAllTemplates().toMutableList()
+                            refreshActiveTemplateCard()
+                            Toast.makeText(context, "Шаблон переименован!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Ошибка переименования", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    dialog.dismiss()
+                }
+                .setNegativeButton("Отмена") { dialog, _ -> dialog.dismiss() }
+                .show()
+        }
+        nameHeaderRow.addView(btnRenameTpl, LinearLayout.LayoutParams(dp(44), dp(22)))
+        metaInfoLayout.addView(nameHeaderRow)
 
         val tvTplSpecs = TextView(context).apply {
             textSize = 7.5f
@@ -698,7 +748,7 @@ class EditActionDialog(
         previewRow.addView(metaInfoLayout, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         layoutTriggerCard.addView(previewRow)
 
-        var allTemplates = templateRepository.loadAllTemplates().toMutableList()
+        allTemplates = templateRepository.loadAllTemplates().toMutableList()
 
         fun applyTemplateMetadata(path: String) {
             val meta = templateRepository.getTemplateMetadata(path) ?: return
