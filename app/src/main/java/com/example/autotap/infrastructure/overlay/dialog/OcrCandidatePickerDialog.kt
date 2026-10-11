@@ -5,7 +5,6 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -32,10 +31,10 @@ class OcrCandidatePickerDialog(
     private val onDismiss: (() -> Unit)? = null,
     private val onCandidateSelected: (index: Int, selectedMatch: OcrMatchResult) -> Unit
 ) {
-
     private var isDismissed = false
-
     private var rootFrameLayout: View? = null
+    private var selectedIndex: Int = 0
+
     private val dm = context.resources.displayMetrics
     private fun dp(v: Int): Int = (v * dm.density).toInt()
     private fun dpF(v: Float): Float = v * dm.density
@@ -44,11 +43,16 @@ class OcrCandidatePickerDialog(
         if (rootFrameLayout != null || candidates.isEmpty()) return
 
         val root = FrameLayout(context).apply {
-            setBackgroundColor("#44000000".toColorInt())
+            setBackgroundColor("#55000000".toColorInt())
         }
         rootFrameLayout = root
 
-        // Floating badge button for minimized state
+        var cardRef: LinearLayout? = null
+        var floatingBadgeRef: LinearLayout? = null
+        var highlightViewRef: View? = null
+        val itemRowsList = mutableListOf<LinearLayout>()
+
+        // Свернутый плавающий бейдж
         val floatingBadge = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -61,8 +65,10 @@ class OcrCandidatePickerDialog(
             setPadding(dp(12), dp(8), dp(12), dp(8))
             visibility = View.GONE
         }
+        floatingBadgeRef = floatingBadge
+
         val tvBadgeIcon = TextView(context).apply {
-            text = "ВАРИАНТЫ (${candidates.size})"
+            text = "ТАБЛИЦА СОВПАДЕНИЙ (${candidates.size})"
             textSize = 9.5f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
@@ -70,9 +76,9 @@ class OcrCandidatePickerDialog(
         }
         floatingBadge.addView(tvBadgeIcon)
 
-        // Card container for candidates list
-        val cardW = dp(340).coerceAtMost((dm.widthPixels * 0.94f).toInt())
-        val maxListH = (dm.heightPixels * 0.42f).toInt().coerceAtLeast(dp(160))
+        // Карточка таблицы
+        val cardW = dp(350).coerceAtMost((dm.widthPixels * 0.95f).toInt())
+        val maxListH = (dm.heightPixels * 0.44f).toInt().coerceAtLeast(dp(170))
 
         val card = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -87,26 +93,41 @@ class OcrCandidatePickerDialog(
             val p = dp(10)
             setPadding(p, p, p, p)
         }
+        cardRef = card
 
-        // Canvas overlay for highlighting matches and supporting direct tap selection
+        // Интерактивный оверлей поверх экрана для прямого тапа по рамкам
         val highlightView = object : View(context) {
-            private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            private val boxPaintNormal = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
-                strokeWidth = dpF(2.2f)
+                strokeWidth = dpF(2f)
                 color = "#38BDF8".toColorInt()
             }
-            private val boxFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            private val boxPaintSelected = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                strokeWidth = dpF(3f)
+                color = "#10B981".toColorInt()
+            }
+            private val boxFillNormal = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.FILL
                 color = "#1A38BDF8".toColorInt()
+            }
+            private val boxFillSelected = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.FILL
+                color = "#4010B981".toColorInt()
             }
             private val badgeBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.FILL
                 color = "#0F172A".toColorInt()
             }
-            private val badgeBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            private val badgeBorderNormal = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
                 strokeWidth = dpF(1.5f)
                 color = "#38BDF8".toColorInt()
+            }
+            private val badgeBorderSelected = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                strokeWidth = dpF(2f)
+                color = "#10B981".toColorInt()
             }
             private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.WHITE
@@ -120,23 +141,25 @@ class OcrCandidatePickerDialog(
             override fun onDraw(canvas: Canvas) {
                 super.onDraw(canvas)
                 candidates.forEachIndexed { idx, match ->
+                    val isSel = idx == selectedIndex
                     val l = match.rectLeft.toFloat()
                     val t = match.rectTop.toFloat()
                     val r = match.rectRight.toFloat()
                     val b = match.rectBottom.toFloat()
                     boxRectF.set(l, t, r, b)
-                    canvas.drawRoundRect(boxRectF, dpF(4f), dpF(4f), boxFillPaint)
-                    canvas.drawRoundRect(boxRectF, dpF(4f), dpF(4f), boxPaint)
+
+                    canvas.drawRoundRect(boxRectF, dpF(4f), dpF(4f), if (isSel) boxFillSelected else boxFillNormal)
+                    canvas.drawRoundRect(boxRectF, dpF(4f), dpF(4f), if (isSel) boxPaintSelected else boxPaintNormal)
 
                     val badgeText = "#${idx + 1}"
-                    val bw = dpF(24f)
+                    val bw = dpF(26f)
                     val bh = dpF(18f)
                     val bx = l.coerceIn(dpF(4f), width - bw - dpF(4f))
                     val by = (t - bh - dpF(2f)).coerceIn(dpF(4f), height - bh - dpF(4f))
-
                     badgeRect.set(bx, by, bx + bw, by + bh)
+
                     canvas.drawRoundRect(badgeRect, dpF(4f), dpF(4f), badgeBgPaint)
-                    canvas.drawRoundRect(badgeRect, dpF(4f), dpF(4f), badgeBorderPaint)
+                    canvas.drawRoundRect(badgeRect, dpF(4f), dpF(4f), if (isSel) badgeBorderSelected else badgeBorderNormal)
                     canvas.drawText(badgeText, badgeRect.centerX(), badgeRect.centerY() + dpF(3.5f), textPaint)
                 }
             }
@@ -150,10 +173,10 @@ class OcrCandidatePickerDialog(
                     var minDistance = Float.MAX_VALUE
 
                     candidates.forEachIndexed { idx, match ->
-                        val l = match.rectLeft.toFloat() - dp(12)
-                        val t = match.rectTop.toFloat() - dp(12)
-                        val r = match.rectRight.toFloat() + dp(12)
-                        val b = match.rectBottom.toFloat() + dp(12)
+                        val l = match.rectLeft.toFloat() - dp(14)
+                        val t = match.rectTop.toFloat() - dp(14)
+                        val r = match.rectRight.toFloat() + dp(14)
+                        val b = match.rectBottom.toFloat() + dp(14)
                         val hitBox = RectF(l, t, r, b)
                         if (hitBox.contains(touchX, touchY)) {
                             bestIdx = idx
@@ -162,7 +185,7 @@ class OcrCandidatePickerDialog(
                             val cX = match.clickX.toFloat()
                             val cY = match.clickY.toFloat()
                             val dist = hypot((touchX - cX).toDouble(), (touchY - cY).toDouble()).toFloat()
-                            if (dist < minDistance && dist < dpF(80f)) {
+                            if (dist < minDistance && dist < dpF(90f)) {
                                 minDistance = dist
                                 bestIdx = idx
                             }
@@ -170,17 +193,17 @@ class OcrCandidatePickerDialog(
                     }
 
                     if (bestIdx != -1) {
-                        dismiss()
-                        onCandidateSelected(bestIdx, candidates[bestIdx])
+                        applySelection(bestIdx)
                         return true
                     }
                 }
-                return true
+                return false
             }
         }
+        highlightViewRef = highlightView
         root.addView(highlightView, FrameLayout.LayoutParams(-1, -1))
 
-        // Drag & Header Row
+        // Заголовок карточки таблицы
         val headerRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -188,15 +211,14 @@ class OcrCandidatePickerDialog(
         }
 
         val tvTitle = TextView(context).apply {
-            text = "⋮⋮ ВАРИАНТЫ ТЕКСТА (${candidates.size})"
-            textSize = 10f
+            text = "ТАБЛИЦА СОВПАДЕНИЙ (${candidates.size})"
+            textSize = 10.5f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
             setTextColor("#38BDF8".toColorInt())
         }
         headerRow.addView(tvTitle, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 
-        // Toggle Minimize / Inspect Screen
         val btnHide = Button(context).apply {
             text = "СВЕРНУТЬ"
             textSize = 7.5f
@@ -227,7 +249,7 @@ class OcrCandidatePickerDialog(
 
         if (onRescanRequested != null) {
             val btnRescan = Button(context).apply {
-                text = "ПЕРЕСКАНИРОВАТЬ"
+                text = "ПЕРЕСКАН"
                 textSize = 7.5f
                 typeface = Typeface.DEFAULT_BOLD
                 includeFontPadding = false
@@ -263,7 +285,7 @@ class OcrCandidatePickerDialog(
         }
         headerRow.addView(btnClose, LinearLayout.LayoutParams(dp(28), dp(28)))
 
-        // Touch Dragging Listener for card repositioning anywhere on screen
+        // Перетаскивание карточки таблицы
         var dX = 0f
         var dY = 0f
         headerRow.setOnTouchListener { _, event ->
@@ -281,28 +303,51 @@ class OcrCandidatePickerDialog(
                 else -> false
             }
         }
-
         card.addView(headerRow)
 
-        val listLayout = LinearLayout(context).apply {
+        // Поясняющая подсказка
+        val tvHint = TextView(context).apply {
+            text = "Тапните рамку на экране или выберите строку в таблице ниже:"
+            textSize = 8f
+            includeFontPadding = false
+            setTextColor("#94A3B8".toColorInt())
+            setPadding(dp(4), 0, dp(4), dp(6))
+        }
+        card.addView(tvHint)
+
+        // Таблица вариантов
+        val tableContainer = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
+        }
+
+        fun updateTableHighlight() {
+            itemRowsList.forEachIndexed { idx, row ->
+                val isSel = idx == selectedIndex
+                row.background = GradientDrawable().apply {
+                    setColor(if (isSel) "#1E3A5F".toColorInt() else "#161B22".toColorInt())
+                    cornerRadius = dpF(8f)
+                    setStroke(dp(1), (if (isSel) "#10B981" else "#21262D").toColorInt())
+                }
+            }
+            highlightViewRef?.invalidate()
+        }
+
+        fun applySelectionInternal(idx: Int) {
+            selectedIndex = idx
+            updateTableHighlight()
         }
 
         candidates.forEachIndexed { idx, match ->
             val itemRow = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                background = GradientDrawable().apply {
-                    setColor("#161B22".toColorInt())
-                    cornerRadius = dpF(8f)
-                    setStroke(dp(1), "#21262D".toColorInt())
-                }
                 val p = dp(8)
                 setPadding(p, p, p, p)
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                     bottomMargin = dp(6)
                 }
             }
+            itemRowsList.add(itemRow)
 
             val tvBadge = TextView(context).apply {
                 text = "#${idx + 1}"
@@ -333,7 +378,7 @@ class OcrCandidatePickerDialog(
                 setTextColor(Color.WHITE)
             }
             val tvCoords = TextView(context).apply {
-                text = "Центр клика: (${match.clickX}, ${match.clickY}) px"
+                text = "Координаты клика: (${match.clickX}, ${match.clickY}) px"
                 textSize = 7.5f
                 includeFontPadding = false
                 setTextColor("#94A3B8".toColorInt())
@@ -346,7 +391,10 @@ class OcrCandidatePickerDialog(
                 onCandidateSelected(idx, match)
                 dismiss()
             }
-            itemRow.setOnClickListener { chooseCandidate() }
+
+            itemRow.setOnClickListener {
+                applySelectionInternal(idx)
+            }
 
             val btnPick = Button(context).apply {
                 text = "ВЫБРАТЬ"
@@ -366,12 +414,14 @@ class OcrCandidatePickerDialog(
                 }
             }
             itemRow.addView(btnPick, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(28)))
-            listLayout.addView(itemRow)
+            tableContainer.addView(itemRow)
         }
+
+        updateTableHighlight()
 
         val scrollView = ScrollView(context).apply {
             isVerticalScrollBarEnabled = false
-            addView(listLayout)
+            addView(tableContainer)
         }
 
         val scrollContainer = object : FrameLayout(context) {
@@ -383,6 +433,34 @@ class OcrCandidatePickerDialog(
             addView(scrollView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT))
         }
         card.addView(scrollContainer)
+
+        // Нижняя панель подтверждения активного выбора
+        val bottomActionsRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(8), 0, 0)
+        }
+
+        val btnConfirm = Button(context).apply {
+            text = "ПОДТВЕРДИТЬ ВЫБОР"
+            textSize = 9.5f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                setColor("#10B981".toColorInt())
+                cornerRadius = dpF(8f)
+            }
+            setOnClickListener {
+                if (selectedIndex in candidates.indices) {
+                    onCandidateSelected(selectedIndex, candidates[selectedIndex])
+                    dismiss()
+                }
+            }
+        }
+        bottomActionsRow.addView(btnConfirm, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(34)))
+        card.addView(bottomActionsRow)
 
         val cardLp = FrameLayout.LayoutParams(cardW, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
             bottomMargin = dp(24)
@@ -404,6 +482,13 @@ class OcrCandidatePickerDialog(
             gravity = Gravity.TOP or Gravity.START
         )
         overlayWindowManager.addViewSafe(root, params)
+    }
+
+    private fun applySelection(index: Int) {
+        if (index in candidates.indices) {
+            selectedIndex = index
+            rootFrameLayout?.invalidate()
+        }
     }
 
     fun dismiss() {

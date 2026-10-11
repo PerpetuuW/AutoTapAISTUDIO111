@@ -1500,21 +1500,6 @@ class EditActionDialog(
                     if (matches.isEmpty()) {
                         android.widget.Toast.makeText(context, "Совпадений для '$q' не обнаружено", android.widget.Toast.LENGTH_SHORT).show()
                         show()
-                    } else if (matches.size == 1) {
-                        val singleMatch = matches[0]
-                        selectedTargetOccurrenceIndex = 0
-                        lastRecognizedOcrText = singleMatch.matchedText
-                        action = action.copy(
-                            type = ActionType.OCR,
-                            targetScriptOrQuery = singleMatch.matchedText,
-                            targetOccurrenceIndex = 0,
-                            posX = singleMatch.clickX.toFloat(),
-                            posY = singleMatch.clickY.toFloat()
-                        )
-                        selectedType = ActionType.OCR
-                        com.example.autotap.infrastructure.ocr.OcrQueryMetadataManager.saveOcrQueryToHistory(context, singleMatch.matchedText)
-                        android.widget.Toast.makeText(context, "Выбран шаблон '${singleMatch.matchedText}' (#1)", android.widget.Toast.LENGTH_SHORT).show()
-                        show()
                     } else {
                         activeOcrPickerDialog?.dismiss()
                         val picker = com.example.autotap.infrastructure.overlay.dialog.OcrCandidatePickerDialog(
