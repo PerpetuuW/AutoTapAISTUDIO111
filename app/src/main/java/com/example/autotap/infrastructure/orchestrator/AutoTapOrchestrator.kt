@@ -137,6 +137,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         globalPathDurationMs = prefs.getLong("PREF_GLOBAL_PATH_DURATION", 5000L)
 
         targetManager.onActionEditRequested = { showEditDialog(it) }
+        targetManager.onActionSaveRequested = { onSaveClicked() }
         targetManager.onActionTestRequested = { testSingleAction(it) }
         targetManager.onActionAddTemplateRequested = { act -> startCaptureForStep(act) }
         targetManager.onActionCalibrateRequested = { act ->
@@ -1065,6 +1066,26 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             },
             onCancelled = { controlPanelOverlay.show(); targetManager.setOverlaysVisible(true) }
         ).apply { show() }
+    }
+
+    override fun onSaveClicked() {
+        val actions = targetManager.getActions()
+        if (actions.isEmpty()) {
+            Toast.makeText(appContext, "Добавьте действия перед сохранением", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val dm = appContext.resources.displayMetrics
+        val specs = DeviceDisplaySpecs(dm.widthPixels, dm.heightPixels, dm.densityDpi, dm.density, dm.widthPixels > dm.heightPixels)
+        val defaultName = "Сценарий_${java.text.SimpleDateFormat("HH-mm-ss", java.util.Locale.US).format(java.util.Date())}"
+        val scenario = MacroScenario(defaultName, 1, specs, actions, globalClickDurationMs, globalSwipeDurationMs)
+        val saved = scenarioRepository.saveScenario(scenario)
+        if (saved) {
+            val graph = LinearToGraphMigrator.linearToGraph(scenario)
+            scenarioRepository.saveGraphScenario(graph)
+            Toast.makeText(appContext, "Сценарий '$defaultName' сохранен!", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(appContext, "Ошибка сохранения сценария", Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onScriptsClicked() {

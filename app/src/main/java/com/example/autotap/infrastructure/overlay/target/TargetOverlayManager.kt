@@ -73,6 +73,7 @@ class TargetOverlayManager(
     }
 
     var onActionEditRequested: ((MacroAction) -> Unit)? = null
+    var onActionSaveRequested: ((MacroAction) -> Unit)? = null
     var onActionTestRequested: ((MacroAction) -> Unit)? = null
     var onActionAddTemplateRequested: ((MacroAction) -> Unit)? = null
     var onActionCalibrateRequested: ((MacroAction) -> Unit)? = null
@@ -681,7 +682,8 @@ class TargetOverlayManager(
                                             cloneAction(it)
                                         }
                                     },
-                                    onDelete = { removeAction(it.id) }
+                                    onDelete = { removeAction(it.id) },
+                                    onSave = { onActionSaveRequested?.invoke(it) }
                                 )
                             }
                         }

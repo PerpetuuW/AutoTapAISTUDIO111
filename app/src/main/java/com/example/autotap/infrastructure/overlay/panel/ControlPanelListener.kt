@@ -9,6 +9,7 @@ interface ControlPanelListener {
     fun onRecordClicked()
     fun onSmartRecordClicked() { onRecordClicked() }
     fun onCaptureClicked()
+    fun onSaveClicked() {}
     fun onScriptsClicked()
     fun onSettingsClicked()
     fun onJoystickClicked()

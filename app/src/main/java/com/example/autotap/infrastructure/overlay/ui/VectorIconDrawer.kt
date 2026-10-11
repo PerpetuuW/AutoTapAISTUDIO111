@@ -19,7 +19,7 @@ object VectorIconDrawer {
         PANEL_COLLAPSE, PANEL_EXPAND, IMAGE, CONTOUR, GRAPH_TREE,
         ACTION_CLICK, ACTION_LONG_PRESS, ACTION_SWIPE, ACTION_PATH, ACTION_PINCH,
         ACTION_TRIGGER, ACTION_OCR, ACTION_COLOR, ACTION_SUBROUTINE,
-        UNDO, TEMPLATE_ADD
+        UNDO, TEMPLATE_ADD, SAVE
     }
 
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -43,6 +43,19 @@ object VectorIconDrawer {
             strokePaint.strokeWidth = strokeWidthPx
 
             when (type) {
+                IconType.SAVE -> {
+                    val s = r * 0.70f
+                    path.rewind()
+                    path.moveTo(cx - s, cy - s)
+                    path.lineTo(cx + s - (s * 0.4f), cy - s)
+                    path.lineTo(cx + s, cy - s + (s * 0.4f))
+                    path.lineTo(cx + s, cy + s)
+                    path.lineTo(cx - s, cy + s)
+                    path.close()
+                    canvas.drawPath(path, strokePaint)
+                    canvas.drawRect(cx - s * 0.5f, cy - s, cx + s * 0.2f, cy - s * 0.35f, strokePaint)
+                    canvas.drawRect(cx - s * 0.55f, cy + s * 0.1f, cx + s * 0.55f, cy + s * 0.85f, strokePaint)
+                }
                 IconType.UNDO -> {
                     path.rewind()
                     val p = r * 0.6f

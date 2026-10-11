@@ -1,5 +1,6 @@
 package com.example.autotap.infrastructure.overlay.badge
 
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
@@ -14,11 +15,13 @@ import android.os.Handler
 import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.util.AttributeSet
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewOutlineProvider
 import android.view.WindowManager
+import android.view.animation.LinearInterpolator
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -28,7 +31,6 @@ import com.example.autotap.domain.model.ExecutionState
 import com.example.autotap.infrastructure.overlay.OverlayWindowManager
 import com.example.autotap.infrastructure.overlay.ui.VectorIconDrawer
 import com.example.autotap.infrastructure.projection.MediaProjectionService
-import java.util.Locale
 import kotlin.math.abs
 
 @SuppressLint("SetTextI18n", "ClickableViewAccessibility")
@@ -40,11 +42,8 @@ class RunningBadgeOverlay(
     private var badgeView: View? = null
     private var tvStepHeader: TextView? = null
     private var tvActionStatus: TextView? = null
-    private var tvEngineLogs: TextView? = null
     private var actionProgressBar: ProgressBar? = null
     private var fillProgressDrawable: GradientDrawable? = null
-
-    private val engineLogsQueue = java.util.concurrent.ConcurrentLinkedDeque<String>()
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -76,13 +75,9 @@ class RunningBadgeOverlay(
                 val elapsed = System.currentTimeMillis() - currentStepStartTime
                 if (isSearchingMode) {
                     if (isInfiniteMode) {
-                        tvActionStatus?.text = "$currentActionTitle (inf)"
                         actionProgressBar?.progress = 50
                     } else {
-                        val remainingMs = (currentStepDurationMs - elapsed).coerceAtLeast(0L)
                         val ratio = (elapsed.toFloat() / currentStepDurationMs.toFloat()).coerceIn(0f, 1f)
-                        val remainingSec = String.format(Locale.US, "%.1fс", remainingMs / 1000f)
-                        tvActionStatus?.text = "$currentActionTitle ($remainingSec)"
                         actionProgressBar?.progress = (ratio * 100).toInt()
                     }
                 } else {
@@ -150,16 +145,13 @@ class RunningBadgeOverlay(
             elevation = dpF(12f)
         }
 
-        val tvHeader = TextView(context).apply {
+        val tvHeader = MarqueeTextView(context).apply {
             text = "ШАГ 1/1"
             setTextColor("#58A6FF".toColorInt())
             textSize = 10f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
             gravity = Gravity.CENTER
-            isSingleLine = true
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END
             layoutParams = LinearLayout.LayoutParams(contentW, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = dp(2)
             }
@@ -175,23 +167,13 @@ class RunningBadgeOverlay(
             }
         }
 
-        val tvStatus = object : TextView(context) {
-            override fun isFocused(): Boolean = true
-        }.apply {
-            text = "Запуск..."
+        val tvStatus = MarqueeTextView(context).apply {
+            text = "Запуск"
             setTextColor("#34D399".toColorInt())
             textSize = 9.5f
             typeface = Typeface.MONOSPACE
             includeFontPadding = false
-            isSingleLine = true
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.MARQUEE
-            marqueeRepeatLimit = -1
-            isSelected = true
-            isFocusable = true
-            isFocusableInTouchMode = true
             gravity = Gravity.CENTER
-            setHorizontallyScrolling(true)
             layoutParams = LinearLayout.LayoutParams(contentW, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = dp(2)
             }
@@ -204,7 +186,6 @@ class RunningBadgeOverlay(
             cornerRadius = dpF(2f)
         }
 
-        // [V25.0] Объемный градиент для шкалы прогресса бейджа
         val fillProgress = GradientDrawable(
             GradientDrawable.Orientation.LEFT_RIGHT,
             intArrayOf("#34D399".toColorInt(), "#38BDF8".toColorInt())
@@ -334,10 +315,11 @@ class RunningBadgeOverlay(
     fun updateState(state: ExecutionState.Running) {
         mainHandler.post {
             badgeView?.alpha = 1f
-            val fpsTag = if (MediaProjectionService.isStreaming) "60 FPS" else "МАКРОС"
             val repeatStr = if (state.totalRepeats > 1) " (${state.currentRepeat}/${state.totalRepeats})" else ""
-            val stepPrefix = if (state.activeNodeTitle.isNotEmpty()) "ГРАФ" else "ШАГ"
-            tvStepHeader?.text = "$fpsTag • $stepPrefix ${state.currentStepIndex}/${state.totalSteps}$repeatStr"
+            val headerText = "ШАГ ${state.currentStepIndex}/${state.totalSteps}$repeatStr"
+            if (tvStepHeader?.text?.toString() != headerText) {
+                tvStepHeader?.text = headerText
+            }
 
             currentStepStartTime = if (state.searchStartTime > 0L) state.searchStartTime else System.currentTimeMillis()
             isSearchingMode = state.isSearching
@@ -351,25 +333,28 @@ class RunningBadgeOverlay(
             } else {
                 currentStepDurationMs = if (state.searchTimeoutMs > 0L) state.searchTimeoutMs else 1000L
                 currentActionTitle = when {
-                    state.activeNodeTitle.isNotEmpty() -> "* ${state.activeNodeTitle}"
+                    state.activeNodeTitle.isNotEmpty() -> state.activeNodeTitle
                     state.stepDescription.isNotEmpty() -> state.stepDescription
                     else -> when (state.stepType) {
-                        ActionType.CLICK -> "Клик #${state.currentStepIndex}"
-                        ActionType.LONG_PRESS -> "Удержание #${state.currentStepIndex}"
-                        ActionType.SWIPE -> "Свайп #${state.currentStepIndex}"
-                        ActionType.PATH -> "Траектория #${state.currentStepIndex}"
-                        ActionType.PINCH -> "Пинч #${state.currentStepIndex}"
+                        ActionType.CLICK -> "Клик"
+                        ActionType.LONG_PRESS -> "Удержание"
+                        ActionType.SWIPE -> "Свайп"
+                        ActionType.PATH -> "Траектория"
+                        ActionType.PINCH -> "Пинч"
                         ActionType.SUBROUTINE -> "Сценарий"
                         ActionType.RETURN -> "Возврат"
-                        ActionType.GLOBAL_BACK -> "Назад #${state.currentStepIndex}"
-                        ActionType.GLOBAL_HOME -> "Домой #${state.currentStepIndex}"
-                        ActionType.DELAY -> "Пауза #${state.currentStepIndex}"
-                        ActionType.TRIGGER, ActionType.OCR, ActionType.COLOR_CHECK -> "Фаза #${state.currentStepIndex}"
-                        }
-                        }
-                        tvActionStatus?.text = currentActionTitle
-                        tvActionStatus?.setTextColor("#38BDF8".toColorInt())
-                        fillProgressDrawable?.setColor("#6366F1".toColorInt())
+                        ActionType.GLOBAL_BACK -> "Назад"
+                        ActionType.GLOBAL_HOME -> "Домой"
+                        ActionType.DELAY -> "Пауза"
+                        ActionType.TRIGGER, ActionType.OCR, ActionType.COLOR_CHECK -> "Проверка"
+                    }
+                }
+                tvActionStatus?.setTextColor("#38BDF8".toColorInt())
+                fillProgressDrawable?.setColor("#6366F1".toColorInt())
+            }
+
+            if (tvActionStatus?.text?.toString() != currentActionTitle) {
+                tvActionStatus?.text = currentActionTitle
             }
         }
     }
@@ -382,6 +367,78 @@ class RunningBadgeOverlay(
             tvStepHeader = null
             tvActionStatus = null
             actionProgressBar = null
+        }
+    }
+
+    @SuppressLint("AppCompatCustomView")
+    private class MarqueeTextView @JvmOverloads constructor(
+        context: Context,
+        attrs: AttributeSet? = null,
+        defStyleAttr: Int = 0
+    ) : TextView(context, attrs, defStyleAttr) {
+
+        private var animator: ValueAnimator? = null
+
+        init {
+            isSingleLine = true
+            maxLines = 1
+            ellipsize = null
+            setHorizontallyScrolling(true)
+        }
+
+        override fun setText(text: CharSequence?, type: BufferType?) {
+            super.setText(text, type)
+            post { updateMarquee() }
+        }
+
+        override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+            super.onSizeChanged(w, h, oldw, oldh)
+            updateMarquee()
+        }
+
+        override fun onDetachedFromWindow() {
+            super.onDetachedFromWindow()
+            stopMarquee()
+        }
+
+        fun stopMarquee() {
+            animator?.cancel()
+            animator = null
+            scrollTo(0, 0)
+        }
+
+        private fun updateMarquee() {
+            stopMarquee()
+            val textStr = text?.toString() ?: return
+            if (textStr.isEmpty()) return
+
+            val textWidth = paint.measureText(textStr)
+            val availableWidth = (width - paddingLeft - paddingRight).toFloat()
+
+            if (availableWidth <= 0f) return
+
+            if (textWidth > availableWidth) {
+                gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                val extraMargin = (8 * resources.displayMetrics.density).toInt()
+                val maxScrollX = (textWidth - availableWidth).toInt() + extraMargin
+                val scrollDuration = (maxScrollX * 35L).coerceAtLeast(1500L)
+
+                animator = ValueAnimator.ofInt(0, maxScrollX).apply {
+                    duration = scrollDuration
+                    repeatCount = ValueAnimator.INFINITE
+                    repeatMode = ValueAnimator.REVERSE
+                    interpolator = LinearInterpolator()
+                    startDelay = 800L
+                    addUpdateListener { anim ->
+                        val valX = anim.animatedValue as Int
+                        scrollTo(valX, 0)
+                    }
+                    start()
+                }
+            } else {
+                gravity = Gravity.CENTER
+                scrollTo(0, 0)
+            }
         }
     }
 }

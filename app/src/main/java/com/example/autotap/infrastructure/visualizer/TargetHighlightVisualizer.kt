@@ -238,8 +238,13 @@ object TargetHighlightVisualizer {
             elevation = dp(6f).toFloat()
         }
 
+        val titleStr = when {
+            detailText.isNotBlank() -> "$detailText • $scorePercent%"
+            moduleTag.isNotBlank() -> "$moduleTag • $scorePercent%"
+            else -> "$scorePercent%"
+        }
         val tvScore = TextView(context).apply {
-            text = "$scorePercent%"
+            text = titleStr
             textSize = 11f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(primaryColor)

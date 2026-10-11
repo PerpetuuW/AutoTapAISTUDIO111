@@ -407,7 +407,7 @@ class MacroExecutionEngine(
                                     withContext(kotlinx.coroutines.Dispatchers.Main) {
                                         val ctx = accessibilityServiceProvider()?.applicationContext
                                         if (ctx != null) {
-                                            if (isStepByStepDebug || com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.isVisualDebugEnabled) {
+                                            if (isStepByStepDebug) {
                                                 val diag = TemplateMatchingEngine.lastDiagnostics
                                                 val curRoi = if (action.roiLeft != null && action.roiTop != null && action.roiRight != null && action.roiBottom != null) {
                                                     android.graphics.Rect(action.roiLeft!!, action.roiTop!!, action.roiRight!!, action.roiBottom!!)
@@ -424,10 +424,12 @@ class MacroExecutionEngine(
                                                     durationMs = 1800L
                                                 )
                                             } else {
+                                                val tName = bestMatchCand.templateName.removePrefix("mask_").ifBlank { "Шаблон #${action.id}" }
                                                 com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showConfidenceHighlight(
                                                     context = ctx,
                                                     overlayWindowManager = com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx),
                                                     rect = matchRect,
+                                                    detailText = tName,
                                                     scorePercent = matchScorePct,
                                                     durationMs = 1400L,
                                                     templateBitmap = templateBmp
@@ -466,7 +468,7 @@ class MacroExecutionEngine(
                                     }
                                 } else if (!isMatched) {
                                     AppLogger.log(null, "TRIGGER_EXEC", String.format(Locale.US, "ШАГ #%d: таймаут поиска (цель не найдена за %d сек)", action.id, action.aiTimeoutSeconds))
-                                    if (isStepByStepDebug || com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.isVisualDebugEnabled) {
+                                    if (isStepByStepDebug) {
                                         withContext(kotlinx.coroutines.Dispatchers.Main) {
                                             val ctx = accessibilityServiceProvider()?.applicationContext
                                             if (ctx != null) {
@@ -1058,12 +1060,18 @@ class MacroExecutionEngine(
 
                 val stepTemplates = LinkedHashMap<String, Bitmap>()
                 for (p in targetPaths) {
-                    val b = templates[p] ?: templateRepository.getTemplate(p)
+                    val pName = File(p).name
+                    val b = templates[p]
+                        ?: templates.entries.firstOrNull { File(it.key).name == pName }?.value
+                        ?: templateRepository.getTemplate(p)
                     if (b != null && !b.isRecycled) {
                         stepTemplates[p] = b
                     }
                 }
-                if (stepTemplates.isEmpty()) return false
+                if (stepTemplates.isEmpty()) {
+                    AppLogger.log(null, "GRAPH_TRIGGER", "Шаблон не найден для пути '${trig.templatePath}'")
+                    return false
+                }
                 val tBmp = stepTemplates[trig.templatePath] ?: stepTemplates.values.first()
 
                 // Локальный исполнитель проверки заданного региона экрана (ROI)

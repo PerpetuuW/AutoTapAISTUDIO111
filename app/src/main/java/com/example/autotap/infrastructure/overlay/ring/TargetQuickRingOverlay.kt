@@ -67,7 +67,8 @@ class TargetQuickRingOverlay(
         onAddTemplate: (MacroAction) -> Unit,
         onCalibrate: (MacroAction) -> Unit,
         onClone: (MacroAction) -> Unit,
-        onDelete: (MacroAction) -> Unit
+        onDelete: (MacroAction) -> Unit,
+        onSave: ((MacroAction) -> Unit)? = null
     ) {
         dismiss()
 
@@ -84,30 +85,20 @@ class TargetQuickRingOverlay(
         }
         activeContainerView = root
 
-        val buttonsConfig = listOf(
+        val buttonsConfig = mutableListOf(
             Triple(VectorIconDrawer.IconType.SETTINGS, Pair("#1F6FEB", "#38BDF8")) { dismiss(); onEdit(action) },
             Triple(VectorIconDrawer.IconType.TEMPLATE_ADD, Pair("#1E293B", "#34D399")) { dismiss(); onAddTemplate(action) },
             Triple(VectorIconDrawer.IconType.CALIBRATE, Pair("#1E293B", "#A78BFA")) { dismiss(); onCalibrate(action) },
             Triple(VectorIconDrawer.IconType.PLUS, Pair("#21262D", "#58A6FF")) { dismiss(); onClone(action) },
             Triple(VectorIconDrawer.IconType.DELETE, Pair("#2A0E0C", "#F04438")) { dismiss(); onDelete(action) }
         )
-
-        val isNearLeft = centerX < dpF(75f)
-        val isNearRight = centerX > screenW - dpF(75f)
-        val isNearTop = centerY < dpF(100f)
-        val isNearBottom = centerY > screenH - dpF(100f)
-
-        val baseAnglesDeg = when {
-            isNearTop && isNearRight -> listOf(105.0, 140.0, 175.0, 210.0, 245.0)
-            isNearTop && isNearLeft -> listOf(15.0, 50.0, 85.0, 120.0, 155.0)
-            isNearBottom && isNearRight -> listOf(195.0, 230.0, 265.0, 300.0, 335.0)
-            isNearBottom && isNearLeft -> listOf(285.0, 320.0, 355.0, 30.0, 65.0)
-            isNearTop -> listOf(30.0, 65.0, 90.0, 115.0, 150.0)
-            isNearBottom -> listOf(210.0, 245.0, 270.0, 295.0, 330.0)
-            isNearRight -> listOf(120.0, 150.0, 180.0, 210.0, 240.0)
-            isNearLeft -> listOf(-60.0, -30.0, 0.0, 30.0, 60.0)
-            else -> listOf(-90.0, -18.0, 54.0, 126.0, 198.0)
+        if (onSave != null) {
+            buttonsConfig.add(Triple(VectorIconDrawer.IconType.SAVE, Pair("#0D2E1E", "#34D399")) { dismiss(); onSave(action) })
         }
+
+        val count = buttonsConfig.size
+        val angleStep = 360.0 / count
+        val baseAnglesDeg = (0 until count).map { i -> -90.0 + (i * angleStep) }
 
         for (i in buttonsConfig.indices) {
             val (iconType, colors, onClick) = buttonsConfig[i]
