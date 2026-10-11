@@ -1037,6 +1037,15 @@
       "checker_file": "check_mask_sliders_and_contour_reactivity.py",
       "checker": "check_mask_sliders_and_contour_reactivity.py",
       "status": "FIXED"
+    },
+    {
+      "id": "DEFECT_BADGE_SYMMETRY_AND_CALIBRATION_ACCURACY",
+      "description": "Симметричное центрирование круглых кнопок и элементов в окне выполнения шагов RunningBadgeOverlay",
+      "target_file": "app/src/main/java/com/example/autotap/infrastructure/overlay/badge/RunningBadgeOverlay.kt",
+      "checker_module": "check_badge_symmetry_and_calibration_accuracy.py",
+      "checker_file": "check_badge_symmetry_and_calibration_accuracy.py",
+      "checker": "check_badge_symmetry_and_calibration_accuracy.py",
+      "status": "FIXED"
     }
   ]
 }

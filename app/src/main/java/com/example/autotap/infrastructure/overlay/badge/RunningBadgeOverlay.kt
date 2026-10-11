@@ -225,7 +225,7 @@ class RunningBadgeOverlay(
 
         val buttonsRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.CENTER
             clipChildren = false
             clipToPadding = false
             layoutParams = LinearLayout.LayoutParams(contentW, dp(36))
@@ -248,7 +248,7 @@ class RunningBadgeOverlay(
                 setStroke(dp(1), "#58A6FF".toColorInt())
             }
             layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply {
-                marginEnd = dp(6)
+                marginEnd = dp(8)
             }
             setOnClickListener {
                 vibrate(30L)
