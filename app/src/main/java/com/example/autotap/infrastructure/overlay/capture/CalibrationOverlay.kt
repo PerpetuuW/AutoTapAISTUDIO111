@@ -1274,6 +1274,7 @@ private val targetStepId: Int? = null,
             minHeight = 0; minimumHeight = 0
             setPadding(dp(6), dp(4), dp(6), dp(4))
             setOnClickListener {
+                customEditedMask = null
                 isAutoContourMode = !isAutoContourMode
                 text = if (isAutoContourMode) "КОНТУР" else "КАРТИНКА"
                 setTextColor(Color.WHITE)
@@ -1459,6 +1460,7 @@ private val targetStepId: Int? = null,
         sbExp.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
+                    customEditedMask = null
                     currentShapeExpansion = progress
                     tvExp.text = "$currentShapeExpansion%"
                     reevaluateMatching()
@@ -1480,6 +1482,7 @@ private val targetStepId: Int? = null,
         sbPad.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
+                    customEditedMask = null
                     currentPaddingOffset = progress - 5
                     tvPad.text = "${currentPaddingOffset}px"
                     reevaluateMatching()

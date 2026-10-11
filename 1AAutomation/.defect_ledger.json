@@ -1028,6 +1028,15 @@
       "checker_file": "check_search_message_conciseness_and_cache_hygiene.py",
       "checker": "check_search_message_conciseness_and_cache_hygiene.py",
       "status": "FIXED"
+    },
+    {
+      "id": "DEFECT_MASK_SLIDERS_AND_CONTOUR_REACTIVITY",
+      "description": "Реактивность ползунков охвата формы, отступа краев и переключателя контура после ручного редактирования маски",
+      "target_file": "app/src/main/java/com/example/autotap/infrastructure/overlay/capture/CalibrationOverlay.kt",
+      "checker_module": "check_mask_sliders_and_contour_reactivity.py",
+      "checker_file": "check_mask_sliders_and_contour_reactivity.py",
+      "checker": "check_mask_sliders_and_contour_reactivity.py",
+      "status": "FIXED"
     }
   ]
 }
