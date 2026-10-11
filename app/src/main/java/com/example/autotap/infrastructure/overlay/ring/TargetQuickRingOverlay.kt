@@ -68,7 +68,7 @@ class TargetQuickRingOverlay(
         onCalibrate: (MacroAction) -> Unit,
         onClone: (MacroAction) -> Unit,
         onDelete: (MacroAction) -> Unit,
-        onSave: ((MacroAction) -> Unit)? = null
+        onScripts: ((MacroAction) -> Unit)? = null
     ) {
         dismiss()
 
@@ -92,8 +92,8 @@ class TargetQuickRingOverlay(
             Triple(VectorIconDrawer.IconType.PLUS, Pair("#21262D", "#58A6FF")) { dismiss(); onClone(action) },
             Triple(VectorIconDrawer.IconType.DELETE, Pair("#2A0E0C", "#F04438")) { dismiss(); onDelete(action) }
         )
-        if (onSave != null) {
-            buttonsConfig.add(Triple(VectorIconDrawer.IconType.SAVE, Pair("#0D2E1E", "#34D399")) { dismiss(); onSave(action) })
+        if (onScripts != null) {
+            buttonsConfig.add(Triple(VectorIconDrawer.IconType.SCRIPTS, Pair("#0D2E3A", "#38BDF8")) { dismiss(); onScripts(action) })
         }
 
         val count = buttonsConfig.size

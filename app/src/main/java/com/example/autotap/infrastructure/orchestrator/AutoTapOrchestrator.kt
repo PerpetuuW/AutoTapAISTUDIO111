@@ -137,7 +137,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         globalPathDurationMs = prefs.getLong("PREF_GLOBAL_PATH_DURATION", 5000L)
 
         targetManager.onActionEditRequested = { showEditDialog(it) }
-        targetManager.onActionSaveRequested = { onSaveClicked() }
+        targetManager.onActionScriptsRequested = { onScriptsClicked() }
         targetManager.onActionTestRequested = { testSingleAction(it) }
         targetManager.onActionAddTemplateRequested = { act -> startCaptureForStep(act) }
         targetManager.onActionCalibrateRequested = { act ->
