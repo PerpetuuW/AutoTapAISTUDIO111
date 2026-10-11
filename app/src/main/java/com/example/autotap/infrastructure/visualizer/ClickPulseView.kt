@@ -30,11 +30,6 @@ class ClickPulseView(context: Context) : View(context) {
         color = Color.parseColor("#A78BFA")
     }
 
-    private val corePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.FILL
-        color = Color.WHITE
-    }
-
     private val rayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = 3f
@@ -112,15 +107,7 @@ class ClickPulseView(context: Context) : View(context) {
             canvas.drawCircle(cx, cy, innerRadius, innerRingPaint)
         }
 
-        // 4. Яркое центральное ядро клика (исчезает в первой половине)
-        if (progress < 0.6f) {
-            val coreAlpha = (1f - (progress / 0.6f)).coerceIn(0f, 1f)
-            val coreRadius = (maxRadius * 0.22f) * (1f - progress * 0.5f)
-            corePaint.alpha = (255 * coreAlpha).toInt().coerceIn(0, 255)
-            canvas.drawCircle(cx, cy, coreRadius, corePaint)
-        }
-
-        // 5. Изящные направляющие лучи
+        // 4. Изящные направляющие лучи
         val rayLen = 12f * alphaMultiplier
         val rayDist = currentRadius + 3f
         rayPaint.alpha = (180 * alphaMultiplier).toInt().coerceIn(0, 255)
