@@ -206,6 +206,8 @@ class GestureRecorderOverlay(
                         isLiveStreamingActive = false
                     }
                     val duration = (System.currentTimeMillis() - touchStartTime).coerceAtLeast(30L)
+                    val actualDelay = if (lastRecordEventTime > 0L) (touchStartTime - lastRecordEventTime).coerceIn(20L, 60000L) else 200L
+                    lastRecordEventTime = System.currentTimeMillis()
                     val startPt = currentTouchPoints.firstOrNull() ?: Point2D(curX, curY)
                     val endPt = Point2D(curX, curY)
                     val totalDistance = hypot((endPt.x - startPt.x).toDouble(), (endPt.y - startPt.y).toDouble()).toFloat()
@@ -345,7 +347,7 @@ class GestureRecorderOverlay(
                                                 clickOffsetX = clickOffX,
                                                 clickOffsetY = clickOffY,
                                                 holdDurationMs = gestureDuration,
-                                                delayMs = 400L
+                                                delayMs = actualDelay
                                             ))
                                             tvRecordCount?.text = "REC: ${recordedActions.size}"
                                             Toast.makeText(context, "Шаблон #${nextId} захвачен", Toast.LENGTH_SHORT).show()
@@ -359,7 +361,7 @@ class GestureRecorderOverlay(
                                             } else {
                                             // Фолбэк на обычный клик, если скриншот не удался
                                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                            recordedActions.add(MacroAction(id = nextId, type = ActionType.CLICK, posX = startPt.x, posY = startPt.y, holdDurationMs = gestureDuration, delayMs = 400L))
+                                            recordedActions.add(MacroAction(id = nextId, type = ActionType.CLICK, posX = startPt.x, posY = startPt.y, holdDurationMs = gestureDuration, delayMs = actualDelay))
                                             tvRecordCount?.text = "REC: ${recordedActions.size}"
                                             canvas.alpha = 1f
                                             restoreTouchAfter(40L)
@@ -374,7 +376,7 @@ class GestureRecorderOverlay(
                                                 val res = dispatcher?.performClick(startPt.x, startPt.y, gestureDuration) ?: false
                                                 com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "RegularRecord: performClick результат=$res")
                                             }, 50L)
-                                            recordedActions.add(MacroAction(id = nextId, type = ActionType.CLICK, posX = startPt.x, posY = startPt.y, holdDurationMs = gestureDuration, delayMs = orch.globalClickPauseMs))
+                                            recordedActions.add(MacroAction(id = nextId, type = ActionType.CLICK, posX = startPt.x, posY = startPt.y, holdDurationMs = gestureDuration, delayMs = actualDelay))
                                             canvas.alpha = 1f
                                             restoreTouchAfter(gestureDuration + 100L)
                                             }
@@ -384,8 +386,7 @@ class GestureRecorderOverlay(
                         mainHandler.postDelayed({
                             dispatcher?.performClick(startPt.x, startPt.y, gestureDuration)
                         }, 50L)
-                        val actualDelay = if (lastRecordEventTime > 0L) (touchStartTime - lastRecordEventTime).coerceIn(20L, 60000L) else 250L
-                        lastRecordEventTime = System.currentTimeMillis()
+                        
                         recordedActions.add(MacroAction(id = nextId, type = ActionType.LONG_PRESS, posX = startPt.x, posY = startPt.y, holdDurationMs = gestureDuration, delayMs = actualDelay))
                         restoreTouchAfter(gestureDuration + 100L)
                     } else {
@@ -396,8 +397,7 @@ class GestureRecorderOverlay(
                         mainHandler.postDelayed({
                             dispatcher?.performPath(compressedPoints, instantDuration)
                         }, 50L)
-                        val actualDelay = if (lastRecordEventTime > 0L) (touchStartTime - lastRecordEventTime).coerceIn(20L, 60000L) else 100L
-                        lastRecordEventTime = System.currentTimeMillis()
+                        
                         val defaultPathDur = com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(context).globalPathDurationMs
                         val isStraightSwipe = compressedPoints.size <= 2 && totalDistance > dpF(20f)
                         val recordedHoldDuration = if (duration > 30L) duration else defaultPathDur

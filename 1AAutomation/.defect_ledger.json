@@ -1064,6 +1064,15 @@
       "checker_file": "check_metadata_calibration_anchors.py",
       "checker": "check_metadata_calibration_anchors.py",
       "status": "FIXED"
+    },
+    {
+      "id": "DEFECT_GESTURE_RECORDING_TIMING_AND_PAUSES",
+      "description": "Учет реального времени пауз (delayMs) и длительности нажатий (holdDurationMs) при записи жестов в GestureRecorderOverlay",
+      "target_file": "app/src/main/java/com/example/autotap/infrastructure/overlay/record/GestureRecorderOverlay.kt",
+      "checker_module": "check_gesture_recording_timing.py",
+      "checker_file": "check_gesture_recording_timing.py",
+      "checker": "check_gesture_recording_timing.py",
+      "status": "FIXED"
     }
   ]
 }
