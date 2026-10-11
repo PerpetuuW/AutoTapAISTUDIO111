@@ -72,6 +72,7 @@ class KeepAliveDaemonService : Service() {
     }
 
     override fun onDestroy() {
+        AppLogger.log(this, "DAEMON", "KeepAliveDaemonService уничтожен (onDestroy)")
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 stopForeground(STOP_FOREGROUND_REMOVE)

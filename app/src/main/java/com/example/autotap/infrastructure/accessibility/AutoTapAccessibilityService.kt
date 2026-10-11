@@ -134,6 +134,7 @@ class AutoTapAccessibilityService : AccessibilityService() {
     override fun onUnbind(intent: Intent?): Boolean {
         isServiceConnectedState = false
         serviceRef = null
+        AppLogger.log(this, "ACCESSIBILITY", "Служба кликера отвязана системой/пользователем (onUnbind)")
         try {
             val orchestrator = AutoTapOrchestrator.getInstance(this)
             orchestrator.hideOverlays()
@@ -148,11 +149,13 @@ class AutoTapAccessibilityService : AccessibilityService() {
         super.onRebind(intent)
         serviceRef = WeakReference(this)
         isServiceConnectedState = true
+        AppLogger.log(this, "ACCESSIBILITY", "Служба кликера переподключена (onRebind)")
     }
 
     override fun onDestroy() {
         isServiceConnectedState = false
         serviceRef = null
+        AppLogger.log(this, "ACCESSIBILITY", "Служба кликера уничтожена (onDestroy - система выгрузила службу или завершен процесс)")
         try {
             bgScreenshotExecutor.shutdownNow()
             val orchestrator = AutoTapOrchestrator.getInstance(this)
@@ -204,7 +207,9 @@ class AutoTapAccessibilityService : AccessibilityService() {
         } catch (_: Throwable) {}
     }
 
-    override fun onInterrupt() {}
+    override fun onInterrupt() {
+        AppLogger.log(this, "ACCESSIBILITY", "Служба кликера прервана системой (onInterrupt)")
+    }
 
     override fun onKeyEvent(event: KeyEvent?): Boolean {
         try {
