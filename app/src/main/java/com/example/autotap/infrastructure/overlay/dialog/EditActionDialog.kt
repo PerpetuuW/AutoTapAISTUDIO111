@@ -1767,7 +1767,8 @@ class EditActionDialog(
             val jumpT = etJumpTimeout.text.toString().toIntOrNull()?.let { if (it > 0) it else null }
             val subTarget = if (selectedType == ActionType.SUBROUTINE) etSubroutineName.text.toString().trim() else action.subroutineTarget
             val d = maxOf(10L, etDelay.text.toString().toLongOrNull() ?: action.delayMs)
-            val h = (etHold.text.toString().toLongOrNull() ?: action.holdDurationMs).coerceIn(10L, d)
+            val rawH = etHold.text.toString().toLongOrNull() ?: action.holdDurationMs
+            val h = if (selectedType == ActionType.CLICK) rawH.coerceIn(10L, d) else rawH.coerceAtLeast(10L)
             val currentAct = action.copy(
                 type = selectedType,
                 isNeuralEngine = isNeuralEngine,
@@ -1821,7 +1822,8 @@ class EditActionDialog(
                 val jumpT = etJumpTimeout.text.toString().toIntOrNull()?.let { if (it > 0) it else null }
                 val subTarget = if (selectedType == ActionType.SUBROUTINE) etSubroutineName.text.toString().trim() else action.subroutineTarget
                 val d = maxOf(10L, etDelay.text.toString().toLongOrNull() ?: action.delayMs)
-                val h = (etHold.text.toString().toLongOrNull() ?: action.holdDurationMs).coerceIn(10L, d)
+                val rawH = etHold.text.toString().toLongOrNull() ?: action.holdDurationMs
+                val h = if (selectedType == ActionType.CLICK) rawH.coerceIn(10L, d) else rawH.coerceAtLeast(10L)
                 val updated = action.copy(
                     type = selectedType,
                     templatePath = effectivePrimary,
