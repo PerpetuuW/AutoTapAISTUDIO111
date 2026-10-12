@@ -63,12 +63,13 @@ class ScreenLockOverlay(
         set(value) = prefs.edit().putFloat("lock_brightness", value).apply()
 
     var onLockDismissedListener: (() -> Unit)? = null
+    private var currentBgColor: Int = Color.BLACK
 
     fun isShowing(): Boolean = bgLockContainer != null
 
     fun setTemporarilyTransparent(transparent: Boolean) {
         mainHandler.post {
-            bgLockContainer?.alpha = if (transparent) 0f else 1f
+            bgLockContainer?.setBackgroundColor(if (transparent) Color.TRANSPARENT else currentBgColor)
             uiLockContainer?.alpha = if (transparent) 0f else 1f
         }
     }
@@ -191,12 +192,12 @@ class ScreenLockOverlay(
 
 
         val initialProgress = (lockBrightness * 100).toInt().coerceIn(0, 100)
-        val initialColor = if (initialProgress == 0) Color.BLACK else {
+        currentBgColor = if (initialProgress == 0) Color.BLACK else {
             val alpha = (255 * (1.0f - (initialProgress / 100f) * 0.35f)).toInt().coerceIn(160, 255)
             Color.argb(alpha, 0, 0, 0)
         }
         val bg = FrameLayout(context).apply {
-            setBackgroundColor(initialColor)
+            setBackgroundColor(currentBgColor)
             setOnTouchListener { _, _ -> true }
         }
         bgLockContainer = bg

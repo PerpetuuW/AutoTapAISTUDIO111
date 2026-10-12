@@ -1,13 +1,12 @@
-# Walkthrough - Bug Fixes & UX Enhancements
+# Walkthrough - Fixing Screen Brightness Pulsing During Search and Lock
 
 ## Changes
 
-### EditActionDialog.kt
-- Wrapped template rename `EditText` inside a padded `LinearLayout` container with `MATCH_PARENT` layout params to prevent crashes when attempting to rename templates.
+### ScreenLockOverlay.kt
+- Updated `setTemporarilyTransparent` to toggle `bgLockContainer` background color (`Color.TRANSPARENT` vs `currentBgColor`) instead of modifying window view alpha. This ensures WindowManager maintains `screenBrightness` attributes firmly without dropping/resetting them during accessibility screenshot capture, eliminating brightness pulsing and flashing.
 
-### CalibrationOverlay.kt
-- Shortened default template names to `Цель_<4 digits>` (e.g., `Цель_4829`) so they fit nicely on template previews.
-- Synchronized `multiTemplatePaths` when saving and calibrating templates in multi-search mode, fixing issues where multi-search failed to locate the updated template.
+### AutoTapAccessibilityService.kt
+- Updated `wakeUpScreenIfNeeded` to use `PowerManager.PARTIAL_WAKE_LOCK` instead of `SCREEN_DIM_WAKE_LOCK`, keeping the CPU awake for screenshots without turning on display backlights or altering brightness.
 
 ## Verification Results
 

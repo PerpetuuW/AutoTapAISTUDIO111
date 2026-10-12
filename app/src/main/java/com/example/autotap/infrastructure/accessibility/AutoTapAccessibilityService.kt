@@ -242,7 +242,7 @@ class AutoTapAccessibilityService : AccessibilityService() {
             val pm = getSystemService(android.content.Context.POWER_SERVICE) as? android.os.PowerManager ?: return
             if (!pm.isInteractive) {
                 @Suppress("DEPRECATION")
-                val wl = pm.newWakeLock(android.os.PowerManager.SCREEN_DIM_WAKE_LOCK or android.os.PowerManager.ACQUIRE_CAUSES_WAKEUP, "AutoTap:ScreenWake")
+                val wl = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "AutoTap:CPUWake")
                 wl.acquire(3000L)
             }
         } catch (_: Exception) {}
