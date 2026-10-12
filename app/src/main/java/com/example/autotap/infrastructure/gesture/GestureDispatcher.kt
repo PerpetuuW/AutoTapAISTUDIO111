@@ -372,73 +372,126 @@ class GestureDispatcher(
         val maxW = (dm.widthPixels - 1).toFloat()
         val maxH = (dm.heightPixels - 1).toFloat()
 
-        AppLogger.log(service, "GESTURE", "Запуск отрисовки пути (${points.size} точек), длительность ${durationMs}мс")
+        AppLogger.log(service, "GESTURE", "Запуск точной отрисовки пути (${points.size} точек), базовая длительность ${durationMs}мс")
 
-        val path = Path().apply {
-            val startX = points[0].x.coerceIn(0f, maxW)
-            val startY = points[0].y.coerceIn(0f, maxH)
-            moveTo(startX, startY)
-            if (points.size == 1) {
-                lineTo(startX, startY)
-            } else {
-                for (i in 1 until points.size) {
-                    lineTo(points[i].x.coerceIn(0f, maxW), points[i].y.coerceIn(0f, maxH))
-                }
-            }
-        }
-
-        val stroke = GestureDescription.StrokeDescription(path, 0L, durationMs.coerceAtLeast(1L))
-        val gesture = GestureDescription.Builder().addStroke(stroke).build()
         val isDone = AtomicBoolean(false)
-        val timeoutRunnable = Runnable {
-            if (isDone.compareAndSet(false, true)) {
-                safeTogglePassthrough(false)
-                AppLogger.log(service, "GESTURE", "Таймаут выполнения пути/жеста")
-                onComplete?.invoke(false)
-            }
-        }
-
         val minX = points.minOf { it.x }
         val minY = points.minOf { it.y }
         val maxX = points.maxOf { it.x }
         val maxY = points.maxOf { it.y }
         safeTogglePassthrough(true, android.graphics.RectF(minX, minY, maxX, maxY))
-        val renderDelay = 45L
-        mainHandler.postDelayed(timeoutRunnable, durationMs + 350L + renderDelay)
 
-        mainHandler.postDelayed({
-            if (isDone.get()) return@postDelayed
-            try {
-                AppLogger.log(service, "GESTURE", "Отправка сложного пути в Android System...")
-                val dispatched = service.dispatchGesture(gesture, object : AccessibilityService.GestureResultCallback() {
-                    override fun onCompleted(gestureDescription: GestureDescription?) {
-                        AppLogger.log(service, "GESTURE", "Сложный путь УСПЕШНО исполнен системой. Точек: ${points.size}, Длительность: ${durationMs}мс")
-                        mainHandler.removeCallbacks(timeoutRunnable)
-                        safeTogglePassthrough(false)
-                        if (isDone.compareAndSet(false, true)) onComplete?.invoke(true)
+        // Fallback для старых Android (API < 26) - константная скорость одним куском
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O || points.size == 1) {
+            val path = android.graphics.Path().apply {
+                val startX = points[0].x.coerceIn(0f, maxW)
+                val startY = points[0].y.coerceIn(0f, maxH)
+                moveTo(startX, startY)
+                if (points.size == 1) {
+                    lineTo(startX, startY)
+                } else {
+                    for (i in 1 until points.size) {
+                        lineTo(points[i].x.coerceIn(0f, maxW), points[i].y.coerceIn(0f, maxH))
                     }
+                }
+            }
+            val stroke = GestureDescription.StrokeDescription(path, 0L, durationMs.coerceAtLeast(1L))
+            val gesture = GestureDescription.Builder().addStroke(stroke).build()
+            
+            val timeoutRunnable = Runnable {
+                if (isDone.compareAndSet(false, true)) {
+                    safeTogglePassthrough(false)
+                    onComplete?.invoke(false)
+                }
+            }
+            mainHandler.postDelayed(timeoutRunnable, durationMs + 350L + 45L)
+            
+            mainHandler.postDelayed({
+                if (isDone.get()) return@postDelayed
+                try {
+                    service.dispatchGesture(gesture, object : AccessibilityService.GestureResultCallback() {
+                        override fun onCompleted(gestureDescription: GestureDescription?) {
+                            mainHandler.removeCallbacks(timeoutRunnable)
+                            safeTogglePassthrough(false)
+                            if (isDone.compareAndSet(false, true)) onComplete?.invoke(true)
+                        }
+                        override fun onCancelled(gestureDescription: GestureDescription?) {
+                            mainHandler.removeCallbacks(timeoutRunnable)
+                            safeTogglePassthrough(false)
+                            if (isDone.compareAndSet(false, true)) onComplete?.invoke(false)
+                        }
+                    }, null)
+                } catch (e: Exception) {
+                    mainHandler.removeCallbacks(timeoutRunnable)
+                    safeTogglePassthrough(false)
+                    if (isDone.compareAndSet(false, true)) onComplete?.invoke(false)
+                }
+            }, 45L)
+            return
+        }
 
+        // [V26+] Точное репродуктивное выполнение через цепочку continueStroke
+        fun dispatchSegment(segmentIndex: Int, previousStroke: GestureDescription.StrokeDescription?) {
+            if (isDone.get()) return
+            if (segmentIndex >= points.size - 1) {
+                // Все сегменты выполнены
+                safeTogglePassthrough(false)
+                if (isDone.compareAndSet(false, true)) onComplete?.invoke(true)
+                return
+            }
+
+            val p1 = points[segmentIndex]
+            val p2 = points[segmentIndex + 1]
+            val segPath = android.graphics.Path().apply {
+                moveTo(p1.x.coerceIn(0f, maxW), p1.y.coerceIn(0f, maxH))
+                lineTo(p2.x.coerceIn(0f, maxW), p2.y.coerceIn(0f, maxH))
+            }
+
+            // Высчитываем оригинальную скорость сегмента
+            var segDuration = (p2.timeOffsetMs - p1.timeOffsetMs).coerceAtLeast(5L)
+            if (segDuration > 5000L) segDuration = 5000L // Защита от бесконечных зависаний
+            
+            val isLastSegment = (segmentIndex == points.size - 2)
+            
+            val currentStroke = if (previousStroke != null) {
+                previousStroke.continueStroke(segPath, 0L, segDuration, !isLastSegment)
+            } else {
+                GestureDescription.StrokeDescription(segPath, 0L, segDuration, !isLastSegment)
+            }
+
+            val gesture = GestureDescription.Builder().addStroke(currentStroke).build()
+
+            val timeoutRunnable = Runnable {
+                if (isDone.compareAndSet(false, true)) {
+                    safeTogglePassthrough(false)
+                    onComplete?.invoke(false)
+                }
+            }
+            mainHandler.postDelayed(timeoutRunnable, segDuration + 500L)
+
+            try {
+                service.dispatchGesture(gesture, object : AccessibilityService.GestureResultCallback() {
+                    override fun onCompleted(gestureDescription: GestureDescription?) {
+                        mainHandler.removeCallbacks(timeoutRunnable)
+                        dispatchSegment(segmentIndex + 1, currentStroke)
+                    }
                     override fun onCancelled(gestureDescription: GestureDescription?) {
-                        AppLogger.log(service, "GESTURE", "ОШИБКА: Сложный путь ОТМЕНЕН системой. Проверьте перекрытие окон, права службы или активность экрана! Точек: ${points.size}")
                         mainHandler.removeCallbacks(timeoutRunnable)
                         safeTogglePassthrough(false)
                         if (isDone.compareAndSet(false, true)) onComplete?.invoke(false)
                     }
                 }, null)
-
-                if (!dispatched) {
-                    AppLogger.log(service, "GESTURE", "ОШИБКА: dispatchGesture сложного пути вернул FALSE")
-                    mainHandler.removeCallbacks(timeoutRunnable)
-                    safeTogglePassthrough(false)
-                    if (isDone.compareAndSet(false, true)) onComplete?.invoke(false)
-                }
             } catch (e: Exception) {
-                AppLogger.logError(service, "GESTURE_CRASH_PATH", e)
                 mainHandler.removeCallbacks(timeoutRunnable)
                 safeTogglePassthrough(false)
                 if (isDone.compareAndSet(false, true)) onComplete?.invoke(false)
             }
-        }, renderDelay)
+        }
+
+        // Запускаем рекурсивную цепочку сегментов
+        mainHandler.postDelayed({
+            dispatchSegment(0, null)
+        }, 45L)
     }
 
     fun performPathSync(points: List<Point2D>, durationMs: Long, timeoutMs: Long): Boolean {
