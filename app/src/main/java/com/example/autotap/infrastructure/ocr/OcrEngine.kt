@@ -32,7 +32,11 @@ object OcrEngine {
     private val ortEnv: OrtEnvironment by lazy { OrtEnvironment.getEnvironment() }
 
     @Volatile
+    @android.annotation.SuppressLint("StaticFieldLeak")
     var explicitContext: Context? = null
+        set(value) {
+            field = value?.applicationContext
+        }
 
     private val sessionLock = Any()
     @Volatile

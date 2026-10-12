@@ -111,10 +111,14 @@ class GestureDispatcher(
         // CRITICAL INVARIANT: continueStroke startTime is measured from the completion of the previous stroke.
         // For unbroken live control (e.g. virtual joystick in game), delay must be 0L.
         val nextStart = 0L
-        val stroke = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && prev != null) {
-            prev.continueStroke(path, nextStart, segDuration, true)
+        val stroke = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            if (prev != null) {
+                prev.continueStroke(path, nextStart, segDuration, true)
+            } else {
+                android.accessibilityservice.GestureDescription.StrokeDescription(path, 0L, segDuration, true)
+            }
         } else {
-            android.accessibilityservice.GestureDescription.StrokeDescription(path, 0L, segDuration, true)
+            android.accessibilityservice.GestureDescription.StrokeDescription(path, 0L, segDuration)
         }
         activeLiveStroke = stroke
         liveGestureElapsed += segDuration
@@ -133,10 +137,14 @@ class GestureDispatcher(
         val prev = activeLiveStroke
         val segDuration = 30L
         val nextStart = 0L
-        val stroke = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && prev != null) {
-            prev.continueStroke(path, nextStart, segDuration, false)
+        val stroke = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            if (prev != null) {
+                prev.continueStroke(path, nextStart, segDuration, false)
+            } else {
+                android.accessibilityservice.GestureDescription.StrokeDescription(path, 0L, segDuration, false)
+            }
         } else {
-            android.accessibilityservice.GestureDescription.StrokeDescription(path, 0L, segDuration, false)
+            android.accessibilityservice.GestureDescription.StrokeDescription(path, 0L, segDuration)
         }
         activeLiveStroke = null
         liveGestureElapsed = 0L
