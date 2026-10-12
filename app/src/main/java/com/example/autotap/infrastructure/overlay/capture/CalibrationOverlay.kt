@@ -1949,10 +1949,22 @@ private val targetStepId: Int? = null,
         }
         folderRow.addView(tvFolderLabel)
 
+        val btnPrevFolder = Button(context).apply {
+            text = "◀"
+            textSize = 9f
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                setColor("#21262D".toColorInt())
+                cornerRadius = dpF(4f)
+                setStroke(dp(1), "#30363D".toColorInt())
+            }
+            minHeight = 0; minimumHeight = 0
+            setPadding(dp(4), 0, dp(4), 0)
+        }
+        folderRow.addView(btnPrevFolder, LinearLayout.LayoutParams(dp(28), dp(28)))
+
         val etFolder = EditText(context).apply {
             hint = "default"
-            val curFolder = if (existingTemplatePath != null) File(existingTemplatePath).parentFile?.name ?: "default" else "default"
-            setText(curFolder)
             setTextColor(Color.WHITE)
             setHintTextColor("#8B949E".toColorInt())
             textSize = 10f
@@ -1963,13 +1975,13 @@ private val targetStepId: Int? = null,
             }
             val p = dp(4)
             setPadding(p, p, p, p)
-            layoutParams = LinearLayout.LayoutParams(0, dp(28), 1f)
+            layoutParams = LinearLayout.LayoutParams(0, dp(28), 1f).apply {
+                marginStart = dp(4)
+                marginEnd = dp(4)
+            }
             setOnTouchListener { v, event ->
                 if (event.action == MotionEvent.ACTION_UP) {
                     v.requestFocus()
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        v.windowInsetsController?.show(WindowInsets.Type.ime())
-                    }
                     val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
                     @Suppress("DEPRECATION")
                     imm?.showSoftInput(v, InputMethodManager.SHOW_IMPLICIT)
@@ -1979,8 +1991,8 @@ private val targetStepId: Int? = null,
         }
         folderRow.addView(etFolder)
 
-        val btnSelectFolder = Button(context).apply {
-            text = "▼"
+        val btnNextFolder = Button(context).apply {
+            text = "▶"
             textSize = 9f
             setTextColor(Color.WHITE)
             background = GradientDrawable().apply {
@@ -1989,12 +2001,39 @@ private val targetStepId: Int? = null,
                 setStroke(dp(1), "#30363D".toColorInt())
             }
             minHeight = 0; minimumHeight = 0
-            setPadding(dp(6), 0, dp(6), 0)
-            setOnClickListener {
-                showFolderSelectionModal(etFolder)
+            setPadding(dp(4), 0, dp(4), 0)
+        }
+        folderRow.addView(btnNextFolder, LinearLayout.LayoutParams(dp(28), dp(28)))
+
+        var foldersList = listOf("default")
+        var currentFolderIndex = 0
+        try {
+            val repo = templateRepository as? com.example.autotap.infrastructure.storage.TemplateRepositoryImpl
+            val repoFolders = repo?.listFolders()
+            if (repoFolders != null && repoFolders.isNotEmpty()) {
+                foldersList = repoFolders
+            }
+            val curFolder = if (existingTemplatePath != null) File(existingTemplatePath).parentFile?.name ?: "default" else "default"
+            if (!foldersList.contains(curFolder)) {
+                foldersList = foldersList + curFolder
+            }
+            currentFolderIndex = foldersList.indexOf(curFolder).coerceAtLeast(0)
+            etFolder.setText(foldersList[currentFolderIndex])
+        } catch (_: Exception) {}
+
+        btnPrevFolder.setOnClickListener {
+            if (foldersList.isNotEmpty()) {
+                currentFolderIndex = if (currentFolderIndex - 1 < 0) foldersList.size - 1 else currentFolderIndex - 1
+                etFolder.setText(foldersList[currentFolderIndex])
             }
         }
-        folderRow.addView(btnSelectFolder, LinearLayout.LayoutParams(dp(28), dp(28)).apply {marginStart = dp(4)})
+        btnNextFolder.setOnClickListener {
+            if (foldersList.isNotEmpty()) {
+                currentFolderIndex = (currentFolderIndex + 1) % foldersList.size
+                etFolder.setText(foldersList[currentFolderIndex])
+            }
+        }
+
         card.addView(folderRow)
 
         val actionRow = LinearLayout(context).apply {
@@ -2220,13 +2259,15 @@ private val targetStepId: Int? = null,
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
-            overlayWindowManager.getOverlayType(),
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            overlayWindowManager.getOverlayType(true),
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE
             x = 0
             y = 0
         }
