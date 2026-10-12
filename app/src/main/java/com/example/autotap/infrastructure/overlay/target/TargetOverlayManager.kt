@@ -53,6 +53,14 @@ class TargetOverlayManager(
     private fun dp(v: Float): Int = (v * dm.density).toInt()
 
     private var isGraphAttached = false
+    private var pendingSwapActionId: Int? = null
+
+    private fun startSwapSequence(action: MacroAction) {
+        pendingSwapActionId = action.id
+        android.widget.Toast.makeText(context, "Нажмите на другой шаг для обмена местами", android.widget.Toast.LENGTH_SHORT).show()
+        // Визуальная подсветка выбора - заставим цель пульсировать или выделим её
+        targetViews[action.id]?.alpha = 0.5f
+    }
 
     var isOverlaysVisibleState: Boolean = true
         private set
@@ -188,6 +196,21 @@ class TargetOverlayManager(
             spawnWaypointViews(newAction)
         }
         updateGraph()
+    }
+
+    fun swapActions(id1: Int, id2: Int) {
+        val idx1 = actionsList.indexOfFirst { it.id == id1 }
+        val idx2 = actionsList.indexOfFirst { it.id == id2 }
+        if (idx1 == -1 || idx2 == -1 || idx1 == idx2) return
+
+        val act1 = actionsList[idx1]
+        val act2 = actionsList[idx2]
+
+        actionsList[idx1] = act2.copy(id = act1.id)
+        actionsList[idx2] = act1.copy(id = act2.id)
+
+        syncAllViews()
+        onActionsChanged?.invoke(actionsList.toList())
     }
 
     fun cloneAction(action: MacroAction) {
@@ -665,6 +688,18 @@ class TargetOverlayManager(
                     MotionEvent.ACTION_UP -> {
                         if (!isMoved) {
                             val currentAct = actionsList.firstOrNull { it.id == currentId } ?: action
+                            val pendingId = pendingSwapActionId
+                            if (pendingId != null && pendingId != currentAct.id) {
+                                swapActions(pendingId, currentAct.id)
+                                pendingSwapActionId = null
+                                android.widget.Toast.makeText(context, "Шаги поменялись местами", android.widget.Toast.LENGTH_SHORT).show()
+                                return true
+                            } else if (pendingId != null) {
+                                pendingSwapActionId = null
+                                targetViews[currentAct.id]?.alpha = 1.0f
+                                return true
+                            }
+
                             if (quickRingOverlay.isShowingFor(currentAct.id)) {
                                 quickRingOverlay.dismiss()
                             } else {
@@ -674,6 +709,7 @@ class TargetOverlayManager(
                                     centerY = lp.y.toFloat() + halfSz,
                                     onEdit = { onActionEditRequested?.invoke(it) },
                                     onAddTemplate = { onActionAddTemplateRequested?.invoke(it) },
+                                    onSwapRequested = { startSwapSequence(it) },
                                     onCalibrate = { onActionCalibrateRequested?.invoke(it) },
                                     onClone = { 
                                         if (it.type == ActionType.PATH) {

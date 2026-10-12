@@ -471,6 +471,7 @@ class GestureDispatcher(
             .build()
 
         val isDone = AtomicBoolean(false)
+        safeTogglePassthrough(true, null, null)
         val timeoutRunnable = Runnable {
             if (isDone.compareAndSet(false, true)) {
                 safeTogglePassthrough(false)
@@ -478,7 +479,6 @@ class GestureDispatcher(
             }
         }
 
-        safeTogglePassthrough(true, centerX, centerY)
         val renderDelay = 45L
         mainHandler.postDelayed(timeoutRunnable, safeDuration + 300L + renderDelay)
 
