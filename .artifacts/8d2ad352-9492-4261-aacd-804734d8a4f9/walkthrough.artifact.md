@@ -1,12 +1,12 @@
-# Walkthrough - In-Place Template and Mask Updates on Save/Recapture
+# Walkthrough - Circular Play Button in Collapsed Overlay & Unified Play/Stop Buttons
 
 ## Changes
 
-### TargetOverlayManager.kt
-- Updated `CalibrationOverlay` invocation to pass `existingTemplatePath = targetAction.templatePath.takeIf { it.isNotBlank() }` instead of `null` (preventing orphaned files and enabling in-place template/mask updates).
+### ControlPanelOverlay.kt
+- Updated `btnMiniPlay` (collapsed main overlay Play/Pause button) to have a circular border/shape (`isCircleShape = true`), matching circular control symmetry while keeping expanded toolbar Play/Pause buttons as-is.
 
-### AutoTapOrchestrator.kt
-- Updated recapture flows (`startRecaptureForStep` and related flows) to pass `existingTemplatePath = effectiveAction.templatePath.takeIf { it.isNotBlank() }` and `initialAction?.templatePath?.takeIf { it.isNotBlank() }` instead of `null`.
+### RunningBadgeOverlay.kt
+- Migrated `btnStop` to use `CanvasIconButton` with `isCircleShape = true`, unifying the Stop button rendering and styling with the rest of the overlay design system.
 
 ## Verification Results
 

@@ -316,7 +316,7 @@ class ControlPanelOverlay(
             bgColorEnd = Color.parseColor(if (isPlayingState) "#1C080B" else "#061A10")
             strokeColor = Color.parseColor(if (isPlayingState) "#F43F5E" else "#34D399")
             strokeWidthPx = dpF(1.2f)
-            cornerRadiusPx = dpF(12f)
+            isCircleShape = true
             iconPaddingPx = dpF(8f)
             elevation = dpF(3f)
             layoutParams = LinearLayout.LayoutParams(dp(38), dp(38))

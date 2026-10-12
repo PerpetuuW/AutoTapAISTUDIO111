@@ -245,22 +245,16 @@ class RunningBadgeOverlay(
         }
         buttonsRow.addView(btnLock)
 
-        val btnStop = object : View(context) {
-            private val bounds = RectF()
-            override fun onDraw(canvas: Canvas) {
-                super.onDraw(canvas)
-                bounds.set(dpF(8.5f), dpF(8.5f), width - dpF(8.5f), height - dpF(8.5f))
-                VectorIconDrawer.drawIcon(canvas, VectorIconDrawer.IconType.STOP, bounds, Color.WHITE, dpF(2f))
-            }
-        }.apply {
-            outlineProvider = ViewOutlineProvider.BACKGROUND
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf("#F04438".toColorInt(), "#B42318".toColorInt())
-            ).apply {
-                shape = GradientDrawable.OVAL
-                setStroke(dp(1), "#FDA29B".toColorInt())
-            }
+        val btnStop = com.example.autotap.infrastructure.overlay.ui.CanvasIconButton(context).apply {
+            iconType = VectorIconDrawer.IconType.STOP
+            iconColor = Color.WHITE
+            bgColorStart = Color.parseColor("#F04438")
+            bgColorEnd = Color.parseColor("#B42318")
+            strokeColor = Color.parseColor("#FDA29B")
+            strokeWidthPx = dpF(1.2f)
+            isCircleShape = true
+            iconPaddingPx = dpF(8f)
+            elevation = dpF(2f)
             layoutParams = LinearLayout.LayoutParams(dp(36), dp(36))
             setOnClickListener {
                 vibrate(45L)
