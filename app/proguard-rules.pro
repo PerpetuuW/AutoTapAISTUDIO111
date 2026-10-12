@@ -28,6 +28,14 @@
 -keep class com.yandex.mobile.ads.** { *; }
 -dontwarn com.yandex.mobile.ads.**
 
+# Защита ONNX Runtime JNI вызовов
+-keep class ai.onnxruntime.** { *; }
+-dontwarn ai.onnxruntime.**
+
+# Защита RuStore Pay SDK для проведения платежей
+-keep class ru.rustore.sdk.pay.** { *; }
+-dontwarn ru.rustore.sdk.pay.**
+
 # Защита Kotlin Coroutines и StateFlow
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory { *; }
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler { *; }
