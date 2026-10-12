@@ -369,35 +369,18 @@ class GestureRecorderOverlay(
                                             }
                                             }
                                             } else {
-                                            // Режим обычных жестов: мгновенный вброс и запись
-                                            val orch = com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(context)
-                                            com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "RegularRecord: Вызов performClick в (${startPt.x}, ${startPt.y})...")
-                                            mainHandler.postDelayed({
-                                                val res = dispatcher?.performClick(startPt.x, startPt.y, gestureDuration) ?: false
-                                                com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "RegularRecord: performClick результат=$res")
-                                            }, 50L)
+                                            // Режим обычных жестов: жест транслируется ВЖИВУЮ в реальном времени
                                             recordedActions.add(MacroAction(id = nextId, type = ActionType.CLICK, posX = startPt.x, posY = startPt.y, holdDurationMs = gestureDuration, delayMs = actualDelay))
                                             canvas.alpha = 1f
-                                            restoreTouchAfter(gestureDuration + 100L)
+                                            restoreTouchAfter(40L)
                                             }
                                              } else if (totalDistance < dpF(12f) && duration >= 350L) {
                         val gestureDuration = duration.coerceAtLeast(350L)
-                        com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "LongPressRecord: Вызов performClick в (${startPt.x}, ${startPt.y}), duration=${gestureDuration}ms")
-                        mainHandler.postDelayed({
-                            dispatcher?.performClick(startPt.x, startPt.y, gestureDuration)
-                        }, 50L)
-                        
                         recordedActions.add(MacroAction(id = nextId, type = ActionType.LONG_PRESS, posX = startPt.x, posY = startPt.y, holdDurationMs = gestureDuration, delayMs = actualDelay))
-                        restoreTouchAfter(gestureDuration + 100L)
+                        restoreTouchAfter(60L)
                     } else {
-                        // [Сегментированная запись путей]: завершение текущего участка и сохранение параметров
+                        // [Запись путей/свайпов]: жест уже транслировался ВЖИВУЮ в реальном времени во время ACTION_MOVE
                         val compressedPoints = PathCompressionEngine.compressPath(currentTouchPoints.toList(), maxPoints = 80)
-                        val instantDuration = duration.coerceIn(25L, 50L) // Моментальный вброс для UX
-                        com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "Path/SwipeRecord: Вызов performPath (${compressedPoints.size} точек), instantDuration=${instantDuration}ms (saved duration=${duration}ms)")
-                        mainHandler.postDelayed({
-                            dispatcher?.performPath(compressedPoints, instantDuration)
-                        }, 50L)
-                        
                         val defaultPathDur = com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(context).globalPathDurationMs
                         val isStraightSwipe = compressedPoints.size <= 2 && totalDistance > dpF(20f)
                         val recordedHoldDuration = if (duration > 30L) duration else defaultPathDur
@@ -412,7 +395,7 @@ class GestureRecorderOverlay(
                             delayMs = actualDelay,
                             pathPoints = compressedPoints
                         ))
-                        restoreTouchAfter(instantDuration + 60L)
+                        restoreTouchAfter(60L)
                     }
                     currentTouchPoints.clear()
                     tvRecordCount?.text = "REC: ${recordedActions.size}"

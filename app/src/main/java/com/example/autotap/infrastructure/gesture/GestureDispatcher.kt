@@ -74,7 +74,7 @@ class GestureDispatcher(
         liveLastY = startY
         liveGestureElapsed = 0L
         lastLiveUpdateTime = System.currentTimeMillis()
-        val segDuration = 40L
+        val segDuration = 30L
         val stroke = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             android.accessibilityservice.GestureDescription.StrokeDescription(path, 0L, segDuration, true)
         } else {
@@ -82,16 +82,22 @@ class GestureDispatcher(
         }
         activeLiveStroke = stroke
         liveGestureElapsed += segDuration
-        // Skip actual dispatchGesture to prevent Android input driver canceling hardware touch stream.
-        // We log the live stream start and return true.
-        AppLogger.log(service, "GESTURE_LIVE", "LiveStream Start в ($startX, $startY) - Запись жеста активна")
+
+        val gesture = android.accessibilityservice.GestureDescription.Builder().addStroke(stroke).build()
+        try {
+            service.dispatchGesture(gesture, null, null)
+        } catch (e: Exception) {
+            AppLogger.logError(service, "GESTURE_LIVE_START_ERROR", e)
+        }
+
+        AppLogger.log(service, "GESTURE_LIVE", "LiveStream Start в ($startX, $startY) - Запуск симуляции жеста")
         return true
     }
 
     fun sendLivePathUpdate(fromX: Float, fromY: Float, toX: Float, toY: Float): Boolean {
         val service = serviceProvider() ?: return false
         val now = System.currentTimeMillis()
-        if (now - lastLiveUpdateTime < 25L) {
+        if (now - lastLiveUpdateTime < 20L) {
             liveLastX = toX
             liveLastY = toY
             return true
@@ -107,9 +113,7 @@ class GestureDispatcher(
         liveLastX = toX
         liveLastY = toY
         val prev = activeLiveStroke
-        val segDuration = 40L
-        // CRITICAL INVARIANT: continueStroke startTime is measured from the completion of the previous stroke.
-        // For unbroken live control (e.g. virtual joystick in game), delay must be 0L.
+        val segDuration = 30L
         val nextStart = 0L
         val stroke = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             if (prev != null) {
@@ -122,7 +126,13 @@ class GestureDispatcher(
         }
         activeLiveStroke = stroke
         liveGestureElapsed += segDuration
-        // Skip actual dispatchGesture update to prevent hardware touch cancel.
+
+        val gesture = android.accessibilityservice.GestureDescription.Builder().addStroke(stroke).build()
+        try {
+            service.dispatchGesture(gesture, null, null)
+        } catch (e: Exception) {
+            AppLogger.logError(service, "GESTURE_LIVE_UPDATE_ERROR", e)
+        }
         return true
     }
 
@@ -148,8 +158,14 @@ class GestureDispatcher(
         }
         activeLiveStroke = null
         liveGestureElapsed = 0L
-        // Skip actual dispatchGesture finish to prevent hardware touch cancel.
-        AppLogger.log(service, "GESTURE_LIVE", "LiveStream Finish в ($lastX, $lastY) - Траектория полностью захвачена")
+
+        val gesture = android.accessibilityservice.GestureDescription.Builder().addStroke(stroke).build()
+        try {
+            service.dispatchGesture(gesture, null, null)
+        } catch (e: Exception) {
+            AppLogger.logError(service, "GESTURE_LIVE_FINISH_ERROR", e)
+        }
+        AppLogger.log(service, "GESTURE_LIVE", "LiveStream Finish в ($lastX, $lastY) - Финал симуляции жеста")
         return true
     }
 
