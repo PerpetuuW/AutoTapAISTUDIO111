@@ -149,6 +149,23 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
         }
     }
 
+    fun renameFolder(oldName: String, newName: String): Boolean {
+        if (oldName == "default" || newName == "default" || oldName.isBlank() || newName.isBlank()) return false
+        return try {
+            val oldFolder = File(baseTemplatesDir, oldName)
+            val newFolder = File(baseTemplatesDir, newName)
+            if (!oldFolder.exists() || newFolder.exists()) return false
+            val success = oldFolder.renameTo(newFolder)
+            if (success) {
+                memoryCache.clear() // Cache paths are invalidated
+            }
+            success
+        } catch (e: Exception) {
+            AppLogger.logError(context, "STORAGE", e)
+            false
+        }
+    }
+
     override fun moveToTrash(templatePath: String): Boolean {
         return try {
             val maskFile = File(templatePath)

@@ -707,9 +707,19 @@ class EditActionDialog(
             val oldFile = File(effectivePrimary)
             val currentName = oldFile.nameWithoutExtension.removePrefix("mask_")
 
-            val container = LinearLayout(context).apply {
+            val confirmCard = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(dp(16), dp(8), dp(16), dp(8))
+                background = GradientDrawable().apply {
+                    setColor(Color.parseColor("#1E1B2E"))
+                    cornerRadius = dpF(8f)
+                    setStroke(dp(1), Color.parseColor("#6366F1"))
+                }
+                setPadding(dp(8), dp(8), dp(8), dp(8))
+            }
+            val tvWarn = TextView(context).apply {
+                text = "Новое имя шаблона:"
+                textSize = 9f
+                setTextColor(Color.WHITE)
             }
             val input = EditText(context).apply {
                 setText(currentName)
@@ -718,35 +728,39 @@ class EditActionDialog(
                 setBackgroundColor(Color.parseColor("#161B22"))
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             }
-            container.addView(input)
-            val dialog = android.app.AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle("Переименовать шаблон")
-                .setView(container)
-                .setPositiveButton("ОК") { dialog, _ ->
-                    val newName = input.text.toString().trim()
-                    if (newName.isNotBlank()) {
-                        val newPath = templateRepository.renameTemplate(effectivePrimary, newName)
-                        if (newPath != null) {
-                            boundTemplatePath = newPath
-                            if (selectedMultiPaths.contains(effectivePrimary)) {
-                                selectedMultiPaths.remove(effectivePrimary)
-                                selectedMultiPaths.add(newPath)
-                            }
-                            allTemplates = templateRepository.loadAllTemplates().toMutableList()
-                            refreshActiveTemplateCard()
-                            Toast.makeText(context, "Шаблон переименован!", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(context, "Ошибка переименования", Toast.LENGTH_SHORT).show()
+            val btnRow = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.END
+                setPadding(0, dp(6), 0, 0)
+            }
+            val btnYes = createTextActionButton("ОК", "#312E81", "#818CF8") {
+                val newName = input.text.toString().trim()
+                if (newName.isNotBlank()) {
+                    val newPath = templateRepository.renameTemplate(effectivePrimary, newName)
+                    if (newPath != null) {
+                        boundTemplatePath = newPath
+                        if (selectedMultiPaths.contains(effectivePrimary)) {
+                            selectedMultiPaths.remove(effectivePrimary)
+                            selectedMultiPaths.add(newPath)
                         }
+                        allTemplates = templateRepository.loadAllTemplates().toMutableList()
+                        refreshActiveTemplateCard()
+                        Toast.makeText(context, "Шаблон переименован!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Ошибка переименования", Toast.LENGTH_SHORT).show()
                     }
-                    dialog.dismiss()
                 }
-                .setNegativeButton("Отмена") { dialog, _ -> dialog.dismiss() }
-                .create()
-            dialog.window?.setType(overlayWindowManager.getOverlayType(false))
-            @Suppress("DEPRECATION")
-            dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE or WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-            dialog.show()
+                rootCard.removeView(confirmCard)
+            }
+            val btnNo = createTextActionButton("ОТМЕНА", "#21262D", "#94A3B8") {
+                rootCard.removeView(confirmCard)
+            }
+            btnRow.addView(btnNo, LinearLayout.LayoutParams(dp(65), dp(28)).apply { marginEnd = dp(4) })
+            btnRow.addView(btnYes, LinearLayout.LayoutParams(dp(65), dp(28)))
+            confirmCard.addView(tvWarn)
+            confirmCard.addView(input)
+            confirmCard.addView(btnRow)
+            rootCard.addView(confirmCard, 1)
         }
         nameHeaderRow.addView(btnRenameTpl, LinearLayout.LayoutParams(dp(44), dp(22)))
         metaInfoLayout.addView(nameHeaderRow)
@@ -1050,35 +1064,81 @@ class EditActionDialog(
                             val repoImpl = templateRepository as? com.example.autotap.infrastructure.storage.TemplateRepositoryImpl
                             val folderDir = java.io.File(context.filesDir, "templates/$folderName")
                             val filesCount = folderDir.listFiles()?.size ?: 0
-                            if (filesCount == 0) {
-                                val dialog = android.app.AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                                    .setTitle("Удаление папки")
-                                    .setMessage("Удалить пустую папку «$folderName»?")
-                                    .setPositiveButton("Удалить") { _, _ ->
-                                        repoImpl?.deleteFolder(folderName, false)
-                                        renderCarouselItems()
-                                    }
-                                    .setNegativeButton("Отмена", null)
-                                    .create()
-                                dialog.window?.setType(overlayWindowManager.getOverlayType(false))
-                                dialog.show()
-                            } else {
-                                val dialog = android.app.AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                                    .setTitle("Удаление папки «$folderName»")
-                                    .setMessage("В папке содержится шаблонов: $filesCount. Что сделать с ними?")
-                                    .setPositiveButton("Удалить с шаблонами") { _, _ ->
-                                        repoImpl?.deleteFolder(folderName, true)
-                                        renderCarouselItems()
-                                    }
-                                    .setNeutralButton("Перенести в default") { _, _ ->
-                                        repoImpl?.deleteFolder(folderName, false)
-                                        renderCarouselItems()
-                                    }
-                                    .setNegativeButton("Отмена", null)
-                                    .create()
-                                dialog.window?.setType(overlayWindowManager.getOverlayType(false))
-                                dialog.show()
+
+                            val actionCard = LinearLayout(context).apply {
+                                orientation = LinearLayout.VERTICAL
+                                background = GradientDrawable().apply {
+                                    setColor(Color.parseColor("#1E1B2E"))
+                                    cornerRadius = dpF(8f)
+                                    setStroke(dp(1), Color.parseColor("#F59E0B"))
+                                }
+                                setPadding(dp(8), dp(8), dp(8), dp(8))
                             }
+
+                            val tvWarn = TextView(context).apply {
+                                text = if (filesCount == 0) "Удалить пустую группу «$folderName»?"
+                                       else "Группа «$folderName» содержит $filesCount шаблонов."
+                                textSize = 9f
+                                setTextColor(Color.WHITE)
+                                setPadding(0, 0, 0, dp(8))
+                            }
+                            actionCard.addView(tvWarn)
+
+                            val btnRow1 = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END }
+                            if (filesCount > 0) {
+                                val btnDelAll = createTextActionButton("Удалить всё", "#451A03", "#F59E0B") {
+                                    repoImpl?.deleteFolder(folderName, true)
+                                    rootCard.removeView(actionCard)
+                                    renderCarouselItems()
+                                }
+                                val btnMove = createTextActionButton("Перенести в default", "#161B22", "#38BDF8") {
+                                    repoImpl?.deleteFolder(folderName, false)
+                                    rootCard.removeView(actionCard)
+                                    renderCarouselItems()
+                                }
+                                btnRow1.addView(btnMove, LinearLayout.LayoutParams(0, dp(28), 1.2f).apply { marginEnd = dp(4) })
+                                btnRow1.addView(btnDelAll, LinearLayout.LayoutParams(0, dp(28), 1f))
+                            } else {
+                                val btnDel = createTextActionButton("Удалить", "#451A03", "#F59E0B") {
+                                    repoImpl?.deleteFolder(folderName, false)
+                                    rootCard.removeView(actionCard)
+                                    renderCarouselItems()
+                                }
+                                btnRow1.addView(btnDel, LinearLayout.LayoutParams(dp(100), dp(28)))
+                            }
+                            actionCard.addView(btnRow1)
+
+                            // Rename Folder logic
+                            val renameRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(8), 0, 0) }
+                            val input = EditText(context).apply {
+                                setText(folderName)
+                                setSelection(folderName.length)
+                                setTextColor(Color.WHITE)
+                                setBackgroundColor(Color.parseColor("#161B22"))
+                                layoutParams = LinearLayout.LayoutParams(0, dp(28), 1f).apply { marginEnd = dp(4) }
+                            }
+                            val btnRename = createTextActionButton("ПЕРЕИМЕНОВАТЬ", "#312E81", "#818CF8") {
+                                val newName = input.text.toString().trim()
+                                if (newName.isNotBlank()) {
+                                    if (repoImpl?.renameFolder(folderName, newName) == true) {
+                                        Toast.makeText(context, "Группа переименована", Toast.LENGTH_SHORT).show()
+                                        allTemplates = templateRepository.loadAllTemplates().toMutableList()
+                                        renderCarouselItems()
+                                    } else {
+                                        Toast.makeText(context, "Ошибка переименования", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                                rootCard.removeView(actionCard)
+                            }
+                            val btnCancel = createTextActionButton("ОТМЕНА", "#21262D", "#94A3B8") {
+                                rootCard.removeView(actionCard)
+                            }
+                            renameRow.addView(input)
+                            renameRow.addView(btnRename, LinearLayout.LayoutParams(dp(110), dp(28)).apply { marginEnd = dp(4) })
+                            renameRow.addView(btnCancel, LinearLayout.LayoutParams(dp(65), dp(28)))
+                            actionCard.addView(renameRow)
+
+                            rootCard.addView(actionCard, 1)
                             true
                         }
                     }
