@@ -80,7 +80,7 @@ object NeuralVisualMatcher {
         if (validPixels < 16) return emptyList()
 
         val tMean = tLumaSum.toFloat() / validPixels
-        var tVar = tLumaSqSum.toFloat() - (tLumaSum.toFloat() * tLumaSum.toFloat() / validPixels)
+        val tVar = tLumaSqSum.toFloat() - (tLumaSum.toFloat() * tLumaSum.toFloat() / validPixels)
         // Защита от плоских шаблонов: если шаблон не имеет текстуры, корреляция бессмысленна
         if (tVar < (validPixels * 8f)) return emptyList()
         val tStdDev = sqrt(tVar.toDouble()).toFloat()
@@ -91,13 +91,24 @@ object NeuralVisualMatcher {
 
         // 1. Учет зоны интереса (ROI)
         val override = actionOverride
-        val hasRoi = override?.roiLeft != null && override.roiTop != null &&
-                override.roiRight != null && override.roiBottom != null &&
-                override.roiRight > override.roiLeft && override.roiBottom > override.roiTop
-        val roiL = if (hasRoi && override != null) (override.roiLeft ?: 0).coerceIn(0, sw - tw) else 0
-        val roiT = if (hasRoi && override != null) (override.roiTop ?: 0).coerceIn(0, sh - th) else 0
-        val roiR = if (hasRoi && override != null) (override.roiRight ?: sw).coerceIn(roiL + tw, sw) else sw
-        val roiB = if (hasRoi && override != null) (override.roiBottom ?: sh).coerceIn(roiT + th, sh) else sh
+        val roiL: Int
+        val roiT: Int
+        val roiR: Int
+        val roiB: Int
+        if (override != null && override.roiLeft != null && override.roiTop != null &&
+            override.roiRight != null && override.roiBottom != null &&
+            override.roiRight > override.roiLeft && override.roiBottom > override.roiTop
+        ) {
+            roiL = override.roiLeft.coerceIn(0, sw - tw)
+            roiT = override.roiTop.coerceIn(0, sh - th)
+            roiR = override.roiRight.coerceIn(roiL + tw, sw)
+            roiB = override.roiBottom.coerceIn(roiT + th, sh)
+        } else {
+            roiL = 0
+            roiT = 0
+            roiR = sw
+            roiB = sh
+        }
 
         // [V180.0] Защитный запас сходимости AI +5% против ложных срабатываний на рекламе
         val effectiveSimilarity = (minSimilarityPercent + 5).coerceAtMost(99)
@@ -289,7 +300,7 @@ object NeuralVisualMatcher {
 
             val tMean = tLumaSum.toFloat() / validPixels
             val tVar = (tLumaSqSum.toFloat() - (tLumaSum.toFloat() * tLumaSum.toFloat() / validPixels)).coerceAtLeast(1f)
-            val tStdDev = kotlin.math.sqrt(tVar.toDouble()).toFloat().coerceAtLeast(0.01f)
+            val tStdDev = sqrt(tVar.toDouble()).toFloat().coerceAtLeast(0.01f)
 
             var peakZncc = -1f
             var peakX = originX
@@ -318,7 +329,7 @@ object NeuralVisualMatcher {
                 if (count == 0) continue
                 val sMean = sLumaSum.toFloat() / count
                 val sVar = (sLumaSqSum.toFloat() - (sLumaSum.toFloat() * sLumaSum.toFloat() / count)).coerceAtLeast(1f)
-                val sStdDev = kotlin.math.sqrt(sVar.toDouble()).toFloat().coerceAtLeast(0.01f)
+                val sStdDev = sqrt(sVar.toDouble()).toFloat().coerceAtLeast(0.01f)
                 val cov = crossCorr.toFloat() - (count * tMean * sMean)
                 val zncc = (cov / (tStdDev * sStdDev)).coerceIn(-1f, 1f)
                 if (zncc > peakZncc) {

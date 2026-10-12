@@ -199,7 +199,7 @@ class TemplateFeatures(
 
         val minD = min(tw, th)
         val calculatedDownscale = if (metaDownscaleFactor > 1) metaDownscaleFactor else when {
-            minD < 28 || isMicro || isThin -> 1
+            minD < 28 || isMicro -> 1
             minD < 64 -> 2
             minD < 140 -> 3
             else -> 4
@@ -506,20 +506,34 @@ class TemplateFeatures(
 
         val allCandidates = ConcurrentHashMap.newKeySet<MatchCandidate>()
         val rejectedCandidatesList = java.util.Collections.synchronizedList(mutableListOf<Pair<MatchCandidate, String>>())
-        val defaultSim = actionOverride?.similarityPercent ?: minSimilarityPercent
+        val override = actionOverride
+        val defaultSim = override?.similarityPercent ?: minSimilarityPercent
 
-        val hasRoi = actionOverride?.roiLeft != null && actionOverride.roiTop != null &&
-            actionOverride.roiRight != null && actionOverride.roiBottom != null
-        val roiMinX = if (hasRoi) (actionOverride?.roiLeft ?: 0).coerceIn(0, sw - 1) else 0
-        val roiMinY = if (hasRoi) (actionOverride?.roiTop ?: 0).coerceIn(0, sh - 1) else 0
-        val roiMaxX = if (hasRoi) (actionOverride?.roiRight ?: sw).coerceIn(roiMinX + 1, sw) else sw
-        val roiMaxY = if (hasRoi) (actionOverride?.roiBottom ?: sh).coerceIn(roiMinY + 1, sh) else sh
+        val roiMinX: Int
+        val roiMinY: Int
+        val roiMaxX: Int
+        val roiMaxY: Int
+        val hasRoi: Boolean
+        if (override != null && override.roiLeft != null && override.roiTop != null &&
+            override.roiRight != null && override.roiBottom != null
+        ) {
+            hasRoi = true
+            roiMinX = override.roiLeft.coerceIn(0, sw - 1)
+            roiMinY = override.roiTop.coerceIn(0, sh - 1)
+            roiMaxX = override.roiRight.coerceIn(roiMinX + 1, sw)
+            roiMaxY = override.roiBottom.coerceIn(roiMinY + 1, sh)
+        } else {
+            hasRoi = false
+            roiMinX = 0
+            roiMinY = 0
+            roiMaxX = sw
+            roiMaxY = sh
+        }
 
-        val primaryPath = actionOverride?.templatePath ?: ""
-        val isDeltaEMode = actionOverride?.colorDeltaEMode ?: false
-        val selectedRoiZones = if (hasRoi) listOf(Rect(roiMinX, roiMinY, roiMaxX, roiMaxY)) else emptyList<Rect>()
-        val selectedAnchors = actionOverride?.primaryAnchorPoints ?: emptyList()
-        var lastUsedDownscale = if ((actionOverride?.downscaleFactor ?: 0) in 1..4) actionOverride!!.downscaleFactor else 1
+        val isDeltaEMode = override?.colorDeltaEMode ?: false
+        val selectedRoiZones = if (hasRoi) listOf(Rect(roiMinX, roiMinY, roiMaxX, roiMaxY)) else emptyList()
+        val selectedAnchors = override?.primaryAnchorPoints ?: emptyList()
+        val lastUsedDownscale = override?.downscaleFactor?.takeIf { it in 1..4 } ?: 1
 
         for ((tPath, tBmp) in templates) {
             if (isCancelled() || tBmp.isRecycled) continue

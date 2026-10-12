@@ -13,6 +13,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.text.InputType
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewTreeObserver
@@ -712,7 +713,7 @@ class EditActionDialog(
                 setTextColor(Color.WHITE)
                 setBackgroundColor(Color.parseColor("#161B22"))
             }
-            android.app.AlertDialog.Builder(context)
+            val dialog = android.app.AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                 .setTitle("Переименовать шаблон")
                 .setView(input)
                 .setPositiveButton("ОК") { dialog, _ ->
@@ -735,7 +736,11 @@ class EditActionDialog(
                     dialog.dismiss()
                 }
                 .setNegativeButton("Отмена") { dialog, _ -> dialog.dismiss() }
-                .show()
+                .create()
+            dialog.window?.setType(overlayWindowManager.getOverlayType(false))
+            @Suppress("DEPRECATION")
+            dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE or WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            dialog.show()
         }
         nameHeaderRow.addView(btnRenameTpl, LinearLayout.LayoutParams(dp(44), dp(22)))
         metaInfoLayout.addView(nameHeaderRow)
@@ -886,6 +891,19 @@ class EditActionDialog(
                 setHintTextColor("#64748B".toColorInt())
                 background = null
                 layoutParams = LinearLayout.LayoutParams(0, dp(32), 1f)
+                imeOptions = EditorInfo.IME_ACTION_DONE
+                setOnEditorActionListener { v, actionId, event ->
+                    if (actionId == EditorInfo.IME_ACTION_DONE ||
+                        actionId == EditorInfo.IME_ACTION_NEXT ||
+                        actionId == EditorInfo.IME_ACTION_GO ||
+                        (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
+                    ) {
+                        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                        imm?.hideSoftInputFromWindow(v.windowToken, 0)
+                        v.clearFocus()
+                        true
+                    } else false
+                }
             }
             val btnConfirmMove = createTextActionButton("OK", "#312E81", "#818CF8") {
                 val fName = etFolderName.text.toString().trim()
@@ -1027,7 +1045,7 @@ class EditActionDialog(
                             val folderDir = java.io.File(context.filesDir, "templates/$folderName")
                             val filesCount = folderDir.listFiles()?.size ?: 0
                             if (filesCount == 0) {
-                                android.app.AlertDialog.Builder(context)
+                                val dialog = android.app.AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                                     .setTitle("Удаление папки")
                                     .setMessage("Удалить пустую папку «$folderName»?")
                                     .setPositiveButton("Удалить") { _, _ ->
@@ -1035,9 +1053,11 @@ class EditActionDialog(
                                         renderCarouselItems()
                                     }
                                     .setNegativeButton("Отмена", null)
-                                    .show()
+                                    .create()
+                                dialog.window?.setType(overlayWindowManager.getOverlayType(false))
+                                dialog.show()
                             } else {
-                                android.app.AlertDialog.Builder(context)
+                                val dialog = android.app.AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                                     .setTitle("Удаление папки «$folderName»")
                                     .setMessage("В папке содержится шаблонов: $filesCount. Что сделать с ними?")
                                     .setPositiveButton("Удалить с шаблонами") { _, _ ->
@@ -1049,7 +1069,9 @@ class EditActionDialog(
                                         renderCarouselItems()
                                     }
                                     .setNegativeButton("Отмена", null)
-                                    .show()
+                                    .create()
+                                dialog.window?.setType(overlayWindowManager.getOverlayType(false))
+                                dialog.show()
                             }
                             true
                         }
@@ -2027,6 +2049,18 @@ class EditActionDialog(
             includeFontPadding = false
             inputType = InputType.TYPE_CLASS_NUMBER
             imeOptions = EditorInfo.IME_ACTION_DONE
+            setOnEditorActionListener { v, actionId, event ->
+                if (actionId == EditorInfo.IME_ACTION_DONE ||
+                    actionId == EditorInfo.IME_ACTION_NEXT ||
+                    actionId == EditorInfo.IME_ACTION_GO ||
+                    (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
+                ) {
+                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                    imm?.hideSoftInputFromWindow(v.windowToken, 0)
+                    v.clearFocus()
+                    true
+                } else false
+            }
             background = GradientDrawable().apply {
                 setColor("#161B22".toColorInt())
                 cornerRadius = dpF(4f)
@@ -2088,6 +2122,18 @@ class EditActionDialog(
             includeFontPadding = false
             inputType = InputType.TYPE_CLASS_TEXT
             imeOptions = EditorInfo.IME_ACTION_DONE
+            setOnEditorActionListener { v, actionId, event ->
+                if (actionId == EditorInfo.IME_ACTION_DONE ||
+                    actionId == EditorInfo.IME_ACTION_NEXT ||
+                    actionId == EditorInfo.IME_ACTION_GO ||
+                    (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
+                ) {
+                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                    imm?.hideSoftInputFromWindow(v.windowToken, 0)
+                    v.clearFocus()
+                    true
+                } else false
+            }
             background = GradientDrawable().apply {
                 setColor("#161B22".toColorInt())
                 cornerRadius = dpF(4f)
