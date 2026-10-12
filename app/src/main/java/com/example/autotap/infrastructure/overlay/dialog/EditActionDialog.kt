@@ -707,15 +707,21 @@ class EditActionDialog(
             val oldFile = File(effectivePrimary)
             val currentName = oldFile.nameWithoutExtension.removePrefix("mask_")
 
+            val container = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(16), dp(8), dp(16), dp(8))
+            }
             val input = EditText(context).apply {
                 setText(currentName)
                 setSelection(currentName.length)
                 setTextColor(Color.WHITE)
                 setBackgroundColor(Color.parseColor("#161B22"))
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             }
+            container.addView(input)
             val dialog = android.app.AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                 .setTitle("Переименовать шаблон")
-                .setView(input)
+                .setView(container)
                 .setPositiveButton("ОК") { dialog, _ ->
                     val newName = input.text.toString().trim()
                     if (newName.isNotBlank()) {

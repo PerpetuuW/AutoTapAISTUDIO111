@@ -238,10 +238,18 @@ object TargetHighlightVisualizer {
             elevation = dp(6f).toFloat()
         }
 
-        val titleStr = when {
-            detailText.isNotBlank() -> "$detailText • $scorePercent%"
-            moduleTag.isNotBlank() -> "$moduleTag • $scorePercent%"
-            else -> "$scorePercent%"
+        val rawName = when {
+            detailText.isNotBlank() -> detailText
+            moduleTag.isNotBlank() -> moduleTag
+            else -> ""
+        }.removePrefix("mask_").trim()
+
+        val cleanName = rawName.replace(Regex("(?i)^цель[-_]?"), "").trim()
+
+        val titleStr = if (cleanName.isNotBlank() && cleanName.lowercase() != "ocr") {
+            "$cleanName • $scorePercent%"
+        } else {
+            "$scorePercent%"
         }
         val tvScore = TextView(context).apply {
             text = titleStr

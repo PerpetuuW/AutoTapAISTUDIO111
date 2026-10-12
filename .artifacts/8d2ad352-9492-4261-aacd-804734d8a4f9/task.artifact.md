@@ -1,6 +1,7 @@
 # Task List
 
-- `[x]` Update collapsed main overlay Play button in ControlPanelOverlay.kt to have a circular border (`isCircleShape = true`)
-- `[x]` Unify Play, Pause, and Stop button properties across ControlPanelOverlay.kt and RunningBadgeOverlay.kt
-- `[x]` Build and verify code compilation
-- `[x]` Run inspection scripts and create walkthrough
+- [x] Wrap rename EditText in padded LinearLayout container in EditActionDialog.kt (fixes rename crash)
+- [x] Shorten default template names in CalibrationOverlay.kt (`Цель_XXXX`)
+- [x] Synchronize `multiTemplatePaths` in CalibrationOverlay.kt upon saving/calibrating
+- [x] Build and verify compilation
+- [x] Run inspection scripts and create walkthrough

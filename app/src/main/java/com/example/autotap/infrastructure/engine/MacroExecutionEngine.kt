@@ -370,6 +370,22 @@ class MacroExecutionEngine(
                                     variableContext["last_match_y"] = clickY.toInt().toString()
                                     variableContext["last_match_score"] = String.format(Locale.US, "%.3f", bestMatchCand.score)
 
+                                    if (bestMatchCand.score >= 0.80f && bestMatchCand.templatePath.isNotBlank()) {
+                                        com.example.autotap.infrastructure.vision.TemplateMatchingEngine.lastMatchedPositions[bestMatchCand.templatePath] = Pair(bestMatchCand.rectLeft, bestMatchCand.rectTop)
+                                        try {
+                                            val meta = templateRepository.getTemplateMetadata(bestMatchCand.templatePath)?.toMutableMap() ?: mutableMapOf()
+                                            meta["calibratedX"] = bestMatchCand.rectLeft
+                                            meta["calibratedY"] = bestMatchCand.rectTop
+                                            val orgMeta = org.json.JSONObject()
+                                            meta.forEach { (k, v) -> orgMeta.put(k, v) }
+                                            val bmp = templateRepository.getTemplate(bestMatchCand.templatePath)
+                                            if (bmp != null) {
+                                                val parentDir = java.io.File(bestMatchCand.templatePath).parentFile?.name ?: "default"
+                                                templateRepository.saveTemplate(parentDir, bestMatchCand.templatePath, bmp, null, orgMeta)
+                                            }
+                                        } catch (_: Exception) {}
+                                    }
+
                                     if (action.notifyOnMatch) {
                                         try {
                                             val srv = accessibilityServiceProvider()

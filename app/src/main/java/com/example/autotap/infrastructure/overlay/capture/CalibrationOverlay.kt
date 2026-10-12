@@ -1907,7 +1907,7 @@ private val targetStepId: Int? = null,
         }
         nameRow.addView(tvNameLabel)
 
-        val defaultTplName = if (existingTemplatePath != null) File(existingTemplatePath).nameWithoutExtension.removePrefix("mask_") else "цель_${System.currentTimeMillis().toString().takeLast(4)}"
+        val defaultTplName = if (existingTemplatePath != null) File(existingTemplatePath).nameWithoutExtension.removePrefix("mask_") else "Цель_${System.currentTimeMillis().toString().takeLast(4)}"
         val etTemplateName = EditText(context).apply {
             setText(defaultTplName)
             setTextColor(Color.WHITE)
@@ -2081,10 +2081,22 @@ private val targetStepId: Int? = null,
                     currentWorkingRaw
                 }
 
-                val customName = etTemplateName.text.toString().trim().ifEmpty { "цель_${System.currentTimeMillis()}" }
+                val rawCustomName = etTemplateName.text.toString().trim()
+                val customName = rawCustomName.ifEmpty { "цель_${System.currentTimeMillis()}" }
+                var effectiveExistingPath = existingTemplatePath
+                if (effectiveExistingPath.isNullOrBlank() && rawCustomName.isNotBlank()) {
+                    val existingMatch = templateRepository.loadAllTemplates().firstOrNull {
+                        File(it.first).nameWithoutExtension.removePrefix("mask_").equals(rawCustomName, ignoreCase = true)
+                    }
+                    if (existingMatch != null) {
+                        effectiveExistingPath = existingMatch.first
+                        Toast.makeText(context, "Подобный шаблон уже существует («$rawCustomName»), координаты обновлены", Toast.LENGTH_LONG).show()
+                    }
+                }
+
                 val tPath = templateRepository.saveTemplate(
                     folderName = folderName,
-                    existingPath = existingTemplatePath,
+                    existingPath = effectiveExistingPath,
                     maskBmp = finalMask,
                     rawBmp = finalRawCropped,
                     screenBmp = screenshot,
@@ -2102,11 +2114,25 @@ private val targetStepId: Int? = null,
 
                 val firstRoi = activeRoiZones.firstOrNull()
                 val updatedRoiAnchors: List<Point2D> = activeRoiZones.map { zone -> Point2D(zone.centerX().toFloat(), zone.centerY().toFloat()) }
+                val existingMulti = existingAction?.multiTemplatePaths?.toMutableList() ?: mutableListOf()
+                if (existingMulti.isNotEmpty()) {
+                    val oldPath = existingTemplatePath
+                    if (oldPath != null && existingMulti.contains(oldPath)) {
+                        val idx = existingMulti.indexOf(oldPath)
+                        existingMulti[idx] = tPath
+                    } else if (!existingMulti.contains(tPath)) {
+                        existingMulti.add(tPath)
+                    }
+                } else if (existingTemplatePath != null && existingTemplatePath != tPath) {
+                    existingMulti.add(tPath)
+                }
+
                 val action = (existingAction ?: MacroAction(id = targetStepId ?: 1, type = ActionType.TRIGGER)).copy(
                     type = existingAction?.type ?: ActionType.TRIGGER,
                     posX = targetX,
                     posY = targetY,
                     templatePath = tPath,
+                    multiTemplatePaths = if (existingMulti.isNotEmpty()) existingMulti.distinct() else (existingAction?.multiTemplatePaths ?: emptyList()),
                     similarityPercent = currentSimilarity,
                     shapeExpansion = currentShapeExpansion,
                     paddingOffsetPx = currentPaddingOffset,

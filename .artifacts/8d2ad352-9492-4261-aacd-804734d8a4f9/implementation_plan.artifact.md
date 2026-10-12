@@ -1,31 +1,28 @@
-# Unify Play/Stop Buttons and Circular Border for Collapsed Play Button
+# Fix Rename Dialog Crash, Shorten Default Template Names, and Sync Multi-Search `multiTemplatePaths`
 
 ## Problem
-1. In the collapsed main overlay (`ControlPanelOverlay` mini bubble layout), the Play button (`btnMiniPlay`) currently has rounded rectangle corners (`cornerRadiusPx = dpF(12f)`) rather than a circular border (`isCircleShape = true`), breaking symmetry with circular controls.
-2. Play, Pause, and Stop buttons across overlays (`ControlPanelOverlay`, `RunningBadgeOverlay`, etc.) have disparate implementations and styling definitions. They need to be unified.
+1. **Rename Dialog Crash**: In `EditActionDialog.kt`, passing a raw `EditText` directly to `AlertDialog.Builder.setView()` without layout parameters or padding caused crashes when renaming templates.
+2. **Long Default Template Names**: Default names like `цель_1712345678901` were too long and didn't fit on template previews.
+3. **Multi-Search Calibration Bug**: Calibrating/updating a template in multi-search mode updated `templatePath` but left `multiTemplatePaths` out of sync.
 
 ## Proposed Changes
 
-### ControlPanelOverlay.kt
-- [MODIFY] [ControlPanelOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelOverlay.kt)
-  - Update `btnMiniPlay` in the collapsed main overlay to be circular (`isCircleShape = true`, `cornerRadiusPx = width / 2f` or using `CanvasIconButton` with `isCircleShape = true`), while keeping the expanded main toolbar Play/Pause buttons as-is (pills/rounded rects).
-  - Unify styling and colors of Play/Pause/Stop/Action buttons.
+### EditActionDialog.kt
+- [MODIFY] [EditActionDialog.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/EditActionDialog.kt)
+  - Wrap the rename template `EditText` inside a padded `LinearLayout` container with proper `MATCH_PARENT` layout params to prevent crashes in `AlertDialog`.
 
-### RunningBadgeOverlay.kt
-- [MODIFY] [RunningBadgeOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/badge/RunningBadgeOverlay.kt)
-  - Unify stop/play button dimensions, padding, and stroke/gradient colors with `CanvasIconButton` design system across overlays.
-
-### CanvasIconButton.kt / VectorIconDrawer.kt
-- [MODIFY] [CanvasIconButton.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/ui/CanvasIconButton.kt)
-  - Ensure uniform rendering for Play, Pause, and Stop icon types and circular/rounded bounds.
+### CalibrationOverlay.kt
+- [MODIFY] [CalibrationOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/capture/CalibrationOverlay.kt)
+  - Shorten default template names to `Цель_<4-digit code>` (e.g., `Цель_4829`) so they fit nicely on template previews.
+  - Synchronize `multiTemplatePaths` when saving/calibrating an action in multi-search mode.
 
 ## Verification Plan
 
 ### Automated Tests
 - Gradle build: `./gradlew :app:compileDebugKotlin`
-- Run 1AInspector checks.
+- Run inspection scripts.
 
 ### Manual Verification
-- Verify that the collapsed main overlay Play button has a circular border.
-- Verify that expanded panel Play/Pause buttons remain as-is.
-- Verify running badge stop button is unified.
+- Test renaming template from action dialog (verify no crash).
+- Test creating a new template (verify short default name).
+- Test template calibration in multi-search mode (verify `multiTemplatePaths` sync).
