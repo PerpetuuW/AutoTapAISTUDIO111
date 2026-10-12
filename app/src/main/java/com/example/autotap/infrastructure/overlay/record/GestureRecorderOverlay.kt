@@ -392,8 +392,8 @@ class GestureRecorderOverlay(
                     } else {
                         // [Сегментированная запись путей]: завершение текущего участка и сохранение параметров
                         val compressedPoints = PathCompressionEngine.compressPath(currentTouchPoints.toList(), maxPoints = 80)
-                        val instantDuration = duration.coerceIn(100L, 2500L)
-                        com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "Path/SwipeRecord: Вызов performPath (${compressedPoints.size} точек), duration=${instantDuration}ms")
+                        val instantDuration = duration.coerceIn(25L, 50L) // Моментальный вброс для UX
+                        com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "Path/SwipeRecord: Вызов performPath (${compressedPoints.size} точек), instantDuration=${instantDuration}ms (saved duration=${duration}ms)")
                         mainHandler.postDelayed({
                             dispatcher?.performPath(compressedPoints, instantDuration)
                         }, 50L)

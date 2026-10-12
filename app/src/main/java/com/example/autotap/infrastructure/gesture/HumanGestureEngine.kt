@@ -27,7 +27,7 @@ object HumanGestureEngine {
                 moveTo(safeStartX, safeStartY)
                 lineTo(safeStartX, safeStartY)
             }
-            val stroke = GestureDescription.StrokeDescription(fallbackPath, 0L, durationMs.coerceAtLeast(60L))
+            val stroke = GestureDescription.StrokeDescription(fallbackPath, 0L, durationMs.coerceAtLeast(1L))
             return GestureDescription.Builder().addStroke(stroke).build()
         }
 
@@ -74,7 +74,7 @@ object HumanGestureEngine {
             path.lineTo(x.coerceIn(0f, maxW), y.coerceIn(0f, maxH))
         }
 
-        val stroke = GestureDescription.StrokeDescription(path, 0L, durationMs.coerceAtLeast(60L))
+        val stroke = GestureDescription.StrokeDescription(path, 0L, durationMs.coerceAtLeast(1L))
         return GestureDescription.Builder().addStroke(stroke).build()
     }
 }

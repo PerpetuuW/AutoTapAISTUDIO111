@@ -212,7 +212,7 @@ class GestureDispatcher(
             moveTo(safeX, safeY)
             lineTo(safeX, safeY)
         }
-        val stroke = GestureDescription.StrokeDescription(path, 0L, durationMs.coerceAtLeast(10L))
+        val stroke = GestureDescription.StrokeDescription(path, 0L, durationMs.coerceAtLeast(1L))
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
 
         val isDone = AtomicBoolean(false)
@@ -387,7 +387,7 @@ class GestureDispatcher(
             }
         }
 
-        val stroke = GestureDescription.StrokeDescription(path, 0L, durationMs.coerceAtLeast(50L))
+        val stroke = GestureDescription.StrokeDescription(path, 0L, durationMs.coerceAtLeast(1L))
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
         val isDone = AtomicBoolean(false)
         val timeoutRunnable = Runnable {
@@ -478,7 +478,7 @@ class GestureDispatcher(
             lineTo((centerX + halfEnd).coerceIn(0f, maxW), centerY.coerceIn(0f, maxH))
         }
 
-        val safeDuration = durationMs.coerceIn(100L, 2000L)
+        val safeDuration = durationMs.coerceAtLeast(1L)
         val stroke1 = GestureDescription.StrokeDescription(path1, 0L, safeDuration)
         val stroke2 = GestureDescription.StrokeDescription(path2, 0L, safeDuration)
 
