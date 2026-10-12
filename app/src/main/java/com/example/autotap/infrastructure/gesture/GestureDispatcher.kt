@@ -23,13 +23,13 @@ class GestureDispatcher(
 ) : IGestureGateway {
 
     private val mainHandler = Handler(Looper.getMainLooper())
-    var onGesturePassthroughToggle: ((Boolean, Float?, Float?) -> Unit)? = null
+    var onGesturePassthroughToggle: ((Boolean, android.graphics.RectF?) -> Unit)? = null
 
-    private fun safeTogglePassthrough(enabled: Boolean, clickX: Float? = null, clickY: Float? = null) {
+    private fun safeTogglePassthrough(enabled: Boolean, rect: android.graphics.RectF? = null) {
         if (Looper.myLooper() == Looper.getMainLooper()) {
-            onGesturePassthroughToggle?.invoke(enabled, clickX, clickY)
+            onGesturePassthroughToggle?.invoke(enabled, rect)
         } else {
-            mainHandler.post { onGesturePassthroughToggle?.invoke(enabled, clickX, clickY) }
+            mainHandler.post { onGesturePassthroughToggle?.invoke(enabled, rect) }
         }
     }
 
@@ -216,7 +216,7 @@ class GestureDispatcher(
             }
         }
 
-        safeTogglePassthrough(true, safeX, safeY)
+        safeTogglePassthrough(true, android.graphics.RectF(safeX, safeY, safeX, safeY))
         val renderDelay = 80L
         mainHandler.postDelayed(timeoutRunnable, durationMs + 250L + renderDelay)
 
@@ -290,7 +290,12 @@ class GestureDispatcher(
             }
         }
 
-        safeTogglePassthrough(true, startX, startY)
+        safeTogglePassthrough(true, android.graphics.RectF(
+            kotlin.math.min(startX, endX),
+            kotlin.math.min(startY, endY),
+            kotlin.math.max(startX, endX),
+            kotlin.math.max(startY, endY)
+        ))
         val renderDelay = 80L
         mainHandler.postDelayed(timeoutRunnable, durationMs + 300L + renderDelay)
 
@@ -385,7 +390,11 @@ class GestureDispatcher(
             }
         }
 
-        safeTogglePassthrough(true, points[0].x, points[0].y)
+        val minX = points.minOf { it.x }
+        val minY = points.minOf { it.y }
+        val maxX = points.maxOf { it.x }
+        val maxY = points.maxOf { it.y }
+        safeTogglePassthrough(true, android.graphics.RectF(minX, minY, maxX, maxY))
         val renderDelay = 45L
         mainHandler.postDelayed(timeoutRunnable, durationMs + 350L + renderDelay)
 
@@ -471,7 +480,12 @@ class GestureDispatcher(
             .build()
 
         val isDone = AtomicBoolean(false)
-        safeTogglePassthrough(true, null, null)
+        safeTogglePassthrough(true, android.graphics.RectF(
+            centerX - endDistance / 2f,
+            centerY - endDistance / 2f,
+            centerX + endDistance / 2f,
+            centerY + endDistance / 2f
+        ))
         val timeoutRunnable = Runnable {
             if (isDone.compareAndSet(false, true)) {
                 safeTogglePassthrough(false)

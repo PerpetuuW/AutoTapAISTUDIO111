@@ -164,11 +164,11 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             persistActiveSession()
         }
         appScope.launch { macroEngine.executionState.collect { handleExecutionState(it) } }
-        AutoTapAccessibilityService.instance?.gestureDispatcher?.onGesturePassthroughToggle = { enabled, x, y -> screenLockOverlay.setPassthroughEnabled(enabled, x, y) }
+        AutoTapAccessibilityService.instance?.gestureDispatcher?.onGesturePassthroughToggle = { enabled, rect -> screenLockOverlay.setPassthroughEnabled(enabled, rect) }
     }
 
     fun showOverlays() {
-        AutoTapAccessibilityService.instance?.gestureDispatcher?.onGesturePassthroughToggle = { enabled, x, y -> screenLockOverlay.setPassthroughEnabled(enabled, x, y) }
+        AutoTapAccessibilityService.instance?.gestureDispatcher?.onGesturePassthroughToggle = { enabled, rect -> screenLockOverlay.setPassthroughEnabled(enabled, rect) }
         controlPanelOverlay.show()
         targetManager.attachOverlaysIfNeeded()
         targetManager.setOverlaysVisible(true)
@@ -1137,8 +1137,8 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
 
     override fun onScreenLockClicked() {
         // [Smart Punch-Through Lock] Подключение реактивного сквозного клика во время воспроизведения
-        com.example.autotap.infrastructure.accessibility.AutoTapAccessibilityService.instance?.gestureDispatcher?.onGesturePassthroughToggle = { isPassthrough, x, y ->
-            screenLockOverlay.setPassthroughEnabled(isPassthrough, x, y)
+        com.example.autotap.infrastructure.accessibility.AutoTapAccessibilityService.instance?.gestureDispatcher?.onGesturePassthroughToggle = { isPassthrough, rect ->
+            screenLockOverlay.setPassthroughEnabled(isPassthrough, rect)
         }
         screenLockOverlay.show()
     }

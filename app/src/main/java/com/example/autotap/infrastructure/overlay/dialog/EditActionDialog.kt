@@ -837,6 +837,41 @@ class EditActionDialog(
             setPadding(0, dp(2), 0, dp(4))
         }
 
+        val btnAddOcr = createSmallButton("+ ТЕКСТ (OCR)") {
+            val container = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(16), dp(8), dp(16), dp(8))
+            }
+            val input = EditText(context).apply {
+                hint = "Текст на экране..."
+                setTextColor(Color.WHITE)
+                setHintTextColor(Color.parseColor("#8B949E"))
+                setBackgroundColor(Color.parseColor("#161B22"))
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            }
+            container.addView(input)
+            val dialog = android.app.AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Добавить текст в мультипоиск")
+                .setView(container)
+                .setPositiveButton("Добавить") { d, _ ->
+                    val text = input.text.toString().trim()
+                    if (text.isNotEmpty()) {
+                        selectedMultiPaths.add("ocr:$text")
+                        refreshActiveTemplateCard()
+                        renderCarouselItems()
+                        Toast.makeText(context, "Текст добавлен", Toast.LENGTH_SHORT).show()
+                    }
+                    d.dismiss()
+                }
+                .setNegativeButton("Отмена") { d, _ -> d.dismiss() }
+                .create()
+            dialog.window?.setType(overlayWindowManager.getOverlayType(false))
+            @Suppress("DEPRECATION")
+            dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE or WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            dialog.show()
+        }
+        multiControlRow.addView(btnAddOcr, LinearLayout.LayoutParams(0, dp(24), 1.0f).apply { marginEnd = dp(2) })
+
         val btnSelectAll = createSmallButton("ВЫБРАТЬ ВСЕ (${allTemplates.size})") {
             selectedMultiPaths.clear()
             allTemplates.forEach { selectedMultiPaths.add(it.first) }
@@ -1150,6 +1185,35 @@ class EditActionDialog(
                 allTemplates.filter { java.io.File(it.first).parentFile?.name == currentCarouselFolder }
             } else {
                 allTemplates.filter { java.io.File(it.first).parentFile?.name in listOf("default", "templates", null) }
+            }
+
+            for (path in selectedMultiPaths) {
+                if (path.startsWith("ocr:")) {
+                    val textQuery = path.removePrefix("ocr:")
+                    val card = FrameLayout(context).apply {
+                        background = android.graphics.drawable.GradientDrawable().apply {
+                            setColor("#1E293B".toColorInt())
+                            cornerRadius = dpF(8f)
+                            setStroke(dp(1), "#38BDF8".toColorInt()) // Выделение, так как он в мультипоиске
+                        }
+                        val tvTxt = android.widget.TextView(context).apply {
+                            text = "OCR:\n$textQuery"
+                            textSize = 7f
+                            typeface = android.graphics.Typeface.DEFAULT_BOLD
+                            setTextColor("#F8FAFC".toColorInt())
+                            gravity = android.view.Gravity.CENTER
+                        }
+                        addView(tvTxt, FrameLayout.LayoutParams(-1, -1))
+                        layoutParams = LinearLayout.LayoutParams(dp(54), dp(58)).apply { marginEnd = dp(4) }
+                        setOnClickListener {
+                            selectedMultiPaths.remove(path)
+                            if (boundTemplatePath == path) boundTemplatePath = ""
+                            refreshActiveTemplateCard()
+                            renderCarouselItems()
+                        }
+                    }
+                    libraryRow.addView(card)
+                }
             }
 
             for ((path, bmp) in filteredTemplates) {

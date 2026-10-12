@@ -105,8 +105,8 @@ class AutoTapAccessibilityService : AccessibilityService() {
 
             // [V21.2] Подключение транзита жестов макроса сквозь экран блокировки
             val orchestrator = com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(this)
-            gestureDispatcher.onGesturePassthroughToggle = { enabled, x, y ->
-                orchestrator.screenLockOverlay.setPassthroughEnabled(enabled, x, y)
+            gestureDispatcher.onGesturePassthroughToggle = { enabled, rect ->
+                orchestrator.screenLockOverlay.setPassthroughEnabled(enabled, rect)
             }
 
             AppLogger.log(this, "ACCESSIBILITY", "Служба кликера успешно подключена и активна")

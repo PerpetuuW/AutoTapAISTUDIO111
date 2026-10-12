@@ -75,14 +75,16 @@ class ScreenLockOverlay(
     }
 
 
-    fun setPassthroughEnabled(enabled: Boolean, clickX: Float? = null, clickY: Float? = null) {
+    fun setPassthroughEnabled(enabled: Boolean, rect: android.graphics.RectF? = null) {
         val bg = bgLockContainer ?: return
         val params = bgWindowParams ?: return
         val ui = uiLockContainer
         val uiParams = uiWindowParams
         if (enabled) {
-            if (clickX != null && clickY != null) {
-                mainHandler.post { showFirewall(clickX, clickY) }
+            if (rect != null) {
+                mainHandler.post { showFirewall(rect) }
+            } else {
+                mainHandler.post { removeFirewall() }
             }
             params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
             uiParams?.let { it.flags = it.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE }
@@ -97,17 +99,17 @@ class ScreenLockOverlay(
         }
     }
 
-    private fun showFirewall(clickX: Float, clickY: Float) {
+    private fun showFirewall(rect: android.graphics.RectF) {
         removeFirewall()
         val density = context.resources.displayMetrics.density
         val screenW = context.resources.displayMetrics.widthPixels
         val screenH = context.resources.displayMetrics.heightPixels
         val gap = (32 * density).toInt()
 
-        val leftX = (clickX - gap).toInt().coerceIn(0, screenW)
-        val rightX = (clickX + gap).toInt().coerceIn(0, screenW)
-        val topY = (clickY - gap).toInt().coerceIn(0, screenH)
-        val bottomY = (clickY + gap).toInt().coerceIn(0, screenH)
+        val leftX = (rect.left - gap).toInt().coerceIn(0, screenW)
+        val rightX = (rect.right + gap).toInt().coerceIn(0, screenW)
+        val topY = (rect.top - gap).toInt().coerceIn(0, screenH)
+        val bottomY = (rect.bottom + gap).toInt().coerceIn(0, screenH)
 
         if (topY > 0) {
             val v = View(context).apply { setBackgroundColor(Color.BLACK) }

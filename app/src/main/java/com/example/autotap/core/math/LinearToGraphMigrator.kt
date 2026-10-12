@@ -122,6 +122,40 @@ object LinearToGraphMigrator {
                     val branchNodes = ArrayList<ScenarioNode>()
 
                     for ((idx, path) in allTemplatePaths.withIndex()) {
+                        if (path.startsWith("ocr:")) {
+                            val textQuery = path.removePrefix("ocr:")
+                            val trigId = "trig_${action.id}_${idx + 1}"
+                            val matchPortId = "out_match_$trigId"
+                            val trigSpec = NodeTriggerSpec(
+                                id = trigId,
+                                name = "OCR: $textQuery",
+                                type = ActionType.OCR,
+                                templatePath = "",
+                                multiTemplatePaths = emptyList(),
+                                similarityThreshold = 0,
+                                targetQueryOrColor = textQuery,
+                                autoClickTarget = false,
+                                useCustomClick = action.useCustomClickOffset,
+                                clickOffset = Point2D(action.clickOffsetX, action.clickOffsetY),
+                                targetPortId = matchPortId
+                            )
+                            triggerSpecs.add(trigSpec)
+
+                            val branchNodeId = "node_${action.id}_branch_${idx + 1}"
+                            val branchActionSpec = if (action.clickAiTarget) {
+                                NodeActionSpec(id = "act_${action.id}_${idx + 1}", type = ActionType.CLICK, x = action.posX, y = action.posY, holdDurationMs = action.holdDurationMs.coerceAtLeast(30L), delayAfterMs = action.delayMs)
+                            } else {
+                                NodeActionSpec(id = "act_${action.id}_${idx + 1}", type = ActionType.DELAY, x = 0f, y = 0f, delayAfterMs = action.delayMs)
+                            }
+
+                            val branchCanvasY = posY + (idx * 130f) - ((allTemplatePaths.size - 1) * 65f)
+                            val branchNode = ScenarioNode(id = branchNodeId, title = "OCR #${idx + 1}: $textQuery", canvasX = posX + 380f, canvasY = branchCanvasY, entryActions = listOf(branchActionSpec), standardPorts = listOf("out_default"))
+                            nodesMap[branchNodeId] = branchNode
+                            edgesList.add(ScenarioEdge(id = "edge_${action.id}_match_branch_${idx + 1}", fromNodeId = nodeId, fromPortId = matchPortId, toNodeId = branchNodeId, toPortId = "in_entry"))
+                            edgesList.add(ScenarioEdge(id = "edge_${action.id}_branch_${idx + 1}_to_next", fromNodeId = branchNodeId, fromPortId = "out_default", toNodeId = matchTargetNodeId, toPortId = "in_entry"))
+                            continue
+                        }
+
                         val templateFile = File(path)
                         val templateName = templateFile.nameWithoutExtension.removePrefix("mask_").take(14).ifEmpty { "цель_${idx + 1}" }
                         val trigId = "trig_${action.id}_${idx + 1}"
