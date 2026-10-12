@@ -521,7 +521,7 @@ class TargetOverlayManager(
                                 rawTemplateBitmap = cropped,
                                 initialCandidates = listOf(initialAnchorCandidate),
                                 existingAction = targetAction,
-                                existingTemplatePath = null, // COPY-ON-WRITE: Force new file!
+                                existingTemplatePath = targetAction.templatePath.takeIf { it.isNotBlank() },
                                 allActions = getActions(),
                                 targetStepId = targetAction.id,
                                 anchorCropX = safeX,

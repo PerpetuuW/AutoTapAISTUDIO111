@@ -407,7 +407,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                                 rawTemplateBitmap = cropped,
                                 initialCandidates = listOf(initialAnchorCandidate),
                                 existingAction = effectiveAction,
-                                existingTemplatePath = null,
+                                existingTemplatePath = effectiveAction.templatePath.takeIf { it.isNotBlank() },
                                 allActions = targetManager.getActions(),
                                 targetStepId = actionion.id,
                                 anchorCropX = safeX,
@@ -1038,7 +1038,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                             CalibrationOverlay(
                                 context = appContext, overlayWindowManager = overlayWindowManager, screenshot = screenshot,
                                 rawTemplateBitmap = cropped, initialCandidates = listOf(anchor),
-                                existingAction = initialAction, existingTemplatePath = null,
+                                existingAction = initialAction, existingTemplatePath = initialAction?.templatePath?.takeIf { it.isNotBlank() },
                                 allActions = targetManager.getActions(), targetStepId = null,
                                 anchorCropX = safeX,
                                 anchorCropY = safeY,
