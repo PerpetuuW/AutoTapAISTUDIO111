@@ -960,7 +960,7 @@ class MacroExecutionEngine(
                                 isDebugPaused = false,
                                 isSearching = true,
                                 searchProgress = progressRatio,
-                                searchTitle = "[Search] Фаза '${currentNode.title}'",
+                                searchTitle = "[Поиск] Фаза '${currentNode.title}'",
                                 searchStartTime = pollStartTime,
                                 searchTimeoutMs = timeoutMs,
                                 isInfiniteSearch = isInfinite,

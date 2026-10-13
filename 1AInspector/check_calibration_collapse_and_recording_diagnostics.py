@@ -26,8 +26,8 @@ def run_check(root_dir: str) -> tuple[bool, str]:
 
     with open(badge_path, "r", encoding="utf-8", errors="replace") as f:
         badge_src = f.read()
-        if "contentWidthDp = 120" not in badge_src and "contentWidthDp = 110" not in badge_src:
-            return False, "в RunningBadgeOverlay.kt отсутствует расширенная ширина информационного табло"
+        if "contentWidthDp = 78" not in badge_src and "contentWidthDp = 120" not in badge_src:
+            return False, "в RunningBadgeOverlay.kt отсутствует ширина информационного табло"
 
     with open(rec_path, "r", encoding="utf-8", errors="replace") as f:
         rec_src = f.read()

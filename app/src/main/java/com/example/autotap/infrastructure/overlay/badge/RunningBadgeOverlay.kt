@@ -57,7 +57,7 @@ class RunningBadgeOverlay(
     private fun dp(v: Int): Int = (v * dm.density).toInt()
     private fun dpF(v: Float): Float = v * dm.density
 
-    private val contentWidthDp = 120
+    private val contentWidthDp = 78
 
     fun isShowing(): Boolean = badgeView != null
 
@@ -236,7 +236,7 @@ class RunningBadgeOverlay(
                 setStroke(dp(1), "#58A6FF".toColorInt())
             }
             layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply {
-                marginEnd = dp(4)
+                marginEnd = dp(8)
             }
             setOnClickListener {
                 vibrate(30L)
@@ -321,7 +321,8 @@ class RunningBadgeOverlay(
 
             if (state.isSearching) {
                 currentStepDurationMs = state.searchTimeoutMs
-                currentActionTitle = if (state.searchTitle.isNotBlank()) state.searchTitle else "Поиск..."
+                val rawTitle = state.searchTitle.removeSuffix(".png").removeSuffix(".json").removeSuffix(".jpg").removePrefix("mask_").trim()
+                currentActionTitle = if (rawTitle.isNotBlank()) rawTitle else "Поиск..."
                 tvActionStatus?.setTextColor("#FFB703".toColorInt())
                 fillProgressDrawable?.setColor("#FFB703".toColorInt())
             } else {
@@ -376,7 +377,7 @@ class RunningBadgeOverlay(
         init {
             isSingleLine = true
             maxLines = 1
-            ellipsize = null
+            ellipsize = android.text.TextUtils.TruncateAt.MARQUEE
             setHorizontallyScrolling(true)
         }
 

@@ -383,6 +383,7 @@ class GestureRecorderOverlay(
                         val compressedPoints = PathCompressionEngine.compressPath(currentTouchPoints.toList(), maxPoints = 80)
                         val defaultPathDur = com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(context).globalPathDurationMs
                         val isStraightSwipe = compressedPoints.size <= 2 && totalDistance > dpF(20f)
+                        val instantDuration = duration.coerceIn(100L, 2500L)
                         val recordedHoldDuration = if (duration > 30L) duration else defaultPathDur
                         recordedActions.add(MacroAction(
                             id = nextId,
@@ -395,7 +396,7 @@ class GestureRecorderOverlay(
                             delayMs = actualDelay,
                             pathPoints = compressedPoints
                         ))
-                        restoreTouchAfter(60L)
+                        restoreTouchAfter(instantDuration + 60L)
                     }
                     val lastAct = recordedActions.lastOrNull()
                     if (lastAct != null) {

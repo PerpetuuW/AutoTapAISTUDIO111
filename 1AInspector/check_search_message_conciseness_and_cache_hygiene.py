@@ -34,9 +34,9 @@ def run_check(root_dir: str) -> tuple[bool, str]:
     if "[Поиск] Мультипоиск #" in engine_src:
         return False, "В MacroExecutionEngine.kt обнаружен громоздкий заголовок '[Поиск] Мультипоиск #', он должен быть лаконичным"
 
-    # 2. Проверка расширенной ширины бейджа для предотвращения обрезки статуса
-    if "contentWidthDp = 78" in badge_src:
-        return False, "RunningBadgeOverlay.kt: contentWidthDp = 78 слишком узкий для отображения статуса"
+    # 2. Проверка отображения статуса через бегущую строку (MARQUEE)
+    if "MARQUEE" not in badge_src:
+        return False, "RunningBadgeOverlay.kt: статус должен быть представлен через MARQUEE"
 
     # 3. Проверка очистки кэша позиций поиска перед стартом выполнения
     if "TemplateMatchingEngine.clearTemplateCache()" not in orch_src:
