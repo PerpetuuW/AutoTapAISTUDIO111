@@ -55,7 +55,6 @@ android {
         }
         debug {
             isMinifyEnabled = false
-            applicationIdSuffix = ".debug"
             val rootDebugKeystore = file("${rootDir}/debug.keystore")
             if (rootDebugKeystore.exists()) {
                 signingConfig = signingConfigs.getByName("debugConfig")
