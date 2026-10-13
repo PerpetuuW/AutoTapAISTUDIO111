@@ -838,37 +838,60 @@ class EditActionDialog(
         }
 
         val btnAddOcr = createSmallButton("+ ТЕКСТ (OCR)") {
-            val container = LinearLayout(context).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(dp(16), dp(8), dp(16), dp(8))
-            }
-            val input = EditText(context).apply {
-                hint = "Текст на экране..."
-                setTextColor(Color.WHITE)
-                setHintTextColor(Color.parseColor("#8B949E"))
-                setBackgroundColor(Color.parseColor("#161B22"))
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            }
-            container.addView(input)
-            val dialog = android.app.AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle("Добавить текст в мультипоиск")
-                .setView(container)
-                .setPositiveButton("Добавить") { d, _ ->
-                    val text = input.text.toString().trim()
-                    if (text.isNotEmpty()) {
-                        selectedMultiPaths.add("ocr:$text")
-                        refreshActiveTemplateCard()
-                        renderCarouselItems()
-                        Toast.makeText(context, "Текст добавлен", Toast.LENGTH_SHORT).show()
-                    }
-                    d.dismiss()
+            val inputLayout = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                background = GradientDrawable().apply {
+                    setColor("#1E1B2E".toColorInt())
+                    cornerRadius = dpF(6f)
+                    setStroke(dp(1), "#6366F1".toColorInt())
                 }
-                .setNegativeButton("Отмена") { d, _ -> d.dismiss() }
-                .create()
-            dialog.window?.setType(overlayWindowManager.getOverlayType(false))
-            @Suppress("DEPRECATION")
-            dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE or WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-            dialog.show()
+                setPadding(dp(6), dp(2), dp(6), dp(2))
+            }
+            val etOcrText = EditText(context).apply {
+                hint = "Текст на экране..."
+                textSize = 8.5f
+                setTextColor(Color.WHITE)
+                setHintTextColor("#64748B".toColorInt())
+                background = null
+                layoutParams = LinearLayout.LayoutParams(0, dp(32), 1f)
+                imeOptions = EditorInfo.IME_ACTION_DONE
+                setOnEditorActionListener { v, actionId, event ->
+                    if (actionId == EditorInfo.IME_ACTION_DONE ||
+                        actionId == EditorInfo.IME_ACTION_NEXT ||
+                        actionId == EditorInfo.IME_ACTION_GO ||
+                        (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
+                    ) {
+                        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                        imm?.hideSoftInputFromWindow(v.windowToken, 0)
+                        v.clearFocus()
+                        true
+                    } else false
+                }
+            }
+            val btnConfirmOcr = createTextActionButton("OK", "#312E81", "#818CF8") {
+                val text = etOcrText.text.toString().trim()
+                if (text.isNotEmpty()) {
+                    selectedMultiPaths.add("ocr:$text")
+                    refreshActiveTemplateCard()
+                    renderCarouselItems()
+                    layoutTriggerCard.removeView(inputLayout)
+                    Toast.makeText(context, "Текст '$text' добавлен", Toast.LENGTH_SHORT).show()
+                }
+            }
+            val btnCancelOcr = createTextActionButton("X", "#2A1420", "#F43F5E") {
+                layoutTriggerCard.removeView(inputLayout)
+            }
+            inputLayout.addView(etOcrText)
+            inputLayout.addView(btnConfirmOcr, LinearLayout.LayoutParams(dp(36), dp(26)).apply { marginEnd = dp(2) })
+            inputLayout.addView(btnCancelOcr, LinearLayout.LayoutParams(dp(26), dp(26)))
+
+            val idx = layoutTriggerCard.indexOfChild(multiControlRow)
+            layoutTriggerCard.addView(inputLayout, idx + 1, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = dp(3)
+                bottomMargin = dp(3)
+            })
+            etOcrText.requestFocus()
         }
         multiControlRow.addView(btnAddOcr, LinearLayout.LayoutParams(0, dp(24), 1.0f).apply { marginEnd = dp(2) })
 

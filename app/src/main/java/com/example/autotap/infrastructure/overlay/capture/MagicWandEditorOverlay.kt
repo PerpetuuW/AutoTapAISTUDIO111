@@ -37,9 +37,11 @@ class MagicWandEditorOverlay(
 ) {
 
     enum class ToolMode { WAND, ERASER, RESTORE }
+    enum class LayerMode { OVERLAY, MASK_ONLY, RAW_ONLY }
 
     private var rootView: FrameLayout? = null
     private var currentTool = ToolMode.WAND
+    private var currentLayerMode = LayerMode.OVERLAY
     private var currentMask = initialMask.copy(Bitmap.Config.ARGB_8888, true)
     private val undoStack = ArrayDeque<Bitmap>()
     private var wandTolerance = 25
@@ -125,6 +127,21 @@ class MagicWandEditorOverlay(
         }
         header.addView(btnZoomIn)
 
+        val btnLayerToggle = createSmallHeaderBtn("СЛОЙ: НАЛОЖЕНИЕ") {
+            currentLayerMode = when (currentLayerMode) {
+                LayerMode.OVERLAY -> LayerMode.MASK_ONLY
+                LayerMode.MASK_ONLY -> LayerMode.RAW_ONLY
+                LayerMode.RAW_ONLY -> LayerMode.OVERLAY
+            }
+            (it as? Button)?.text = when (currentLayerMode) {
+                LayerMode.OVERLAY -> "СЛОЙ: НАЛОЖЕНИЕ"
+                LayerMode.MASK_ONLY -> "СЛОЙ: МАСКА"
+                LayerMode.RAW_ONLY -> "СЛОЙ: ЭТАЛОН"
+            }
+            zoomCanvasView.invalidate()
+        }
+        header.addView(btnLayerToggle, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(22)).apply { marginEnd = dp(4) })
+
         val btnResetZoom = createSmallHeaderBtn("СБРОС") {
             zoomFactor = 8f
             panX = 0f
@@ -181,11 +198,18 @@ class MagicWandEditorOverlay(
                 val dy = (h - drawH) / 2f + panY
                 dstR.set(dx, dy, dx + drawW, dy + drawH)
 
-                // 1. Отрисовка исходного полноцветного шаблона (rawBitmap)
-                canvas.drawBitmap(rawBitmap, srcR, dstR, bmpPaint)
-
-                // 2. Отрисовка полупрозрачной цветной маски поверх оригинала
-                canvas.drawBitmap(currentMask, srcR, dstR, maskOverlayPaint)
+                when (currentLayerMode) {
+                    LayerMode.OVERLAY -> {
+                        canvas.drawBitmap(rawBitmap, srcR, dstR, bmpPaint)
+                        canvas.drawBitmap(currentMask, srcR, dstR, maskOverlayPaint)
+                    }
+                    LayerMode.MASK_ONLY -> {
+                        canvas.drawBitmap(currentMask, srcR, dstR, bmpPaint)
+                    }
+                    LayerMode.RAW_ONLY -> {
+                        canvas.drawBitmap(rawBitmap, srcR, dstR, bmpPaint)
+                    }
+                }
 
                 if (effectiveScale >= dpF(4f)) {
                     val pxW = drawW / currentMask.width
@@ -641,7 +665,7 @@ class MagicWandEditorOverlay(
         overlayWindowManager.addViewSafe(root, params)
     }
 
-    private fun createSmallHeaderBtn(label: String, onClick: () -> Unit): View {
+    private fun createSmallHeaderBtn(label: String, onClick: (View) -> Unit): View {
         return Button(context).apply {
             text = label
             textSize = 8.5f
@@ -658,7 +682,7 @@ class MagicWandEditorOverlay(
                 marginStart = dp(2)
             }
             setPadding(dp(4), 0, dp(4), 0)
-            setOnClickListener { onClick() }
+            setOnClickListener { onClick(this) }
         }
     }
 

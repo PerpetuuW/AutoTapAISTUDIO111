@@ -1,21 +1,23 @@
-# Fix Multi-Search New Template Isolation & Add Emergency Close Logging
+# Layer View Mode Selector in Mask Studio & Translucent Shape Contour Unification
 
 ## Problem
-1. **Old Mask Overlay on New Capture**: When capturing a new template for multi-search, `currentWorkingRaw` in `CalibrationOverlay.kt` was being loaded from `existingTemplatePath` (the old mask) instead of using the newly captured raw screen fragment (`rawTemplateBitmap`). Each template must have its own isolated raw image, mask, and metadata file.
-2. **Emergency Close Logging**: Emergency dismissals, cancellations, and closes across overlay components (`CalibrationOverlay`, `EditActionDialog`, `GestureRecorderOverlay`, `ControlPanelOverlay`, etc.) lack dedicated cancellation logging.
+1. **Mask Studio Layer Selection**: In `MagicWandEditorOverlay.kt`, the editor always drew `rawBitmap` and `currentMask` overlaid together, preventing users from isolating and viewing/editing either layer independently.
+2. **Translucent Shape / Arrow Fragmentation**: Translucent templates or arrow shapes with inner gradients were being fragmented into internal sub-regions during segmentation because inner luminance/alpha variations were treated as background.
 
 ## Proposed Changes
 
-### CalibrationOverlay.kt
-- [MODIFY] [CalibrationOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/capture/CalibrationOverlay.kt)
-  - Ensure `currentWorkingRaw` is initialized strictly to `rawTemplateBitmap` (the newly captured frame) for new template captures, preventing the old template mask from overlaying newly captured frames.
-  - Ensure each template saved in multi-search has its own distinct mask (`mask_XXXX.png`), raw image (`raw_XXXX.png`), and JSON metadata (`mask_XXXX.json`).
-  - Add explicit cancellation logging in `onCancelled()` and `dismiss()` via `AppLogger.log(context, "OVERLAY_CANCEL", ...)`.
+### MagicWandEditorOverlay.kt
+- [MODIFY] [MagicWandEditorOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/capture/MagicWandEditorOverlay.kt)
+  - Add a 3-way Layer View Mode toggle button (`СЛОЙ: НАЛОЖЕНИЕ` / `МАСКА` / `ЭТАЛОН`).
+  - In `onDraw`:
+    - `OVERLAY`: Draw `rawBitmap` + `currentMask` (alpha = 170).
+    - `MASK_ONLY`: Draw only `currentMask` (full alpha = 255) on checkerboard.
+    - `RAW_ONLY`: Draw only `rawBitmap` on checkerboard.
 
-### Overlay Components (EditActionDialog, GestureRecorderOverlay, ControlPanelOverlay, etc.)
-- [MODIFY] [EditActionDialog.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/EditActionDialog.kt)
-- [MODIFY] [GestureRecorderOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/record/GestureRecorderOverlay.kt)
-  - Add explicit cancellation and emergency close logging (`AppLogger.log(context, "OVERLAY_CANCEL", ...)`) whenever an overlay is dismissed or cancelled.
+### SmartMaskEngine.kt
+- [MODIFY] [SmartMaskEngine.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/vision/SmartMaskEngine.kt)
+  - Factoring non-zero alpha `(c ushr 24) and 0xFF > 25` into shape foreground detection for translucent templates.
+  - Invert perimeter flood-fill `backgroundMask` (`!backgroundMask.get(i)`) to ensure inner shape holes/gradients inside translucent arrows are filled as solid contiguous shape foreground.
 
 ## Verification Plan
 
@@ -24,5 +26,5 @@
 - Run all 172 1AInspector scripts.
 
 ### Manual Verification
-- Capture a new template in multi-search mode and verify that the newly cropped raw frame is clean (no old mask overlaid) and generates its own independent mask and metadata file.
-- Verify cancellation and emergency closes emit detailed `OVERLAY_CANCEL` log entries in `AppLogger`.
+- Test layer mode toggle in `MagicWandEditorOverlay` (`НАЛОЖЕНИЕ`, `МАСКА`, `ЭТАЛОН`).
+- Test segmenting a translucent arrow/shape and verify it remains a unified single shape without inner fragmentation.

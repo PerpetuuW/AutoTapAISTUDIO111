@@ -1,13 +1,16 @@
-# Walkthrough - Multi-Search Raw Frame Isolation & Emergency Close Logging
+# Walkthrough - Layer Mode Selector in Mask Studio & Translucent Shape Contour Unification
 
 ## Changes
 
-### CalibrationOverlay.kt
-- Fixed template raw image initialization: `currentWorkingRaw` is strictly initialized to `rawTemplateBitmap` (the newly captured screen fragment) when capturing new templates. This ensures newly captured templates for multi-search or new steps never have previous template masks overlaid on top of them.
-- Added explicit cancellation/dismissal logging: `AppLogger.log(context, "OVERLAY_CANCEL", "...")` in `dismiss()`.
+### MagicWandEditorOverlay.kt
+- Added a 3-way Layer View Mode toggle button (`СЛОЙ: НАЛОЖЕНИЕ` / `СЛОЙ: МАСКА` / `СЛОЙ: ЭТАЛОН`) in the header toolbar.
+- Users can now isolate and view/edit either layer independently:
+  - **НАЛОЖЕНИЕ**: Raw crop + translucent mask overlaid.
+  - **МАСКА**: Mask only on checkerboard background for precise editing.
+  - **ЭТАЛОН**: Clean raw cropped screen fragment only.
 
-### EditActionDialog.kt & GestureRecorderOverlay.kt
-- Added explicit cancellation/dismissal logging: `AppLogger.log(context, "OVERLAY_CANCEL", "...")` in `dismiss()`.
+### SmartMaskEngine.kt
+- Factored non-zero alpha (`alpha > 25`) into foreground detection and inverted perimeter flood-fill (`!backgroundMask.get(i)`) for translucent templates and arrows. Inner gradients and translucent pixels inside arrow shapes are now preserved as a solid contiguous shape without inner fragmentation.
 
 ## Verification Results
 

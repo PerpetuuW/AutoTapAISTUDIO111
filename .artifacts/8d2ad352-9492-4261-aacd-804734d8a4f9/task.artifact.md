@@ -1,6 +1,6 @@
 # Task List
 
-- `[x]` Fix CalibrationOverlay.kt so new template captures always use `rawTemplateBitmap` (preventing old mask overlay) and maintain isolated metadata
-- `[x]` Add explicit emergency close and cancellation logging (`AppLogger.log(context, "OVERLAY_CANCEL", ...)`) across CalibrationOverlay.kt, EditActionDialog.kt, and GestureRecorderOverlay.kt
+- `[x]` Add 3-way Layer View Mode toggle button (`СЛОЙ: НАЛОЖЕНИЕ` / `МАСКА` / `ЭТАЛОН`) in MagicWandEditorOverlay.kt
+- `[x]` Enhance SmartMaskEngine.kt contour extraction to preserve solid contiguous shape for translucent arrows and shapes
 - `[x]` Build and verify compilation
 - `[x]` Run all 172 1AInspector scripts and create walkthrough
