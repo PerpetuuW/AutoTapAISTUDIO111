@@ -1,16 +1,14 @@
-# Walkthrough - Layer Mode Selector in Mask Studio & Translucent Shape Contour Unification
+# Walkthrough - New Template Isolation, Calibration Progress Bar, & Universal Keyboard Hide Button
 
 ## Changes
 
-### MagicWandEditorOverlay.kt
-- Added a 3-way Layer View Mode toggle button (`СЛОЙ: НАЛОЖЕНИЕ` / `СЛОЙ: МАСКА` / `СЛОЙ: ЭТАЛОН`) in the header toolbar.
-- Users can now isolate and view/edit either layer independently:
-  - **НАЛОЖЕНИЕ**: Raw crop + translucent mask overlaid.
-  - **МАСКА**: Mask only on checkerboard background for precise editing.
-  - **ЭТАЛОН**: Clean raw cropped screen fragment only.
+### CalibrationOverlay.kt
+- **New Template Isolation**: Fixed template save logic so that new template captures (`existingTemplatePath == null`) always save as a new unique file on disk, preventing existing templates from being overwritten and preserving all templates in the multi-search carousel.
+- **Calibration Progress Bar**: Added a horizontal progress indicator (`pBarReevaluate`) above the preview row that becomes visible whenever ZNCC evaluation / parameter matching is executing.
+- **Keyboard Dismissal & Hide Button**: Added a dedicated `"СКРЫТЬ КЛАВИАТУРУ"` button that appears when text input is active, and ensured `Enter` / `IME_ACTION_DONE` closes the keyboard.
 
-### SmartMaskEngine.kt
-- Factored non-zero alpha (`alpha > 25`) into foreground detection and inverted perimeter flood-fill (`!backgroundMask.get(i)`) for translucent templates and arrows. Inner gradients and translucent pixels inside arrow shapes are now preserved as a solid contiguous shape without inner fragmentation.
+### GlobalSettingsDialog.kt & ScriptsDialog.kt
+- Ensured `"СКРЫТЬ КЛАВИАТУРУ"` button and `Enter` (`IME_ACTION_DONE`) keyboard hiding on all text inputs.
 
 ## Verification Results
 

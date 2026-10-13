@@ -24,6 +24,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
@@ -121,6 +122,7 @@ private val targetStepId: Int? = null,
     private var previewMaskView: MaskPreviewView? = null
     private var previewLiveView: MaskPreviewView? = null
     private var tvLiveScoreBadge: TextView? = null
+    private var pBarReevaluate: ProgressBar? = null
 
     private var tvExpansionValue: TextView? = null
     private var tvPaddingValue: TextView? = null
@@ -681,11 +683,13 @@ private val targetStepId: Int? = null,
         root.addView(modalOverlay, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
     }
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                private fun reevaluateMatching() {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                evalJob?.cancel()
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                evalJob = overlayScope.launch {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                delay(150L)
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                val currentMask = getActiveTemplateBitmap()
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   private fun reevaluateMatching() {
+        evalJob?.cancel()
+        pBarReevaluate?.visibility = View.VISIBLE
+        evalJob = overlayScope.launch {
+            try {
+                delay(150L)
+                val currentMask = getActiveTemplateBitmap()
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 previewMaskView?.bind(currentMask, isMask = true, isCircle = isCircleShape)
 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 if (screenshot.isRecycled) return@launch
@@ -881,8 +885,11 @@ private val targetStepId: Int? = null,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 previewLiveView?.bind(null, isMask = false)
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 }
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 candidatesCanvasView?.invalidate()
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                }
+            } finally {
+                pBarReevaluate?.visibility = View.INVISIBLE
+            }
+        }
+    }
 
     private fun updateClickOffsetButtonText() {
         if (useCustomClickOffset) {
@@ -922,6 +929,43 @@ private val targetStepId: Int? = null,
 
 
         // [V22.0] Просторная шапка: заголовок, Студия и Авто без обрезания кнопок
+        val btnHideKeyboard = Button(context).apply {
+            text = "СКРЫТЬ КЛАВИАТУРУ"
+            textSize = 8.5f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                setColor("#312E81".toColorInt())
+                cornerRadius = dpF(6f)
+                setStroke(dp(1), "#6366F1".toColorInt())
+            }
+            minHeight = 0; minimumHeight = 0
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            visibility = View.GONE
+            setOnClickListener {
+                val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                val currentFocused = card.findFocus()
+                val token = currentFocused?.windowToken ?: card.windowToken
+                imm?.hideSoftInputFromWindow(token, 0)
+                currentFocused?.clearFocus()
+                card.clearFocus()
+                visibility = View.GONE
+            }
+        }
+        card.addView(btnHideKeyboard, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(28)).apply {
+            bottomMargin = dp(4)
+        })
+
+        card.viewTreeObserver.addOnGlobalLayoutListener {
+            val r = Rect()
+            card.getWindowVisibleDisplayFrame(r)
+            val keypadHeight = dm.heightPixels - r.bottom
+            val isFocused = card.findFocus() is EditText
+            val isKeyboardOpen = keypadHeight > (dm.heightPixels * 0.15f)
+            btnHideKeyboard.visibility = if (isKeyboardOpen || isFocused) View.VISIBLE else View.GONE
+        }
+
         val headerRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -1115,6 +1159,16 @@ private val targetStepId: Int? = null,
         }
         roiBar.addView(btnRoiClear, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(24)))
         card.addView(roiBar)
+
+        val pBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
+            isIndeterminate = true
+            visibility = View.INVISIBLE
+        }
+        pBarReevaluate = pBar
+        card.addView(pBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(4)).apply {
+            topMargin = dp(2)
+            bottomMargin = dp(2)
+        })
 
         val previewRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -2143,22 +2197,8 @@ private val targetStepId: Int? = null,
                 }
 
                 val rawCustomName = etTemplateName.text.toString().trim()
-                // Оставляем null для автоматической генерации уникального имени в репозитории
                 val customName = if (rawCustomName.isNotBlank()) rawCustomName else null
-                var effectiveExistingPath = existingTemplatePath
-                
-                // Перекалибровка срабатывает ТОЛЬКО если пользователь ОСОЗНАННО ввел имя, которое уже существует
-                if (effectiveExistingPath.isNullOrBlank() && rawCustomName.isNotBlank()) {
-                    val existingMatch = templateRepository.loadAllTemplates().firstOrNull {
-                        File(it.first).nameWithoutExtension.removePrefix("mask_").equals(rawCustomName, ignoreCase = true)
-                    }
-                    if (existingMatch != null) {
-                        effectiveExistingPath = existingMatch.first
-                        android.os.Handler(android.os.Looper.getMainLooper()).post {
-                            Toast.makeText(context, "Шаблон обновлен: «$rawCustomName»", Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
+                val effectiveExistingPath = existingTemplatePath
 
                 val tPath = templateRepository.saveTemplate(
                     folderName = folderName,
