@@ -2121,15 +2121,20 @@ private val targetStepId: Int? = null,
                 }
 
                 val rawCustomName = etTemplateName.text.toString().trim()
-                val customName = rawCustomName.ifEmpty { "цель_${System.currentTimeMillis()}" }
+                // Оставляем null для автоматической генерации уникального имени в репозитории
+                val customName = if (rawCustomName.isNotBlank()) rawCustomName else null
                 var effectiveExistingPath = existingTemplatePath
+                
+                // Перекалибровка срабатывает ТОЛЬКО если пользователь ОСОЗНАННО ввел имя, которое уже существует
                 if (effectiveExistingPath.isNullOrBlank() && rawCustomName.isNotBlank()) {
                     val existingMatch = templateRepository.loadAllTemplates().firstOrNull {
                         File(it.first).nameWithoutExtension.removePrefix("mask_").equals(rawCustomName, ignoreCase = true)
                     }
                     if (existingMatch != null) {
                         effectiveExistingPath = existingMatch.first
-                        Toast.makeText(context, "Подобный шаблон уже существует («$rawCustomName»), координаты обновлены", Toast.LENGTH_LONG).show()
+                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                            Toast.makeText(context, "Шаблон обновлен: «$rawCustomName»", Toast.LENGTH_LONG).show()
+                        }
                     }
                 }
 

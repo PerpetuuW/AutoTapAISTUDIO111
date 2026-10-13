@@ -74,12 +74,22 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
     fun saveTemplateWithScreen(folderName: String, existingPath: String?, maskBmp: Bitmap, rawBmp: Bitmap?, screenBmp: Bitmap?, metadata: JSONObject, customFileName: String? = null): String {
         val targetDir = File(baseTemplatesDir, folderName).apply { mkdirs() }
         val cleanName = customFileName?.takeIf { it.isNotBlank() }?.let { if (it.startsWith("mask_")) it else "mask_$it" }
+        
         val tPath = if (existingPath.isNullOrBlank()) {
-            File(targetDir, cleanName ?: "mask_${System.currentTimeMillis()}.png").absolutePath
+            var targetFile = File(targetDir, cleanName ?: "mask_${System.currentTimeMillis()}.png")
+            // [V29.0] Гарантированная уникальность при создании новых шаблонов (предотвращение перезаписи)
+            var suffixCounter = 1
+            while (targetFile.exists()) {
+                val base = targetFile.nameWithoutExtension
+                targetFile = File(targetDir, "${base}_v${suffixCounter}.png")
+                suffixCounter++
+            }
+            targetFile.absolutePath
         } else {
             if (cleanName != null && File(existingPath).name != cleanName) {
                 val oldFile = File(existingPath)
                 val newFile = File(targetDir, if (cleanName.endsWith(".png")) cleanName else "$cleanName.png")
+                // При переименовании перекалибровываемого шаблона допускаем замену
                 oldFile.renameTo(newFile)
                 newFile.absolutePath
             } else existingPath
