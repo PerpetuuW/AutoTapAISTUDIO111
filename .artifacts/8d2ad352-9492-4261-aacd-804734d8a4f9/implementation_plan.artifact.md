@@ -1,20 +1,22 @@
-# Fix Rename Dialog Crash, Shorten Default Template Names, and Sync Multi-Search `multiTemplatePaths`
+# Remove Drag Handle Button from Quick Steps Ring Overlay & Multi-Search Quick Capture
 
 ## Problem
-1. **Rename Dialog Crash**: In `EditActionDialog.kt`, passing a raw `EditText` directly to `AlertDialog.Builder.setView()` without layout parameters or padding caused crashes when renaming templates.
-2. **Long Default Template Names**: Default names like `цель_1712345678901` were too long and didn't fit on template previews.
-3. **Multi-Search Calibration Bug**: Calibrating/updating a template in multi-search mode updated `templatePath` but left `multiTemplatePaths` out of sync.
+1. **Quick Steps Drag Handle Removal**: In `TargetQuickRingOverlay.kt` (quick steps radial ring menu), the drag handle button (`DRAG_HANDLE`) is unnecessary and should be removed. The main control panel overlay (`ControlPanelOverlay.kt`) should remain untouched.
+2. **Quick Steps Template Capture**: Capturing a new template for an existing step in quick steps mode (`TargetOverlayManager.kt`) should append the template to `multiTemplatePaths` (multi-search) without overwriting existing template files.
+3. **Dedicated Recalibration**: Recalibration (overwriting/updating existing template files in-place) remains exclusive to the steps menu (`EditActionDialog`).
 
 ## Proposed Changes
 
-### EditActionDialog.kt
-- [MODIFY] [EditActionDialog.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/EditActionDialog.kt)
-  - Wrap the rename template `EditText` inside a padded `LinearLayout` container with proper `MATCH_PARENT` layout params to prevent crashes in `AlertDialog`.
+### TargetQuickRingOverlay.kt
+- [MODIFY] [TargetQuickRingOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/ring/TargetQuickRingOverlay.kt)
+  - Remove the `DRAG_HANDLE` button entry from `buttonsConfig` in `TargetQuickRingOverlay.kt`.
 
-### CalibrationOverlay.kt
-- [MODIFY] [CalibrationOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/capture/CalibrationOverlay.kt)
-  - Shorten default template names to `Цель_<4-digit code>` (e.g., `Цель_4829`) so they fit nicely on template previews.
-  - Synchronize `multiTemplatePaths` when saving/calibrating an action in multi-search mode.
+### TargetOverlayManager.kt
+- [MODIFY] [TargetOverlayManager.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/target/TargetOverlayManager.kt)
+  - In `startCaptureForStep(targetAction)`:
+    - Pass `existingTemplatePath = null` so quick captures do not overwrite existing template files.
+    - Append the new template path `path` to `targetAction.multiTemplatePaths`.
+    - Show Toast: `"Шаблон добавлен к мультипоиску шага #${targetAction.id} (всего: ${multiPaths.size})"`.
 
 ## Verification Plan
 
@@ -23,6 +25,5 @@
 - Run inspection scripts.
 
 ### Manual Verification
-- Test renaming template from action dialog (verify no crash).
-- Test creating a new template (verify short default name).
-- Test template calibration in multi-search mode (verify `multiTemplatePaths` sync).
+- Verify that `TargetQuickRingOverlay` no longer displays the drag handle button, while main overlay remains untouched.
+- Verify quick step capture adds new templates to `multiTemplatePaths` without overwriting existing templates.

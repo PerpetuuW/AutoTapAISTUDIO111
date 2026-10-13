@@ -544,7 +544,7 @@ class TargetOverlayManager(
                                 rawTemplateBitmap = cropped,
                                 initialCandidates = listOf(initialAnchorCandidate),
                                 existingAction = targetAction,
-                                existingTemplatePath = targetAction.templatePath.takeIf { it.isNotBlank() },
+                                existingTemplatePath = null,
                                 allActions = getActions(),
                                 targetStepId = targetAction.id,
                                 anchorCropX = safeX,
@@ -552,7 +552,20 @@ class TargetOverlayManager(
                                 onFinished = { updatedAction, path ->
                                     setOverlaysVisible(true)
                                     TemplateMatchingEngine.lastMatchedPositions[path] = Pair(updatedAction.posX.toInt(), updatedAction.posY.toInt())
-                                    updateAction(updatedAction)
+                                    val existingMulti = targetAction.multiTemplatePaths.filter { it.isNotBlank() }.toMutableList()
+                                    if (!existingMulti.contains(path)) {
+                                        existingMulti.add(path)
+                                    }
+                                    if (targetAction.templatePath.isNotBlank() && !existingMulti.contains(targetAction.templatePath)) {
+                                        existingMulti.add(0, targetAction.templatePath)
+                                    }
+                                    val primaryPath = targetAction.templatePath.ifBlank { path }
+                                    val multiAction = updatedAction.copy(
+                                        templatePath = primaryPath,
+                                        multiTemplatePaths = existingMulti.distinct()
+                                    )
+                                    updateAction(multiAction)
+                                    Toast.makeText(context, "Шаблон добавлен к мультипоиску шага #${targetAction.id} (всего: ${existingMulti.distinct().size})", Toast.LENGTH_SHORT).show()
                                 },
                                 onCancelled = {
                                     setOverlaysVisible(true)
