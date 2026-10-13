@@ -9,8 +9,8 @@ def run_check(root_dir: str) -> tuple[bool, str]:
     with open(p_dialog, "r", encoding="utf-8") as f:
         content = f.read()
 
-    if "btnMergeTemplates" not in content or "ОБЪЕДИНИТЬ" not in content:
-        return False, "[FAIL] В multiControlRow отсутствует кнопка ОБЪЕДИНИТЬ"
+    if "btnMergeTemplates" in content:
+        return False, "[FAIL] В multiControlRow не должна быть кнопка ОБЪЕДИНИТЬ (предотвращение переполнения строк)"
 
     if "btnToggleAdvanced" in content:
         return False, "[FAIL] В диалоге остался избыточный пустой аккордеон btnToggleAdvanced"

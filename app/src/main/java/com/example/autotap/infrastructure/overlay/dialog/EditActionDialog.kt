@@ -908,38 +908,6 @@ class EditActionDialog(
 
         multiControlRow.addView(btnSelectAll, LinearLayout.LayoutParams(0, dp(24), 1.0f).apply { marginEnd = dp(2) })
 
-        val btnMergeTemplates = createSmallButton("ОБЪЕДИНИТЬ") {
-            val targets = if (selectedMultiPaths.size >= 2) selectedMultiPaths.toList()
-                          else allTemplates.map { it.first }
-            if (targets.size < 2) {
-                Toast.makeText(context, "Выберите минимум 2 шаблона для объединения", Toast.LENGTH_SHORT).show()
-                return@createSmallButton
-            }
-            val bitmaps = targets.mapNotNull { p -> templateRepository.getTemplate(p) }
-            if (bitmaps.size < 2) {
-                Toast.makeText(context, "Не удалось загрузить изображения шаблонов", Toast.LENGTH_SHORT).show()
-                return@createSmallButton
-            }
-            val mergedBmp = mergeTemplateBitmaps(bitmaps)
-            if (mergedBmp == null) {
-                Toast.makeText(context, "Шаблоны слишком разные (совпадение меньше 50%)", Toast.LENGTH_LONG).show()
-                return@createSmallButton
-            }
-            val metaObj = org.json.JSONObject().apply {
-                put("similarity", 70)
-                put("isShapeOnly", false)
-            }
-            val newPath = templateRepository.saveTemplate("Merged", null, mergedBmp, mergedBmp, metaObj)
-            allTemplates = templateRepository.loadAllTemplates().toMutableList()
-            boundTemplatePath = newPath
-            selectedMultiPaths.clear()
-            selectedMultiPaths.add(newPath)
-            refreshActiveTemplateCard()
-            renderCarouselItems()
-            Toast.makeText(context, "Создан общий инвариантный шаблон без фона!", Toast.LENGTH_SHORT).show()
-        }
-        multiControlRow.addView(btnMergeTemplates, LinearLayout.LayoutParams(0, dp(24), 1.1f).apply { marginEnd = dp(2) })
-
         val btnMoveToFolder = createSmallButton("В ПАПКУ") {
 
             val targets = if (selectedMultiPaths.isNotEmpty()) selectedMultiPaths.toList()
@@ -1210,6 +1178,9 @@ class EditActionDialog(
                 allTemplates.filter { java.io.File(it.first).parentFile?.name in listOf("default", "templates", null) }
             }
 
+            val selectedTemplates = allTemplates.filter { selectedMultiPaths.contains(it.first) }
+            val displayTemplates = (filteredTemplates + selectedTemplates).distinctBy { it.first }
+
             for (path in selectedMultiPaths) {
                 if (path.startsWith("ocr:")) {
                     val textQuery = path.removePrefix("ocr:")
@@ -1239,7 +1210,7 @@ class EditActionDialog(
                 }
             }
 
-            for ((path, bmp) in filteredTemplates) {
+            for ((path, bmp) in displayTemplates) {
                 val isSelected = selectedMultiPaths.contains(path)
                 val isPrimary = (path == boundTemplatePath)
 

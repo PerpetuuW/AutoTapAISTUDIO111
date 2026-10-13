@@ -73,7 +73,10 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
     // [V12.0] Перегрузка метода для поддержки полноэкранного скриншота
     fun saveTemplateWithScreen(folderName: String, existingPath: String?, maskBmp: Bitmap, rawBmp: Bitmap?, screenBmp: Bitmap?, metadata: JSONObject, customFileName: String? = null): String {
         val targetDir = File(baseTemplatesDir, folderName).apply { mkdirs() }
-        val cleanName = customFileName?.takeIf { it.isNotBlank() }?.let { if (it.startsWith("mask_")) it else "mask_$it" }
+        val cleanName = customFileName?.takeIf { it.isNotBlank() }?.let {
+            val name = if (it.startsWith("mask_")) it else "mask_$it"
+            if (name.endsWith(".png")) name else "$name.png"
+        }
         
         val tPath = if (existingPath.isNullOrBlank()) {
             var targetFile = File(targetDir, cleanName ?: "mask_${System.currentTimeMillis()}.png")

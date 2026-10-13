@@ -111,7 +111,7 @@ object NeuralVisualMatcher {
         }
 
         // [V180.0] Защитный запас сходимости AI +5% против ложных срабатываний на рекламе
-        val effectiveSimilarity = (minSimilarityPercent + 5).coerceAtMost(99)
+        val effectiveSimilarity = (if (minSimilarityPercent >= 98) minSimilarityPercent else 98).coerceIn(98, 99)
         val reqScore = percentToRequiredZncc(effectiveSimilarity)
         val stepX = (tw / 4).coerceIn(3, 14)
         val stepY = (th / 4).coerceIn(3, 14)

@@ -1025,13 +1025,14 @@ private val targetStepId: Int? = null,
         }
         headerRow.addView(btnTut, LinearLayout.LayoutParams(dp(26), dp(26)).apply { marginEnd = dp(4) })
 
+        val calibrationContentLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
         var isCardCollapsed = false
         val btnCollapse = createIconButton(VectorIconDrawer.IconType.PANEL_COLLAPSE, "#21262D", "#38BDF8", dp(26)) {
             isCardCollapsed = !isCardCollapsed
-            val vis = if (isCardCollapsed) View.GONE else View.VISIBLE
-            for (i in 1 until card.childCount) {
-                card.getChildAt(i)?.visibility = vis
-            }
+            calibrationContentLayout.visibility = if (isCardCollapsed) View.GONE else View.VISIBLE
             vibrate(20L)
         }
         headerRow.addView(btnCollapse, LinearLayout.LayoutParams(dp(26), dp(26)).apply { marginEnd = dp(4) })
