@@ -1,8 +1,8 @@
 # Task List
 
-- `[x]` Fix `cleanName` extension bug in TemplateRepositoryImpl.kt to enforce `.png` so all saved templates appear in `loadAllTemplates()` and carousel
-- `[x]` Remove `btnMergeTemplates` ("ОБЪЕДИНИТЬ") and merge logic in EditActionDialog.kt
-- `[x]` Ensure carousel in EditActionDialog.kt includes all `selectedMultiPaths` templates
-- `[x]` Decouple Neural Engine threshold in NeuralVisualMatcher.kt to use 98% / dedicated neural threshold
+- `[x]` Fix `onActionAddTemplateRequested` in AutoTapOrchestrator.kt to pass `existingTemplatePath = null` and append new paths to `multiTemplatePaths`
+- `[x]` Implement calibration choice modal ("На текущем экране" vs "На сохраненном скриншоте") in AutoTapOrchestrator.kt
+- `[x]` Rename "Калибровка" to "Редактировать" in TargetQuickRingOverlay.kt
+- `[x]` Remove "ТЕСТ" button from CalibrationOverlay.kt
 - `[x]` Build and verify compilation
 - `[x]` Run all 172 1AInspector scripts and create walkthrough

@@ -1,22 +1,30 @@
-# Root-Cause Fix for Template Disappearance (.png Extension), Removal of Merge Button, and Independent Neural Threshold (98%)
+# Fix Multi-Search Quick Capture, Rename Calibration to Edit, Add Screen Choice Modal, & Remove Test Button
 
-## Root-Cause Discovery: Why Templates Disappeared
-In `TemplateRepositoryImpl.kt` (`saveTemplateWithScreen`), when `customFileName` was passed (e.g. `"Цель_1"`), `cleanName` was formatted as `"mask_Цель_1"` **without** the `.png` extension. The file was written to disk as `mask_Цель_1`. Subsequently, `loadAllTemplates()` filtered for files ending with `.png` (`it.name.endsWith(".png")`), causing all templates saved with custom/default names to be filtered out and completely disappear from `loadAllTemplates()` and the carousel!
+## Problem
+1. **Multi-Search Quick Capture Bug**: In `AutoTapOrchestrator.kt`, `onActionAddTemplateRequested` called `startCaptureForStep(act)` with `existingTemplatePath = templatePath`, overwriting existing template files and omitting new paths from `multiTemplatePaths`.
+2. **Rename "Калибровка" to "Редактировать"**: The button in quick actions ring should be labeled "Редактировать" instead of "Калибровка".
+3. **Calibration Screen Choice Modal**: When "Редактировать" is tapped, a selection dialog should prompt the user to choose between calibrating **"На текущем экране"** (fresh live screenshot) or **"На сохраненном скриншоте"** (saved full screenshot `screen_*.jpg` / `raw_*.png`).
+4. **Remove Test Button from Calibration**: The "ТЕСТ" button in `CalibrationOverlay.kt` is unnecessary and should be removed.
 
 ## Proposed Changes
 
-### TemplateRepositoryImpl.kt
-- [MODIFY] [TemplateRepositoryImpl.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/storage/TemplateRepositoryImpl.kt)
-  - Ensure `cleanName` in `saveTemplateWithScreen` always enforces the `.png` extension (e.g., `mask_Цель_1.png`), guaranteeing every saved template is recognized by `loadAllTemplates()` and displayed in the carousel.
+### AutoTapOrchestrator.kt
+- [MODIFY] [AutoTapOrchestrator.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/orchestrator/AutoTapOrchestrator.kt)
+  - In `onActionAddTemplateRequested`:
+    - Pass `existingTemplatePath = null` so quick captures create a new unique template file without overwriting existing templates.
+    - Append the new template path `path` to `action.multiTemplatePaths`.
+    - Show Toast: `"Шаблон добавлен к мультипоиску шага #X (всего: N)"`.
+  - In `startCalibration`:
+    - Show a choice dialog: **"На текущем экране"** vs **"На сохраненном скриншоте"**.
+    - If "На сохраненном скриншоте" is chosen, load the saved full screenshot (`screen_*.jpg` / `raw_*.png`) associated with the template and pass it to `CalibrationOverlay`.
 
-### EditActionDialog.kt
-- [MODIFY] [EditActionDialog.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/EditActionDialog.kt)
-  - Remove `btnMergeTemplates` ("ОБЪЕДИНИТЬ") and its merge logic so toolbar buttons fit on a single clean row.
-  - In `renderCarouselItems()`, ensure `displayTemplates` includes ALL templates in `selectedMultiPaths` regardless of folder filter.
+### TargetQuickRingOverlay.kt
+- [MODIFY] [TargetQuickRingOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/ring/TargetQuickRingOverlay.kt)
+  - Rename calibration action label/icon to "Редактировать".
 
-### NeuralVisualMatcher.kt
-- [MODIFY] [NeuralVisualMatcher.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/vision/NeuralVisualMatcher.kt)
-  - Decouple Neural Engine threshold from OpenCV and use a dedicated 98% / neural threshold (`minSimilarityPercent.coerceIn(98, 99)`).
+### CalibrationOverlay.kt
+- [MODIFY] [CalibrationOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/capture/CalibrationOverlay.kt)
+  - Remove the "ТЕСТ" (test click) button and its action.
 
 ## Verification Plan
 
@@ -25,6 +33,6 @@ In `TemplateRepositoryImpl.kt` (`saveTemplateWithScreen`), when `customFileName`
 - Run all 172 1AInspector scripts.
 
 ### Manual Verification
-- Capture a new template via quick actions or calibration and verify it receives the `.png` extension and appears in `loadAllTemplates()` and the carousel.
-- Verify "ОБЪЕДИНИТЬ" button is removed and action toolbar fits on a single line.
-- Verify Neural Engine uses dedicated 98% threshold.
+- Test adding a template to multi-search from quick actions (verify previous templates remain intact in `multiTemplatePaths` and carousel).
+- Test tapping "Редактировать" in quick ring menu (verify choice modal appears for "На текущем экране" vs "На сохраненном скриншоте").
+- Verify "ТЕСТ" button is removed from `CalibrationOverlay`.

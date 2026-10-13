@@ -1826,69 +1826,7 @@ private val targetStepId: Int? = null,
             }
         }
         updateClickOffsetButtonText()
-        clickControlRow.addView(btnClickOffsetToggle, LinearLayout.LayoutParams(0, dp(32), 1.5f).apply { marginEnd = dp(4) })
-
-
-        val btnTestClick = Button(context).apply {
-            tag = "TEST"
-            text = "ТЕСТ КЛИКА"
-            textSize = 8f
-            typeface = Typeface.DEFAULT_BOLD
-            includeFontPadding = false
-            setTextColor(Color.BLACK)
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf("#FBBF24".toColorInt(), "#F59E0B".toColorInt())
-            ).apply {
-                cornerRadius = dpF(4f)
-            }
-            minHeight = 0; minimumHeight = 0
-            setPadding(dp(8), dp(4), dp(8), dp(4))
-            setOnClickListener {
-                val best = currentCandidates.firstOrNull()
-                if (best == null) {
-                    Toast.makeText(context, "Базовый шаблон не обнаружен на экране", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-
-                // [V23.2] Валидация составного шаблона: клик выполняется ТОЛЬКО при совпадении ВСЕХ проверочных меток
-                if (coVerificationTemplates.isNotEmpty()) {
-                    val sPixels = PixelBufferPool.obtain(screenshot.width * screenshot.height)
-                    try {
-                        screenshot.getPixels(sPixels, 0, screenshot.width, 0, 0, screenshot.width, screenshot.height)
-                        for (chkPath in coVerificationTemplates) {
-                            val chkBmp = templateRepository.getTemplate(chkPath) ?: continue
-                            val chkMatches = TemplateMatchingEngine.findTemplateFastCascade(
-                                sPixels, screenshot.width, screenshot.height, chkBmp,
-                                minSimilarityPercent = 65, templatePath = chkPath, enableL0Cache = false
-                            )
-                            if (chkMatches.isEmpty() || chkMatches.maxOf { it.score } < 0.65f) {
-                                vibrate(60L)
-                                Toast.makeText(context, "Проверочный шаблон '${File(chkPath).nameWithoutExtension}' не найден! Клик заблокирован.", Toast.LENGTH_SHORT).show()
-                                return@setOnClickListener
-                            }
-                        }
-                    } finally {
-                        PixelBufferPool.release(sPixels)
-                    }
-                }
-
-                val finalX = best.clickX + (if (useCustomClickOffset) clickOffsetX else 0f)
-                val finalY = best.clickY + (if (useCustomClickOffset) clickOffsetY else 0f)
-                vibrate(30L)
-                AppLogger.log(context, "CALIB_TEST", String.format(Locale.US, "ТЕСТ-КЛИК КАЛИБРОВКИ: цель '%s' score=%.1f%% -> клик в (%.0f, %.0f)",
-                    best.templateName, best.score * 100f, finalX, finalY))
-                TargetHighlightVisualizer.showSpringHighlight(
-                    context, overlayWindowManager,
-                    Rect(best.rectLeft, best.rectTop, best.rectRight, best.rectBottom), 1000L
-                )
-                thread {
-                    AutoTapAccessibilityService.instance?.gestureDispatcher?.performClick(finalX, finalY, 60L)
-                }
-                Toast.makeText(context, "Все проверки пройдены! Клик в (${finalX.toInt()}, ${finalY.toInt()})", Toast.LENGTH_SHORT).show()
-            }
-        }
-        clickControlRow.addView(btnTestClick, LinearLayout.LayoutParams(0, dp(28), 1f))
+        clickControlRow.addView(btnClickOffsetToggle, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(32)))
         card.addView(clickControlRow)
 
         // [V23.2] Панель составных проверочных шаблонов для гарантированного клика в офсет
