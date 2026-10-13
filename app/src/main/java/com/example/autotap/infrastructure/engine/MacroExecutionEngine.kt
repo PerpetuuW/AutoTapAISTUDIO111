@@ -370,7 +370,11 @@ class MacroExecutionEngine(
                                     variableContext["last_match_score"] = String.format(Locale.US, "%.3f", bestMatchCand.score)
 
                                     if (bestMatchCand.score >= 0.80f && bestMatchCand.templatePath.isNotBlank()) {
-                                        com.example.autotap.infrastructure.vision.TemplateMatchingEngine.lastMatchedPositions[bestMatchCand.templatePath] = Pair(bestMatchCand.rectLeft, bestMatchCand.rectTop)
+                                        val history = com.example.autotap.infrastructure.vision.TemplateMatchingEngine.historicalSearchAnchors.getOrPut(bestMatchCand.templatePath) { java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap()) }
+                                        if (history.none { kotlin.math.abs(it.first - bestMatchCand.clickX) < 20 && kotlin.math.abs(it.second - bestMatchCand.clickY) < 20 }) {
+                                            if (history.size >= 8) history.remove(history.first())
+                                            history.add(Pair(bestMatchCand.clickX, bestMatchCand.clickY))
+                                        }
                                         try {
                                             val meta = templateRepository.getTemplateMetadata(bestMatchCand.templatePath)?.toMutableMap() ?: mutableMapOf()
                                             meta["calibratedX"] = bestMatchCand.rectLeft

@@ -551,7 +551,8 @@ class TargetOverlayManager(
                                 anchorCropY = safeY,
                                 onFinished = { updatedAction, path ->
                                     setOverlaysVisible(true)
-                                    TemplateMatchingEngine.lastMatchedPositions[path] = Pair(updatedAction.posX.toInt(), updatedAction.posY.toInt())
+                                    val history = TemplateMatchingEngine.historicalSearchAnchors.getOrPut(path) { java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap()) }
+                                    history.add(Pair(updatedAction.posX.toInt(), updatedAction.posY.toInt()))
                                     val existingMulti = targetAction.multiTemplatePaths.filter { it.isNotBlank() }.toMutableList()
                                     if (!existingMulti.contains(path)) {
                                         existingMulti.add(path)

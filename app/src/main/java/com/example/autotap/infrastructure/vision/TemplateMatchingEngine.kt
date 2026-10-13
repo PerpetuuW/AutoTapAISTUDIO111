@@ -86,7 +86,7 @@ class TemplateFeatures(
         val l1LabB: FloatArray = FloatArray(0)
     )
 
-    val lastMatchedPositions = ConcurrentHashMap<String, Pair<Int, Int>>()
+    val historicalSearchAnchors = ConcurrentHashMap<String, MutableSet<Pair<Int, Int>>>()
     val additionalSearchLocations = ConcurrentHashMap<String, MutableSet<Pair<Int, Int>>>()
     private val templateFeatureCache = ConcurrentHashMap<String, TemplateFeatures>()
     fun registerDiscoveredLocation(tPath: String, x: Int, y: Int) {
@@ -103,7 +103,7 @@ class TemplateFeatures(
         }
     }
     fun clearTemplateCache() {
-        lastMatchedPositions.clear()
+        historicalSearchAnchors.clear()
         additionalSearchLocations.clear()
         templateFeatureCache.clear()
         AppLogger.log(null, "VISION", "Кэши дескрипторов шаблонов очищены")
@@ -561,10 +561,10 @@ class TemplateFeatures(
                 }
             }
 
-            // 2. Дополнительные динамические позиции (L0 Cache и последние обнаруженные точки)
+            // 2. Дополнительные динамические позиции (накопительный L0 Cache)
             if (enableL0Cache && tPath.isNotEmpty()) {
-                lastMatchedPositions[tPath]?.let {
-                    val pt = com.example.autotap.domain.model.Point2D(it.first.toFloat(), it.second.toFloat())
+                historicalSearchAnchors[tPath]?.forEach { loc ->
+                    val pt = com.example.autotap.domain.model.Point2D(loc.first.toFloat(), loc.second.toFloat())
                     if (anchorProbes.none { p -> abs(p.x - pt.x) < 16f && abs(p.y - pt.y) < 16f }) {
                         anchorProbes.add(pt)
                     }
@@ -612,7 +612,15 @@ class TemplateFeatures(
                     )
                     allCandidates.add(candidate)
                     if (tPath.isNotEmpty()) {
-                        lastMatchedPositions[tPath] = Pair(candidate.clickX, candidate.clickY)
+                        val history = historicalSearchAnchors.getOrPut(tPath) { java.util.Collections.newSetFromMap(ConcurrentHashMap()) }
+                        if (history.none { abs(it.first - candidate.clickX) < 20 && abs(it.second - candidate.clickY) < 20 }) {
+                            if (history.size >= 8) {
+                                val oldest = history.first()
+                                history.remove(oldest)
+                            }
+                            history.add(Pair(candidate.clickX, candidate.clickY))
+                        }
+                        
                         val locs = additionalSearchLocations.getOrPut(tPath) { java.util.Collections.newSetFromMap(ConcurrentHashMap()) }
                         if (locs.none { abs(it.first - candidate.clickX) < 20 && abs(it.second - candidate.clickY) < 20 }) {
                             if (locs.size >= 8) locs.clear()
@@ -679,7 +687,15 @@ class TemplateFeatures(
                     )
                     allCandidates.add(candidate)
                     if (tPath.isNotEmpty()) {
-                        lastMatchedPositions[tPath] = Pair(candidate.clickX, candidate.clickY)
+                        val history = historicalSearchAnchors.getOrPut(tPath) { java.util.Collections.newSetFromMap(ConcurrentHashMap()) }
+                        if (history.none { abs(it.first - candidate.clickX) < 20 && abs(it.second - candidate.clickY) < 20 }) {
+                            if (history.size >= 8) {
+                                val oldest = history.first()
+                                history.remove(oldest)
+                            }
+                            history.add(Pair(candidate.clickX, candidate.clickY))
+                        }
+                        
                         val locs = additionalSearchLocations.getOrPut(tPath) { java.util.Collections.newSetFromMap(ConcurrentHashMap()) }
                         if (locs.none { abs(it.first - candidate.clickX) < 20 && abs(it.second - candidate.clickY) < 20 }) {
                             if (locs.size >= 8) locs.clear()
@@ -841,7 +857,11 @@ class TemplateFeatures(
                             )
                             allCandidates.add(candidate)
                             if (tPath.isNotEmpty()) {
-                                lastMatchedPositions[tPath] = Pair(candidate.clickX, candidate.clickY)
+                                val history = historicalSearchAnchors.getOrPut(tPath) { java.util.Collections.newSetFromMap(ConcurrentHashMap()) }
+                                if (history.none { abs(it.first - candidate.clickX) < 20 && abs(it.second - candidate.clickY) < 20 }) {
+                                    if (history.size >= 8) history.remove(history.first())
+                                    history.add(Pair(candidate.clickX, candidate.clickY))
+                                }
                             }
                             earlyExitFound = true
                             break
@@ -907,7 +927,11 @@ class TemplateFeatures(
                     )
                     allCandidates.add(candidate)
                     if (tPath.isNotEmpty()) {
-                        lastMatchedPositions[tPath] = Pair(candidate.clickX, candidate.clickY)
+                        val history = historicalSearchAnchors.getOrPut(tPath) { java.util.Collections.newSetFromMap(ConcurrentHashMap()) }
+                        if (history.none { abs(it.first - candidate.clickX) < 20 && abs(it.second - candidate.clickY) < 20 }) {
+                            if (history.size >= 8) history.remove(history.first())
+                            history.add(Pair(candidate.clickX, candidate.clickY))
+                        }
                     }
                     if (!findAllMatches && bestScore >= maxOf(0.92f, templateThreshold)) {
                         break
@@ -929,6 +953,13 @@ class TemplateFeatures(
 
         val finalMatches = nmsFilter(allCandidates.toSet())
         val topWinner = finalMatches.firstOrNull()
+        if (topWinner != null && topWinner.templatePath.isNotEmpty() && topWinner.score >= 0.88f) {
+            val history = historicalSearchAnchors.getOrPut(topWinner.templatePath) { java.util.Collections.newSetFromMap(ConcurrentHashMap()) }
+            if (history.none { abs(it.first - topWinner.clickX) < 20 && abs(it.second - topWinner.clickY) < 20 }) {
+                if (history.size >= 8) history.remove(history.first())
+                history.add(Pair(topWinner.clickX, topWinner.clickY))
+            }
+        }
 
         val elapsed = System.currentTimeMillis() - perfStartTime
         val searchRoi = if (hasRoi) Rect(roiMinX, roiMinY, roiMaxX, roiMaxY) else null

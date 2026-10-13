@@ -97,7 +97,14 @@ object AppLogger {
         }
     }
 
-        fun getLogs(context: Context? = null): String {
+    fun getLogsByTags(tags: List<String>): List<String> {
+        if (tags.contains("ALL") || tags.isEmpty()) return recentEngineLogs.toList()
+        return recentEngineLogs.filter { log ->
+            tags.any { tag -> log.contains("[$tag]") }
+        }
+    }
+
+    fun getLogs(context: Context? = null): String {
         val targetCtx = context ?: appContext ?: return "Журнал логов пуст."
         synchronized(logLock) {
             val f1 = File(targetCtx.filesDir, "error_log.txt")
