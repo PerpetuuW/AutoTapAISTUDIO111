@@ -1,38 +1,45 @@
-# Fix Multi-Search Quick Capture, Rename Calibration to Edit, Add Screen Choice Modal, & Remove Test Button
+# Recalibration Crash Fix (Empty Coerce Range Guard), Choice Modal, & Strict Layout Inspector Suite
 
 ## Problem
-1. **Multi-Search Quick Capture Bug**: In `AutoTapOrchestrator.kt`, `onActionAddTemplateRequested` called `startCaptureForStep(act)` with `existingTemplatePath = templatePath`, overwriting existing template files and omitting new paths from `multiTemplatePaths`.
-2. **Rename "Калибровка" to "Редактировать"**: The button in quick actions ring should be labeled "Редактировать" instead of "Калибровка".
-3. **Calibration Screen Choice Modal**: When "Редактировать" is tapped, a selection dialog should prompt the user to choose between calibrating **"На текущем экране"** (fresh live screenshot) or **"На сохраненном скриншоте"** (saved full screenshot `screen_*.jpg` / `raw_*.png`).
-4. **Remove Test Button from Calibration**: The "ТЕСТ" button in `CalibrationOverlay.kt` is unnecessary and should be removed.
+1. **Recalibration Crash on Edge Selection**: In `AutoTapOrchestrator.kt`, `cropW.coerceIn(4, effectiveScreenshot.width - cropX)` threw `IllegalArgumentException: Cannot coerce value to an empty range` whenever `cropX` or `cropY` was near or beyond the edge of the screenshot (`width - cropX < 4`), causing an unhandled app crash without logcat output.
+2. **Redundant Calibration Button Removal**: In `EditActionDialog.kt`, the redundant "КАЛИБРОВКА" button must be removed, leaving "РЕДАКТИРОВАТЬ" as the single full-width button.
+3. **Unified Choice Modal for Quick Ring & Step Settings**: Both quick action ring and step settings must trigger the same screen choice modal (**"НА ТЕКУЩЕМ ЭКРАНЕ"** vs **"НА СОХРАНЕННОМ СКРИНШОТЕ"**), clean of emojis.
+4. **100% Codebase Emoji & Text Overflow Inspector Suite**: Expand 1AInspector to scan 100% of Kotlin files in `app/src/main/java` for zero emojis and universal text overflow safety.
 
 ## Proposed Changes
 
 ### AutoTapOrchestrator.kt
 - [MODIFY] [AutoTapOrchestrator.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/orchestrator/AutoTapOrchestrator.kt)
-  - In `onActionAddTemplateRequested`:
-    - Pass `existingTemplatePath = null` so quick captures create a new unique template file without overwriting existing templates.
-    - Append the new template path `path` to `action.multiTemplatePaths`.
-    - Show Toast: `"Шаблон добавлен к мультипоиску шага #X (всего: N)"`.
-  - In `startCalibration`:
-    - Show a choice dialog: **"На текущем экране"** vs **"На сохраненном скриншоте"**.
-    - If "На сохраненном скриншоте" is chosen, load the saved full screenshot (`screen_*.jpg` / `raw_*.png`) associated with the template and pass it to `CalibrationOverlay`.
+  - Replace unsafe `coerceIn` range calls with edge-guarded bounds:
+    ```kotlin
+    val maxX = (effectiveScreenshot.width - 4).coerceAtLeast(0)
+    val maxY = (effectiveScreenshot.height - 4).coerceAtLeast(0)
+    val safeX = cropX.coerceIn(0, maxX)
+    val safeY = cropY.coerceIn(0, maxY)
+    val safeW = cropW.coerceIn(4, (effectiveScreenshot.width - safeX).coerceAtLeast(4))
+    val safeH = cropH.coerceIn(4, (effectiveScreenshot.height - safeY).coerceAtLeast(4))
+    ```
+  - Wrap `executeRecaptureWithScreenshot` in defensive `try-catch` blocks with `AppLogger.logError` logging and overlay state recovery (`controlPanelOverlay.show()`, `targetManager.setOverlaysVisible(true)`).
+  - Remove emojis (`📷` and `🖼️`) from choice modal buttons.
+  - Connect both quick ring and step settings calibration calls to `showCalibrationChoiceModal`.
 
-### TargetQuickRingOverlay.kt
-- [MODIFY] [TargetQuickRingOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/ring/TargetQuickRingOverlay.kt)
-  - Rename calibration action label/icon to "Редактировать".
+### EditActionDialog.kt
+- [MODIFY] [EditActionDialog.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/EditActionDialog.kt)
+  - Remove `btnCalibDirect` ("КАЛИБРОВКА") and expand "РЕДАКТИРОВАТЬ" to full row width (`MATCH_PARENT`).
 
-### CalibrationOverlay.kt
-- [MODIFY] [CalibrationOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/capture/CalibrationOverlay.kt)
-  - Remove the "ТЕСТ" (test click) button and its action.
+### 1AInspector Test Suite
+- [MODIFY] [1AInspector/check_no_emojis.py](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/1AInspector/check_no_emojis.py)
+  - Expand emoji scanning to check 100% of `.kt` files in `app/src/main/java` for zero emojis.
+- [NEW] [1AInspector/check_universal_text_truncation_and_no_overflow.py](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/1AInspector/check_universal_text_truncation_and_no_overflow.py)
+  - Scan all UI files to verify text truncation methods (`.take(...)`) are absent and marquee/auto-fit formatting is present.
 
 ## Verification Plan
 
 ### Automated Tests
 - Gradle build: `./gradlew :app:compileDebugKotlin`
-- Run all 172 1AInspector scripts.
+- Run all 172+ 1AInspector scripts.
 
 ### Manual Verification
-- Test adding a template to multi-search from quick actions (verify previous templates remain intact in `multiTemplatePaths` and carousel).
-- Test tapping "Редактировать" in quick ring menu (verify choice modal appears for "На текущем экране" vs "На сохраненном скриншоте").
-- Verify "ТЕСТ" button is removed from `CalibrationOverlay`.
+- Test recalibration near screen edges: verify no crash occurs and crop bounds are safely clamped.
+- Verify `EditActionDialog` has a single full-width "РЕДАКТИРОВАТЬ" button.
+- Verify choice modal shows clean text ("НА ТЕКУЩЕМ ЭКРАНЕ" / "НА СОХРАНЕННОМ СКРИНШОТЕ") without emojis.

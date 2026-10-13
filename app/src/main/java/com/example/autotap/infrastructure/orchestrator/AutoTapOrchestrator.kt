@@ -612,7 +612,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         card.addView(tvTitle)
 
         val btnLive = Button(appContext).apply {
-            text = "📷 НА ТЕКУЩЕМ ЭКРАНЕ"
+            text = "НА ТЕКУЩЕМ ЭКРАНЕ"
             textSize = 9f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.WHITE)
@@ -628,7 +628,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         card.addView(btnLive, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(34)).apply { bottomMargin = dp(4) })
 
         val btnHist = Button(appContext).apply {
-            text = "🖼️ НА СОХРАНЕННОМ СКРИНШОТЕ"
+            text = "НА СОХРАНЕННОМ СКРИНШОТЕ"
             textSize = 9f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.WHITE)
@@ -694,31 +694,42 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 overlayWindowManager = overlayWindowManager,
                 overrideScreenshot = effectiveScreenshot,
                 onCaptureTriggered = { cropX, cropY, cropW, cropH, _ ->
-                    val safeW = cropW.coerceIn(4, effectiveScreenshot.width - cropX)
-                    val safeH = cropH.coerceIn(4, effectiveScreenshot.height - cropY)
-                    val newRawCrop = android.graphics.Bitmap.createBitmap(effectiveScreenshot, cropX, cropY, safeW, safeH)
+                    try {
+                        val maxX = (effectiveScreenshot.width - 4).coerceAtLeast(0)
+                        val maxY = (effectiveScreenshot.height - 4).coerceAtLeast(0)
+                        val safeX = cropX.coerceIn(0, maxX)
+                        val safeY = cropY.coerceIn(0, maxY)
+                        val safeW = cropW.coerceIn(4, (effectiveScreenshot.width - safeX).coerceAtLeast(4))
+                        val safeH = cropH.coerceIn(4, (effectiveScreenshot.height - safeY).coerceAtLeast(4))
+                        val newRawCrop = android.graphics.Bitmap.createBitmap(effectiveScreenshot, safeX, safeY, safeW, safeH)
 
-                    com.example.autotap.infrastructure.overlay.capture.CalibrationOverlay(
-                        context = appContext,
-                        overlayWindowManager = overlayWindowManager,
-                        screenshot = effectiveScreenshot,
-                        rawTemplateBitmap = newRawCrop,
-                        initialCandidates = emptyList(),
-                        existingAction = action,
-                        existingTemplatePath = action.templatePath,
-                        targetStepId = action.id,
-                        anchorCropX = cropX,
-                        anchorCropY = cropY,
-                        onFinished = { updatedAction, _ ->
-                            controlPanelOverlay.show()
-                            targetManager.setOverlaysVisible(true)
-                            targetManager.updateAction(updatedAction)
-                        },
-                        onCancelled = {
-                            controlPanelOverlay.show()
-                            targetManager.setOverlaysVisible(true)
-                        }
-                    ).show()
+                        com.example.autotap.infrastructure.overlay.capture.CalibrationOverlay(
+                            context = appContext,
+                            overlayWindowManager = overlayWindowManager,
+                            screenshot = effectiveScreenshot,
+                            rawTemplateBitmap = newRawCrop,
+                            initialCandidates = emptyList(),
+                            existingAction = action,
+                            existingTemplatePath = action.templatePath,
+                            targetStepId = action.id,
+                            anchorCropX = safeX,
+                            anchorCropY = safeY,
+                            onFinished = { updatedAction, _ ->
+                                controlPanelOverlay.show()
+                                targetManager.setOverlaysVisible(true)
+                                targetManager.updateAction(updatedAction)
+                            },
+                            onCancelled = {
+                                controlPanelOverlay.show()
+                                targetManager.setOverlaysVisible(true)
+                            }
+                        ).show()
+                    } catch (e: Throwable) {
+                        AppLogger.logError(appContext, "RECAPTURE_CRASH", e)
+                        Toast.makeText(appContext, "Ошибка перекалибровки: ${e.message}", Toast.LENGTH_SHORT).show()
+                        controlPanelOverlay.show()
+                        targetManager.setOverlaysVisible(true)
+                    }
                 },
                 onCancelled = {
                     controlPanelOverlay.show()

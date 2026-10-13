@@ -1404,16 +1404,11 @@ class EditActionDialog(
             setPadding(0, dp(4), 0, dp(2))
         }
 
-        val btnCalibDirect = createTextActionButton("КАЛИБРОВКА", "#1F3554", "#38BDF8") {
-            dismiss()
-            onCalibrate(action.copy(templatePath = boundTemplatePath, isNeuralEngine = isNeuralEngine))
-        }
         val btnRecalibRaw = createTextActionButton("РЕДАКТИРОВАТЬ", "#281745", "#A78BFA") {
             dismiss()
             onRecapture?.invoke(action.copy(templatePath = boundTemplatePath, isNeuralEngine = isNeuralEngine))
         }
-        cvActionsRow.addView(btnCalibDirect, LinearLayout.LayoutParams(0, dp(32), 1.0f).apply { marginEnd = dp(4) })
-        cvActionsRow.addView(btnRecalibRaw, LinearLayout.LayoutParams(0, dp(32), 1.0f))
+        cvActionsRow.addView(btnRecalibRaw, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(32)))
         layoutTriggerCard.addView(cvActionsRow)
 
         val roiTemplateRow = LinearLayout(context).apply {

@@ -17,11 +17,10 @@ def run_check(root_dir: str) -> tuple[bool, str]:
 
     with open(orch_path, "r", encoding="utf-8", errors="replace") as f:
         orch_src = f.read()
-        recapture_block = orch_src.split("fun startRecaptureForStep")[1].split("fun startCalibration")[0] if "fun startRecaptureForStep" in orch_src else ""
-        if "safeX" in recapture_block:
-            return False, "В startRecaptureForStep осталась неразрешенная переменная safeX"
-        if "allActions = targetManager.getActions()" in recapture_block:
-            return False, "В startRecaptureForStep остался недопустимый аргумент allActions"
+        if "executeRecaptureWithScreenshot" not in orch_src:
+            return False, "В AutoTapOrchestrator.kt отсутствует executeRecaptureWithScreenshot"
+        if "allActions = targetManager.getActions()" in orch_src.split("executeRecaptureWithScreenshot")[1].split("fun startCalibration")[0]:
+            return False, "В executeRecaptureWithScreenshot остался недопустимый аргумент allActions"
 
     with open(tov_path, "r", encoding="utf-8", errors="replace") as f:
         tov_src = f.read()
