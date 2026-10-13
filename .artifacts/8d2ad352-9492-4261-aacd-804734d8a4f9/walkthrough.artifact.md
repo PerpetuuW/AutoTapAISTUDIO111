@@ -1,27 +1,21 @@
-# Walkthrough - Edge Selection Crash Fix, Full Emoji Removal, & Universal Text Overflow Inspector
+# Walkthrough - Full OCR Multi-Search Engine, Screen Text OCR Picker, & Granular CV Logging
 
-## Root-Cause Discovery & Fixes
+## Changes
 
-### 1. Recalibration Crash Prevention (AutoTapOrchestrator.kt)
-- **Root Cause**: On screen edge selection (`width - cropX < 4`), calling `cropW.coerceIn(4, width - cropX)` threw `IllegalArgumentException: Cannot coerce value to an empty range` because `min (4) > max (<=0)`.
-- **Fix**: Calculated guarded maximum bounds before coercing:
-  ```kotlin
-  val maxX = (effectiveScreenshot.width - 4).coerceAtLeast(0)
-  val maxY = (effectiveScreenshot.height - 4).coerceAtLeast(0)
-  val safeX = cropX.coerceIn(0, maxX)
-  val safeY = cropY.coerceIn(0, maxY)
-  val safeW = cropW.coerceIn(4, (effectiveScreenshot.width - safeX).coerceAtLeast(4))
-  val safeH = cropH.coerceIn(4, (effectiveScreenshot.height - safeY).coerceAtLeast(4))
-  ```
-- Wrapped overlay creation in `try-catch (e: Throwable)` with error logging (`AppLogger.logError`) and UI state recovery (`controlPanelOverlay.show()`, `targetManager.setOverlaysVisible(true)`).
+### MacroExecutionEngine.kt
+- **OCR Multi-Search Support**:
+  - Extracted all `"ocr:Text"` entries from `action.multiTemplatePaths`.
+  - During multi-search polling, executed ML Kit `OcrEngine.findTextOnScreen(screenshot, query, timeoutMs, roi, variableContext)` for each OCR query alongside image templates.
+  - Converted recognized text into valid `MatchCandidate` objects (`templatePath = "ocr:$query"`, `score = 0.95f`, `clickX`, `clickY`) and evaluated them in multi-search.
+- **Granular Recognition Logging**:
+  - Added comprehensive `AppLogger.log(context, "CV_EXECUTION", ...)` logging for polling start, target counts, per-template scores, match success (`[MATCH_SUCCESS]`), and timeouts (`[SEARCH_TIMEOUT]`).
 
-### 2. UI Simplification & Emoji Removal
-- **EditActionDialog.kt**: Removed redundant "КАЛИБРОВКА" button. Made "РЕДАКТИРОВАТЬ" take the full row width (`MATCH_PARENT`).
-- **AutoTapOrchestrator.kt**: Removed emojis `📷` and `🖼️` from calibration choice buttons (`"НА ТЕКУЩЕМ ЭКРАНЕ"`, `"НА СОХРАНЕННОМ СКРИНШОТЕ"`).
-
-### 3. Inspector Test Suite Expansion
-- **Zero Emojis Across 100% Codebase**: `1AInspector/check_no_emoji_in_ui.py` scans ALL Kotlin files in `app/src/main/java` to guarantee zero emojis across the entire UI.
-- **Universal Text Truncation & Overflow Inspector**: Created `1AInspector/check_universal_text_truncation_and_no_overflow.py` to ensure hardcoded string truncation (`.take(...)`) is absent and dynamic text fields support single-line marquee / auto-fit formatting across the layout.
+### EditActionDialog.kt & AutoTapOrchestrator.kt
+- **On-Screen OCR Text Extraction (`+ С ЭКРАНА (OCR)`)**:
+  - Added `+ С ЭКРАНА (OCR)` button in `multiControlRow` of `EditActionDialog.kt`.
+  - Implemented `startScreenTextOcrSelection(action)` in `AutoTapOrchestrator.kt`: opens `CaptureFrameOverlay` for screen selection, crops the region, runs ML Kit `OcrEngine.findTextOnScreen`, extracts text, appends `"ocr:Text"` to `multiTemplatePaths`, and re-opens `EditActionDialog`.
+- **Carousel Support**:
+  - All `"ocr:..."` entries in `selectedMultiPaths` are rendered as interactive blue OCR cards in the carousel with click-to-remove actions.
 
 ## Verification Results
 

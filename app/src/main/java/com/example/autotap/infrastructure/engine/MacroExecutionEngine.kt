@@ -247,7 +247,7 @@ class MacroExecutionEngine(
 
                                                         ActionType.TRIGGER -> {
                                                         val activeTemplates = resolveActiveTemplatesRobust(action, templates)
-                                                        // [V21.1] Таймаут — это переход к следующему шагу. Если шаг одиночный и нет ветки перехода — таймаута нет (isInfinite = true)
+                                                        val ocrQueries = action.multiTemplatePaths.filter { it.startsWith("ocr:") }.map { it.removePrefix("ocr:") }
                                                         val hasNextStep = (currentIndex + 1 < activeActionsList.size) || (action.jumpToStepOnTimeout != null)
                                                         val isInfinite = !hasNextStep || action.isWaitUntilMode || action.aiTimeoutSeconds == 0
                                                         val timeoutMs = if (isInfinite) Long.MAX_VALUE else (if (action.aiTimeoutSeconds > 0) action.aiTimeoutSeconds else (if (activeTemplates.size > 1 || action.multiTemplatePaths.size > 1) 8 else 5)) * 1000L
@@ -255,93 +255,92 @@ class MacroExecutionEngine(
                                                         val pollStartTime = System.currentTimeMillis()
                                                         var isMatched = false
                                                         var bestMatchCand: MatchCandidate? = null
-                                val baseSimilarity = action.similarityPercent.coerceIn(45, 98)
-                                val templateSummary = if (activeTemplates.isNotEmpty()) {
-                                    activeTemplates.joinToString(", ") { File(it.first).nameWithoutExtension.ifEmpty { "шаблон" } }
-                                } else "шаблон"
+                                                        val baseSimilarity = action.similarityPercent.coerceIn(45, 98)
 
-                                while (isActive && (isInfinite || (System.currentTimeMillis() - pollStartTime < timeoutMs))) {
-                                    val elapsed = System.currentTimeMillis() - pollStartTime
-                                    val progressRatio = if (isInfinite) 0f else (elapsed.toFloat() / timeoutMs.toFloat()).coerceIn(0f, 1f)
+                                                        com.example.autotap.core.logger.AppLogger.log(
+                                                            accessibilityServiceProvider() ?: return@launch,
+                                                            "CV_EXECUTION",
+                                                            String.format(Locale.US, "Старт поиска шага #%d: графических=%d, ocr=%d, порог=%d%%, таймаут=%s",
+                                                                action.id, activeTemplates.size, ocrQueries.size, baseSimilarity, if (isInfinite) "БЕСКОНЕЧНО" else "${action.aiTimeoutSeconds}сек")
+                                                        )
 
-                                    _executionState.value = ExecutionState.Running(
-                                        currentStepIndex = currentIndex + 1,
-                                        totalSteps = activeActionsList.size,
-                                        currentRepeat = currentRepeat + 1,
-                                        totalRepeats = repeats,
-                                        isDebugPaused = false,
-                                        isSearching = true,
-                                        searchProgress = progressRatio,
-                                        searchTitle = if (activeTemplates.size > 1) "Мультипоиск (${activeTemplates.size} шб)" else if (activeTemplates.isNotEmpty()) "Поиск: ${File(activeTemplates.first().first).nameWithoutExtension.removePrefix("mask_").trim()}" else "Поиск шаблона",
-                                        searchStartTime = pollStartTime,
-                                        searchTimeoutMs = timeoutMs,
-                                        isInfiniteSearch = isInfinite,
-                                        stepType = ActionType.TRIGGER
-                                    )
+                                                        while (isActive && (isInfinite || (System.currentTimeMillis() - pollStartTime < timeoutMs))) {
+                                                            val elapsed = System.currentTimeMillis() - pollStartTime
+                                                            val progressRatio = if (isInfinite) 0f else (elapsed.toFloat() / timeoutMs.toFloat()).coerceIn(0f, 1f)
 
-                                    val service = accessibilityServiceProvider()
-                                    val dm = service?.resources?.displayMetrics
-                                    val currentSw = dm?.widthPixels ?: 1080
-                                    val currentSh = dm?.heightPixels ?: 2400
+                                                            _executionState.value = ExecutionState.Running(
+                                                                currentStepIndex = currentIndex + 1,
+                                                                totalSteps = activeActionsList.size,
+                                                                currentRepeat = currentRepeat + 1,
+                                                                totalRepeats = repeats,
+                                                                isDebugPaused = false,
+                                                                isSearching = true,
+                                                                searchProgress = progressRatio,
+                                                                searchTitle = if (activeTemplates.size + ocrQueries.size > 1) "Мультипоиск (${activeTemplates.size + ocrQueries.size} целей)" else if (activeTemplates.isNotEmpty()) "Поиск: ${File(activeTemplates.first().first).nameWithoutExtension.removePrefix("mask_").trim()}" else "Поиск шаблона",
+                                                                searchStartTime = pollStartTime,
+                                                                searchTimeoutMs = timeoutMs,
+                                                                isInfiniteSearch = isInfinite,
+                                                                stepType = ActionType.TRIGGER
+                                                            )
 
-                                    ensureCleanScreenBeforeCapture()
+                                                            val service = accessibilityServiceProvider()
+                                                            val dm = service?.resources?.displayMetrics
+                                                            val currentSw = dm?.widthPixels ?: 1080
+                                                            val currentSh = dm?.heightPixels ?: 2400
 
-                                    if (MediaProjectionService.isStreaming) {
-                                        val sPixels = PixelBufferPool.obtain(currentSw * currentSh)
-                                        try {
-                                            if (MediaProjectionService.copyLatestFrame(sPixels, currentSw, currentSh)) {
-                                                val matches = if (action.isNeuralEngine && activeTemplates.isNotEmpty()) {
-                                                    val tBmp = activeTemplates.first().second
-                                                    com.example.autotap.infrastructure.vision.NeuralVisualMatcher.findMatches(
-                                                        sPixels = sPixels, sw = currentSw, sh = currentSh,
-                                                        template = tBmp,
-                                                        minSimilarityPercent = baseSimilarity,
-                                                        actionOverride = action
-                                                    )
-                                                } else {
-                                                    TemplateMatchingEngine.findMultiTemplatesFastCascade(
-                                                        sPixels = sPixels, sw = currentSw, sh = currentSh,
-                                                        templates = activeTemplates,
-                                                        minSimilarityPercent = baseSimilarity,
-                                                        actionOverride = action,
-                                                        isCancelled = { !isActive }
-                                                    )
-                                                }
-                                                if (matches.isNotEmpty()) {
-                                                    isMatched = true
-                                                    bestMatchCand = matches.first()
-                                                    break
-                                                }
-                                            }
-                                            delay(checkInterval)
-                                        } finally {
-                                            PixelBufferPool.release(sPixels)
-                                        }
-                                    } else {
-                                        val screenshot = service?.captureScreenshotSync(1500L)
-                                        if (screenshot != null) {
-                                            try {
-                                                val matches = visionGateway.findMultiTemplateMatches(
-                                                    screenshot = screenshot,
-                                                    templates = activeTemplates,
-                                                    minSimilarityPercent = baseSimilarity,
-                                                    actionOverride = action,
-                                                    isCancelled = { !isActive }
-                                                )
-                                                if (matches.isNotEmpty()) {
-                                                    isMatched = true
-                                                    bestMatchCand = matches.first()
-                                                    break
-                                                }
-                                                delay(checkInterval)
-                                            } finally {
-                                                screenshot.recycle()
-                                            }
-                                        } else {
-                                            delay(checkInterval)
-                                        }
-                                    }
-                                }
+                                                            ensureCleanScreenBeforeCapture()
+
+                                                            val screenshot = service?.captureScreenshotSync(1500L)
+                                                            if (screenshot != null) {
+                                                                try {
+                                                                    val candidateList = mutableListOf<MatchCandidate>()
+
+                                                                    if (activeTemplates.isNotEmpty()) {
+                                                                        val imageMatches = visionGateway.findMultiTemplateMatches(
+                                                                            screenshot = screenshot,
+                                                                            templates = activeTemplates,
+                                                                            minSimilarityPercent = baseSimilarity,
+                                                                            actionOverride = action,
+                                                                            isCancelled = { !isActive }
+                                                                        )
+                                                                        candidateList.addAll(imageMatches)
+                                                                    }
+
+                                                                    if (ocrQueries.isNotEmpty()) {
+                                                                        val roi = if (action.roiLeft != null && action.roiRight != null) {
+                                                                            Rect(action.roiLeft, action.roiTop ?: 0, action.roiRight, action.roiBottom ?: 0)
+                                                                        } else null
+                                                                        for (q in ocrQueries) {
+                                                                            val ocrResults = com.example.autotap.infrastructure.ocr.OcrEngine.findTextOnScreen(screenshot, q, 1000L, roi, variableContext)
+                                                                            for (res in ocrResults) {
+                                                                                candidateList.add(
+                                                                                    MatchCandidate(
+                                                                                        clickX = res.clickX,
+                                                                                        clickY = res.clickY,
+                                                                                        rectLeft = res.rectLeft,
+                                                                                        rectTop = res.rectTop,
+                                                                                        rectRight = res.rectRight,
+                                                                                        rectBottom = res.rectBottom,
+                                                                                        score = 0.95f,
+                                                                                        templatePath = "ocr:$q"
+                                                                                    )
+                                                                                )
+                                                                            }
+                                                                        }
+                                                                    }
+
+                                                                    if (candidateList.isNotEmpty()) {
+                                                                        candidateList.sortByDescending { it.score }
+                                                                        bestMatchCand = candidateList.first()
+                                                                        isMatched = true
+                                                                        break
+                                                                    }
+                                                                } finally {
+                                                                    screenshot.recycle()
+                                                                }
+                                                            }
+                                                            delay(checkInterval)
+                                                        }
 
                                                                                                 if (isMatched && bestMatchCand != null) {
                                     // [V13.1] В мультипоиске каждый шаблон использует строго СВОИ калибровочные смещения из метаданных

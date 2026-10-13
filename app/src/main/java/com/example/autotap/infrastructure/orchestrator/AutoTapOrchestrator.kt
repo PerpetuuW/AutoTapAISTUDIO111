@@ -1401,9 +1401,71 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 }
             },
             onNavigateStep = { stepId -> targetManager.getActions().find { it.id == stepId }?.let { showEditDialog(it) } },
-            onTest = { testSingleAction(it) }
+            onTest = { testSingleAction(it) },
+            onSelectScreenOcrText = { act -> startScreenTextOcrSelection(act) }
         )
         activeEditDialog?.show()
+    }
+
+    fun startScreenTextOcrSelection(action: MacroAction) {
+        targetManager.setOverlaysVisible(false)
+        controlPanelOverlay.hide()
+
+        val service = AutoTapAccessibilityService.instance
+        val screenshot = service?.captureScreenshotSync(2000L)
+        if (screenshot == null) {
+            Toast.makeText(appContext, "Не удалось сделать снимок экрана", Toast.LENGTH_SHORT).show()
+            controlPanelOverlay.show()
+            targetManager.setOverlaysVisible(true)
+            return
+        }
+
+        CaptureFrameOverlay(
+            context = appContext,
+            overlayWindowManager = overlayWindowManager,
+            overrideScreenshot = screenshot,
+            onCaptureTriggered = { cropX, cropY, cropW, cropH, _ ->
+                try {
+                    val maxX = (screenshot.width - 4).coerceAtLeast(0)
+                    val maxY = (screenshot.height - 4).coerceAtLeast(0)
+                    val safeX = cropX.coerceIn(0, maxX)
+                    val safeY = cropY.coerceIn(0, maxY)
+                    val safeW = cropW.coerceIn(4, (screenshot.width - safeX).coerceAtLeast(4))
+                    val safeH = cropH.coerceIn(4, (screenshot.height - safeY).coerceAtLeast(4))
+                    val cropped = Bitmap.createBitmap(screenshot, safeX, safeY, safeW, safeH)
+
+                    val ocrResults = com.example.autotap.infrastructure.ocr.OcrEngine.findTextOnScreen(cropped, "", 2000L, null, mutableMapOf())
+                    val recognizedText = ocrResults.firstOrNull()?.matchedText?.trim() ?: ""
+
+                    if (recognizedText.isNotBlank()) {
+                        val existingMulti = action.multiTemplatePaths.filter { it.isNotBlank() }.toMutableList()
+                        val ocrEntry = "ocr:$recognizedText"
+                        if (!existingMulti.contains(ocrEntry)) {
+                            existingMulti.add(ocrEntry)
+                        }
+                        val updated = action.copy(multiTemplatePaths = existingMulti.distinct())
+                        targetManager.updateAction(updated)
+                        Toast.makeText(appContext, "Считан текст с экрана: '$recognizedText'", Toast.LENGTH_LONG).show()
+                        mainHandler.postDelayed({ showEditDialog(updated) }, 150L)
+                    } else {
+                        Toast.makeText(appContext, "Текст на выделенном фрагменте не распознан", Toast.LENGTH_SHORT).show()
+                        mainHandler.postDelayed({ showEditDialog(action) }, 150L)
+                    }
+                } catch (e: Throwable) {
+                    AppLogger.logError(appContext, "OCR_SELECTION_CRASH", e)
+                    Toast.makeText(appContext, "Ошибка считывания текста: ${e.message}", Toast.LENGTH_SHORT).show()
+                    mainHandler.postDelayed({ showEditDialog(action) }, 150L)
+                } finally {
+                    screenshot.recycle()
+                }
+            },
+            onCancelled = {
+                screenshot.recycle()
+                controlPanelOverlay.show()
+                targetManager.setOverlaysVisible(true)
+                showEditDialog(action)
+            }
+        ).show()
     }
 
 

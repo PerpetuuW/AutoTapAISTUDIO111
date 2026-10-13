@@ -1,9 +1,8 @@
 # Task List
 
-- `[x]` Fix empty range `coerceIn` crash and add try-catch error recovery in AutoTapOrchestrator.kt
-- `[x]` Remove emojis (`📷`, `🖼️`) from AutoTapOrchestrator.kt choice modal buttons
-- `[x]` Remove `btnCalibDirect` ("КАЛИБРОВКА") in EditActionDialog.kt and make "РЕДАКТИРОВАТЬ" full-width
-- `[x]` Expand 1AInspector emoji inspector to scan 100% of `.kt` files in `app/src/main/java`
-- `[x]` Create universal text truncation & overflow inspector script
+- `[x]` Implement OCR multi-search evaluation in MacroExecutionEngine.kt for "ocr:..." entries in multiTemplatePaths
+- `[x]` Add "+ С ЭКРАНА (OCR)" button and OCR carousel cards in EditActionDialog.kt
+- `[x]` Implement `startScreenTextOcrSelection` in AutoTapOrchestrator.kt for on-screen text extraction
+- `[x]` Add detailed, granular recognition logs (`AppLogger.log(context, "CV_EXECUTION", ...)`) in MacroExecutionEngine.kt
 - `[x]` Build and verify compilation
-- `[x]` Run all 174 1AInspector scripts and create walkthrough
+- `[x]` Run all 174+ 1AInspector scripts and create walkthrough

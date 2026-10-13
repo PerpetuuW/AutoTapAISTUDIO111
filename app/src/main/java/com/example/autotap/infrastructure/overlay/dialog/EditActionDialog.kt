@@ -57,7 +57,8 @@ class EditActionDialog(
     private val onRecapture: ((MacroAction) -> Unit)? = null,
     private val onSelectRoi: ((MacroAction) -> Unit)? = null,
     private val onNavigateStep: (Int) -> Unit,
-    private val onTest: ((MacroAction) -> Unit)? = null
+    private val onTest: ((MacroAction) -> Unit)? = null,
+    private val onSelectScreenOcrText: ((MacroAction) -> Unit)? = null
 ) {
 
     private var dialogView: View? = null
@@ -894,6 +895,12 @@ class EditActionDialog(
             etOcrText.requestFocus()
         }
         multiControlRow.addView(btnAddOcr, LinearLayout.LayoutParams(0, dp(24), 1.0f).apply { marginEnd = dp(2) })
+
+        val btnAddScreenOcr = createSmallButton("+ С ЭКРАНА (OCR)") {
+            dismiss()
+            onSelectScreenOcrText?.invoke(action.copy(multiTemplatePaths = selectedMultiPaths.toList(), templatePath = boundTemplatePath))
+        }
+        multiControlRow.addView(btnAddScreenOcr, LinearLayout.LayoutParams(0, dp(24), 1.0f).apply { marginEnd = dp(2) })
 
         val btnSelectAll = createSmallButton("ВЫБРАТЬ ВСЕ (${allTemplates.size})") {
             selectedMultiPaths.clear()

@@ -1,45 +1,37 @@
-# Recalibration Crash Fix (Empty Coerce Range Guard), Choice Modal, & Strict Layout Inspector Suite
+# OCR Multi-Search Engine Integration, Screen Area OCR Selector, & Carousel Support
 
 ## Problem
-1. **Recalibration Crash on Edge Selection**: In `AutoTapOrchestrator.kt`, `cropW.coerceIn(4, effectiveScreenshot.width - cropX)` threw `IllegalArgumentException: Cannot coerce value to an empty range` whenever `cropX` or `cropY` was near or beyond the edge of the screenshot (`width - cropX < 4`), causing an unhandled app crash without logcat output.
-2. **Redundant Calibration Button Removal**: In `EditActionDialog.kt`, the redundant "КАЛИБРОВКА" button must be removed, leaving "РЕДАКТИРОВАТЬ" as the single full-width button.
-3. **Unified Choice Modal for Quick Ring & Step Settings**: Both quick action ring and step settings must trigger the same screen choice modal (**"НА ТЕКУЩЕМ ЭКРАНЕ"** vs **"НА СОХРАНЕННОМ СКРИНШОТЕ"**), clean of emojis.
-4. **100% Codebase Emoji & Text Overflow Inspector Suite**: Expand 1AInspector to scan 100% of Kotlin files in `app/src/main/java` for zero emojis and universal text overflow safety.
+1. **OCR Queries Skipped in Multi-Search**: In `MacroExecutionEngine.kt`, `resolveActiveTemplatesRobust()` ignored `"ocr:..."` entries in `multiTemplatePaths` because `templateRepository.getTemplate("ocr:Text")` returned `null`. Consequently, manually added `"ocr:..."` entries were skipped during macro execution.
+2. **Missing Screen Area OCR Selection**: Users could only add OCR queries by manually typing text in a dialog, but could not select an area directly on the live screen to extract text via ML Kit OCR.
+3. **Carousel Display for OCR Items**: OCR items in `selectedMultiPaths` need to be consistently displayed and removable in the `EditActionDialog` carousel alongside image templates.
 
 ## Proposed Changes
 
-### AutoTapOrchestrator.kt
-- [MODIFY] [AutoTapOrchestrator.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/orchestrator/AutoTapOrchestrator.kt)
-  - Replace unsafe `coerceIn` range calls with edge-guarded bounds:
-    ```kotlin
-    val maxX = (effectiveScreenshot.width - 4).coerceAtLeast(0)
-    val maxY = (effectiveScreenshot.height - 4).coerceAtLeast(0)
-    val safeX = cropX.coerceIn(0, maxX)
-    val safeY = cropY.coerceIn(0, maxY)
-    val safeW = cropW.coerceIn(4, (effectiveScreenshot.width - safeX).coerceAtLeast(4))
-    val safeH = cropH.coerceIn(4, (effectiveScreenshot.height - safeY).coerceAtLeast(4))
-    ```
-  - Wrap `executeRecaptureWithScreenshot` in defensive `try-catch` blocks with `AppLogger.logError` logging and overlay state recovery (`controlPanelOverlay.show()`, `targetManager.setOverlaysVisible(true)`).
-  - Remove emojis (`📷` and `🖼️`) from choice modal buttons.
-  - Connect both quick ring and step settings calibration calls to `showCalibrationChoiceModal`.
+### MacroExecutionEngine.kt
+- [MODIFY] [MacroExecutionEngine.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/engine/MacroExecutionEngine.kt)
+  - During multi-search polling (`ActionType.TRIGGER` or `ActionType.OCR`), extract all `"ocr:Text"` entries from `action.multiTemplatePaths`.
+  - For each `"ocr:Text"` entry, execute ML Kit `OcrEngine.findTextOnScreen(screenshot, query, timeoutMs, roi, variableContext)`.
+  - Convert recognized OCR text results into valid `MatchCandidate` objects (`templateName = "ocr:$query"`, `score = 0.95f`, `clickX`, `clickY`) and evaluate them alongside image template candidates.
 
 ### EditActionDialog.kt
 - [MODIFY] [EditActionDialog.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/EditActionDialog.kt)
-  - Remove `btnCalibDirect` ("КАЛИБРОВКА") and expand "РЕДАКТИРОВАТЬ" to full row width (`MATCH_PARENT`).
+  - Add `+ ТЕКСТ С ЭКРАНА` button in `multiControlRow`.
+  - On click, trigger `onSelectScreenOcrText` callback to launch on-screen frame capture.
+  - Render all `"ocr:..."` entries in `selectedMultiPaths` as interactive OCR cards in the carousel with click-to-remove actions.
 
-### 1AInspector Test Suite
-- [MODIFY] [1AInspector/check_no_emojis.py](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/1AInspector/check_no_emojis.py)
-  - Expand emoji scanning to check 100% of `.kt` files in `app/src/main/java` for zero emojis.
-- [NEW] [1AInspector/check_universal_text_truncation_and_no_overflow.py](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/1AInspector/check_universal_text_truncation_and_no_overflow.py)
-  - Scan all UI files to verify text truncation methods (`.take(...)`) are absent and marquee/auto-fit formatting is present.
+### AutoTapOrchestrator.kt
+- [MODIFY] [AutoTapOrchestrator.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/orchestrator/AutoTapOrchestrator.kt)
+  - Add `startScreenTextOcrSelection(action)`:
+    - Hide overlays and open `CaptureFrameOverlay`.
+    - Crop the selected screen region and run `OcrEngine.findTextOnScreen` to extract recognized text.
+    - Append `"ocr:ExtractedText"` to `action.multiTemplatePaths` and re-open `EditActionDialog`.
 
 ## Verification Plan
 
 ### Automated Tests
 - Gradle build: `./gradlew :app:compileDebugKotlin`
-- Run all 172+ 1AInspector scripts.
+- Run all 174+ 1AInspector scripts.
 
 ### Manual Verification
-- Test recalibration near screen edges: verify no crash occurs and crop bounds are safely clamped.
-- Verify `EditActionDialog` has a single full-width "РЕДАКТИРОВАТЬ" button.
-- Verify choice modal shows clean text ("НА ТЕКУЩЕМ ЭКРАНЕ" / "НА СОХРАНЕННОМ СКРИНШОТЕ") without emojis.
+- Test manual OCR text entry (`"ocr:Query"`) in multi-search and verify `MacroExecutionEngine` detects the text and performs a click.
+- Test `+ ТЕКСТ С ЭКРАНА`: select a screen area with text, verify ML Kit OCR extracts the text, appends `"ocr:Text"` to multi-search, and renders it in the carousel.
