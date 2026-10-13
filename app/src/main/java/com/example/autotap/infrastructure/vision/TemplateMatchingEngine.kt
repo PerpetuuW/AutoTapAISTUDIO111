@@ -830,7 +830,7 @@ class TemplateFeatures(
                     // Быстрая локальная доводка при высоком coarse скоре
                     if (coarseScore >= 0.70f) {
                         val fineScore = evaluateCandidateScore(sPixels, sw, sh, x, y, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
-                        if (fineScore >= 0.88f) {
+                        if (fineScore >= maxOf(0.92f, templateThreshold)) {
                             val candidate = MatchCandidate(
                                 x + features.centroidX, y + features.centroidY,
                                 x, y, x + features.tw, y + features.th,
@@ -872,11 +872,11 @@ class TemplateFeatures(
                     }
                     val distWeight = if (inside) 1.25f else (1.0f - (minDist / (sw * 0.75f)).coerceIn(0f, 0.40f))
                     spot.third * distWeight
-                }.take(if (findAllMatches) 24 else 10)
+                }.take(if (findAllMatches) 48 else 24)
             } else if (findAllMatches) {
-                spatialSectors.values.sortedByDescending { it.third }.take(24)
+                spatialSectors.values.sortedByDescending { it.third }.take(64)
             } else {
-                spatialSectors.values.sortedByDescending { it.third }.take(10)
+                spatialSectors.values.sortedByDescending { it.third }.take(32)
             }
             for (spot in sectorsToScan) {
                 if (isCancelled()) break
@@ -929,9 +929,6 @@ class TemplateFeatures(
 
         val finalMatches = nmsFilter(allCandidates.toSet())
         val topWinner = finalMatches.firstOrNull()
-        if (topWinner != null && topWinner.templatePath.isNotEmpty() && topWinner.score >= 0.88f) {
-            lastMatchedPositions[topWinner.templatePath] = Pair(topWinner.clickX, topWinner.clickY)
-        }
 
         val elapsed = System.currentTimeMillis() - perfStartTime
         val searchRoi = if (hasRoi) Rect(roiMinX, roiMinY, roiMaxX, roiMaxY) else null
