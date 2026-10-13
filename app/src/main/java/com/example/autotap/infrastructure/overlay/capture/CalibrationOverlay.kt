@@ -105,7 +105,7 @@ private val targetStepId: Int? = null,
     private var customEditedMask: Bitmap? = null
     private val coVerificationTemplates = mutableListOf<String>()
     private var activeGeneratedMask: Bitmap? = null
-    private var currentWorkingRaw: Bitmap = (if (existingTemplatePath != null) templateRepository.getTemplate(existingTemplatePath) else null) ?: rawTemplateBitmap
+    private var currentWorkingRaw: Bitmap = rawTemplateBitmap
     private var currentCropShiftX = 0
     private var currentCropShiftY = 0
     private var currentCropDeltaW = 0
@@ -2329,6 +2329,7 @@ private val targetStepId: Int? = null,
     }
 
     fun dismiss() {
+        AppLogger.log(context, "OVERLAY_CANCEL", "Закрытие/отмена оверлея калибровки CalibrationOverlay (targetStepId=$targetStepId)")
         evalJob?.cancel()
         rootFrameLayout?.let { overlayWindowManager.removeViewSafe(it) }
         rootFrameLayout = null

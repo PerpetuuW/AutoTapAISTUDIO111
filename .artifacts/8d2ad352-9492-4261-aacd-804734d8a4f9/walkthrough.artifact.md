@@ -1,19 +1,16 @@
-# Walkthrough - Visual Diameter Preview, Mask Studio Fix, & Un-truncated Search Titles
+# Walkthrough - Multi-Search Raw Frame Isolation & Emergency Close Logging
 
 ## Changes
 
-### MacroExecutionEngine.kt
-- Fixed `searchTitle` truncation: removed `.take(10)` call that was cutting off names mid-word (e.g. `mask_Цель_1` -> `mask_Цель_` -> `Цель_`). Strip `mask_` first so full informative titles like `Поиск: Цель_1` or `Поиск: Кнопка` are generated.
+### CalibrationOverlay.kt
+- Fixed template raw image initialization: `currentWorkingRaw` is strictly initialized to `rawTemplateBitmap` (the newly captured screen fragment) when capturing new templates. This ensures newly captured templates for multi-search or new steps never have previous template masks overlaid on top of them.
+- Added explicit cancellation/dismissal logging: `AppLogger.log(context, "OVERLAY_CANCEL", "...")` in `dismiss()`.
 
-### MagicWandEditorOverlay.kt
-- Fixed manual mask studio touch drag: prevented premature bitmap recycling during touch drag (`ACTION_MOVE`) in `safeReplaceCurrentMask`, restoring smooth manual brush, eraser, and magic wand drawing.
-- Added **Visual Tool Diameter Preview** (`vDiameterIndicator`): a live circular preview view placed right next to the tool slider, drawing a filled circle that scales dynamically with the brush size in real time.
-
-### RunningBadgeOverlay.kt
-- Ensured full untruncated `searchTitle` is passed to `tvActionStatus` and smoothly scrolled via `MarqueeTextView`.
+### EditActionDialog.kt & GestureRecorderOverlay.kt
+- Added explicit cancellation/dismissal logging: `AppLogger.log(context, "OVERLAY_CANCEL", "...")` in `dismiss()`.
 
 ## Verification Results
 
 ### Automated Tests
 - Gradle Build: `:app:compileDebugKotlin` finished successfully.
-- 1AInspector Suite: `172 / 172` inspector scripts passed with 100% success (`PASSED: 172 / 172`).
+- 1AInspector Suite: All `172 / 172` inspector modules passed 100% (`PASSED: 172 / 172`).

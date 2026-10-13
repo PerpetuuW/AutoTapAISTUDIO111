@@ -607,6 +607,7 @@ class GestureRecorderOverlay(
     }
 
     fun dismiss() {
+        com.example.autotap.core.logger.AppLogger.log(context, "OVERLAY_CANCEL", "Закрытие оверлея записи жестов GestureRecorderOverlay (записано: ${recordedActions.size})")
         restoreTouchRunnable?.let {
             mainHandler.removeCallbacks(it)
             restoreTouchRunnable = null

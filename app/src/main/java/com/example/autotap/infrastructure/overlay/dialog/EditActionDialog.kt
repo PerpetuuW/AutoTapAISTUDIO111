@@ -2031,6 +2031,7 @@ class EditActionDialog(
 
     fun dismiss() {
         dialogView?.let {
+            com.example.autotap.core.logger.AppLogger.log(context, "OVERLAY_CANCEL", "Закрытие оверлей-диалога шага EditActionDialog (stepId=${action.id})")
             hideKeyboard(it)
             globalLayoutListener?.let { l -> it.viewTreeObserver.removeOnGlobalLayoutListener(l) }
             overlayWindowManager.removeViewSafe(it)

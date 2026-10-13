@@ -1,24 +1,21 @@
-# Fix Manual Mask Studio Editing, Tool Diameter Display, & Full Search Title Truncation
+# Fix Multi-Search New Template Isolation & Add Emergency Close Logging
 
 ## Problem
-1. **Manual Mask Studio Editing**: In `MagicWandEditorOverlay.kt`, temporary bitmaps were being recycled during touch drag (`ACTION_MOVE`), causing bitmap recycling crashes during manual brush/eraser editing.
-2. **Tool Diameter Display**: The brush/eraser radius slider in `MagicWandEditorOverlay.kt` needs to explicitly display the tool diameter in pixels (e.g., `ДИАМЕТР КИСТИ: 8px`).
-3. **Execution Info Board Truncation ("Цель_")**: In `MacroExecutionEngine.kt`, `searchTitle` was calling `.take(10)` on `nameWithoutExtension` (which included `mask_`), truncating `"mask_Цель_1"` down to `"mask_Цель_"`, leaving only `"Цель_"` on the info board.
+1. **Old Mask Overlay on New Capture**: When capturing a new template for multi-search, `currentWorkingRaw` in `CalibrationOverlay.kt` was being loaded from `existingTemplatePath` (the old mask) instead of using the newly captured raw screen fragment (`rawTemplateBitmap`). Each template must have its own isolated raw image, mask, and metadata file.
+2. **Emergency Close Logging**: Emergency dismissals, cancellations, and closes across overlay components (`CalibrationOverlay`, `EditActionDialog`, `GestureRecorderOverlay`, `ControlPanelOverlay`, etc.) lack dedicated cancellation logging.
 
 ## Proposed Changes
 
-### MacroExecutionEngine.kt
-- [MODIFY] [MacroExecutionEngine.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/engine/MacroExecutionEngine.kt)
-  - Remove `.take(10)` truncation from template names in `searchTitle`. Remove `mask_` prefix before formatting, producing full informative titles like `Поиск: Цель_1` or `Поиск: Кнопка`.
+### CalibrationOverlay.kt
+- [MODIFY] [CalibrationOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/capture/CalibrationOverlay.kt)
+  - Ensure `currentWorkingRaw` is initialized strictly to `rawTemplateBitmap` (the newly captured frame) for new template captures, preventing the old template mask from overlaying newly captured frames.
+  - Ensure each template saved in multi-search has its own distinct mask (`mask_XXXX.png`), raw image (`raw_XXXX.png`), and JSON metadata (`mask_XXXX.json`).
+  - Add explicit cancellation logging in `onCancelled()` and `dismiss()` via `AppLogger.log(context, "OVERLAY_CANCEL", ...)`.
 
-### MagicWandEditorOverlay.kt
-- [MODIFY] [MagicWandEditorOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/capture/MagicWandEditorOverlay.kt)
-  - Prevent premature bitmap recycling during touch drag (`ACTION_MOVE`) in `safeReplaceCurrentMask`, ensuring brush, eraser, and magic wand manual editing work smoothly.
-  - Display tool diameter (`brushRadius * 2`) in `tvToolParamLabel` when adjusting the brush/eraser slider.
-
-### RunningBadgeOverlay.kt
-- [MODIFY] [RunningBadgeOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/badge/RunningBadgeOverlay.kt)
-  - Ensure full untruncated `searchTitle` is passed to `tvActionStatus` and smoothly scrolled via `MarqueeTextView`.
+### Overlay Components (EditActionDialog, GestureRecorderOverlay, ControlPanelOverlay, etc.)
+- [MODIFY] [EditActionDialog.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/EditActionDialog.kt)
+- [MODIFY] [GestureRecorderOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/record/GestureRecorderOverlay.kt)
+  - Add explicit cancellation and emergency close logging (`AppLogger.log(context, "OVERLAY_CANCEL", ...)`) whenever an overlay is dismissed or cancelled.
 
 ## Verification Plan
 
@@ -27,6 +24,5 @@
 - Run all 172 1AInspector scripts.
 
 ### Manual Verification
-- Test manual mask editing (brush, eraser, wand) in `MagicWandEditorOverlay`.
-- Verify tool diameter (`ДИАМЕТР КИСТИ: Xpx`) updates in real time when adjusting the slider.
-- Verify running badge status displays full target name (e.g., `Поиск: Цель_1`) without getting truncated at `Цель_`.
+- Capture a new template in multi-search mode and verify that the newly cropped raw frame is clean (no old mask overlaid) and generates its own independent mask and metadata file.
+- Verify cancellation and emergency closes emit detailed `OVERLAY_CANCEL` log entries in `AppLogger`.
