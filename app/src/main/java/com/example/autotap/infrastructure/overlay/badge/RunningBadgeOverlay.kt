@@ -57,7 +57,7 @@ class RunningBadgeOverlay(
     private fun dp(v: Int): Int = (v * dm.density).toInt()
     private fun dpF(v: Float): Float = v * dm.density
 
-    private val contentWidthDp = 78
+    private val contentWidthDp = 120
 
     fun isShowing(): Boolean = badgeView != null
 
@@ -321,7 +321,7 @@ class RunningBadgeOverlay(
 
             if (state.isSearching) {
                 currentStepDurationMs = state.searchTimeoutMs
-                currentActionTitle = state.searchTitle.substringBefore(" (")
+                currentActionTitle = if (state.searchTitle.isNotBlank()) state.searchTitle else "Поиск..."
                 tvActionStatus?.setTextColor("#FFB703".toColorInt())
                 fillProgressDrawable?.setColor("#FFB703".toColorInt())
             } else {

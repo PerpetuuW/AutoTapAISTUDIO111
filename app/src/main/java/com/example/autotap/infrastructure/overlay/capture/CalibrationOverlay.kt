@@ -981,6 +981,17 @@ private val targetStepId: Int? = null,
         }
         headerRow.addView(btnTut, LinearLayout.LayoutParams(dp(26), dp(26)).apply { marginEnd = dp(4) })
 
+        var isCardCollapsed = false
+        val btnCollapse = createIconButton(VectorIconDrawer.IconType.PANEL_COLLAPSE, "#21262D", "#38BDF8", dp(26)) {
+            isCardCollapsed = !isCardCollapsed
+            val vis = if (isCardCollapsed) View.GONE else View.VISIBLE
+            for (i in 1 until card.childCount) {
+                card.getChildAt(i)?.visibility = vis
+            }
+            vibrate(20L)
+        }
+        headerRow.addView(btnCollapse, LinearLayout.LayoutParams(dp(26), dp(26)).apply { marginEnd = dp(4) })
+
         val btnAuto = Button(context).apply {
             text = "АВТО"
             textSize = 8f
@@ -1907,7 +1918,18 @@ private val targetStepId: Int? = null,
         }
         nameRow.addView(tvNameLabel)
 
-        val defaultTplName = if (existingTemplatePath != null) File(existingTemplatePath).nameWithoutExtension.removePrefix("mask_") else "Цель_${System.currentTimeMillis().toString().takeLast(4)}"
+        val defaultTplName = if (existingTemplatePath != null) {
+            File(existingTemplatePath).nameWithoutExtension.removePrefix("mask_")
+        } else {
+            val existingNames = templateRepository.loadAllTemplates().map {
+                File(it.first).nameWithoutExtension.removePrefix("mask_")
+            }.toSet()
+            var idx = existingNames.size + 1
+            while (existingNames.contains("Цель_$idx") || existingNames.contains("цель_$idx")) {
+                idx++
+            }
+            "Цель_$idx"
+        }
         val etTemplateName = EditText(context).apply {
             setText(defaultTplName)
             setTextColor(Color.WHITE)
@@ -2267,8 +2289,7 @@ private val targetStepId: Int? = null,
             overlayWindowManager.getOverlayType(true),
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM,
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START

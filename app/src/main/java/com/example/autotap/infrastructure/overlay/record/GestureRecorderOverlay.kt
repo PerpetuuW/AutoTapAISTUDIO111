@@ -397,6 +397,14 @@ class GestureRecorderOverlay(
                         ))
                         restoreTouchAfter(60L)
                     }
+                    val lastAct = recordedActions.lastOrNull()
+                    if (lastAct != null) {
+                        com.example.autotap.core.logger.AppLogger.log(
+                            context,
+                            "GESTURE_RECORDER",
+                            "Записан жест #${lastAct.id} [${lastAct.type}]: start=(${startPt.x.toInt()}, ${startPt.y.toInt()}), end=(${endPt.x.toInt()}, ${endPt.y.toInt()}), dist=%.1fpx, dur=${duration}ms, delay=${actualDelay}ms".format(totalDistance)
+                        )
+                    }
                     currentTouchPoints.clear()
                     tvRecordCount?.text = "REC: ${recordedActions.size}"
                     canvas.invalidate()
