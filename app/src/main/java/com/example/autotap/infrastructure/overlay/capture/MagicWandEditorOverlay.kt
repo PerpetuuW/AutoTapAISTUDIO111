@@ -57,9 +57,6 @@ class MagicWandEditorOverlay(
     private fun dpF(v: Float): Float = v * dm.density
 
     private fun safeReplaceCurrentMask(newMask: Bitmap) {
-        if (currentMask != newMask && !currentMask.isRecycled && !undoStack.contains(currentMask)) {
-            currentMask.recycle()
-        }
         currentMask = newMask
     }
 
@@ -320,7 +317,11 @@ class MagicWandEditorOverlay(
             setPadding(0, 0, 0, dp(6))
         }
 
+        var vDiameterRef: View? = null
+
         fun updateSliderForCurrentTool() {
+            vDiameterRef?.visibility = if (currentTool == ToolMode.WAND) View.GONE else View.VISIBLE
+            vDiameterRef?.invalidate()
             when (currentTool) {
                 ToolMode.WAND -> {
                     tvToolParamLabel?.text = "ЧУВСТВИТЕЛЬНОСТЬ ПАЛОЧКИ: $wandTolerance"
@@ -329,7 +330,7 @@ class MagicWandEditorOverlay(
                 }
                 ToolMode.ERASER, ToolMode.RESTORE -> {
                     val name = if (currentTool == ToolMode.ERASER) "ЛАСТИКА" else "КИСТИ"
-                    tvToolParamLabel?.text = "РАДИУС $name: ${brushRadius}px"
+                    tvToolParamLabel?.text = "ДИАМЕТР $name:"
                     sbToolParam?.max = 14
                     sbToolParam?.progress = brushRadius - 1
                 }
@@ -515,16 +516,46 @@ class MagicWandEditorOverlay(
 
         card.addView(rowShift)
 
+        val vDiameterIndicator = object : View(context) {
+            private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.parseColor("#00F5D4")
+                style = Paint.Style.FILL
+            }
+            private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                strokeWidth = dpF(1.2f)
+                style = Paint.Style.STROKE
+            }
+            override fun onDraw(canvas: Canvas) {
+                super.onDraw(canvas)
+                if (currentTool == ToolMode.WAND) return
+                val cx = width / 2f
+                val cy = height / 2f
+                val sizePx = (brushRadius * 2f * dm.density).coerceIn(dpF(4f), width - dpF(4f))
+                val rPx = sizePx / 2f
+                canvas.drawCircle(cx, cy, rPx, fillPaint)
+                canvas.drawCircle(cx, cy, rPx, strokePaint)
+            }
+        }
+        vDiameterRef = vDiameterIndicator
+
         val tvSlider = TextView(context).apply {
             text = "ЧУВСТВИТЕЛЬНОСТЬ ПАЛОЧКИ: $wandTolerance"
             setTextColor("#58A6FF".toColorInt())
             textSize = 9f
             typeface = Typeface.MONOSPACE
             includeFontPadding = false
-            setPadding(0, dp(2), 0, 0)
         }
         tvToolParamLabel = tvSlider
-        card.addView(tvSlider)
+
+        val sliderHeaderRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(2), 0, 0)
+        }
+        sliderHeaderRow.addView(tvSlider, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        sliderHeaderRow.addView(vDiameterIndicator, LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginStart = dp(4) })
+        card.addView(sliderHeaderRow)
 
         val sbTol = SeekBar(context).apply {
             max = 70
@@ -540,7 +571,8 @@ class MagicWandEditorOverlay(
                         ToolMode.ERASER, ToolMode.RESTORE -> {
                             brushRadius = progress + 1
                             val name = if (currentTool == ToolMode.ERASER) "ЛАСТИКА" else "КИСТИ"
-                            tvSlider.text = "РАДИУС $name: ${brushRadius}px"
+                            tvSlider.text = "ДИАМЕТР $name:"
+                            vDiameterIndicator.invalidate()
                         }
                     }
                 }

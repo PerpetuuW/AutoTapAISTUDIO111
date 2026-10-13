@@ -272,7 +272,7 @@ class MacroExecutionEngine(
                                         isDebugPaused = false,
                                         isSearching = true,
                                         searchProgress = progressRatio,
-                                        searchTitle = if (activeTemplates.size > 1) "Мультипоиск (${activeTemplates.size})" else if (activeTemplates.isNotEmpty()) "Поиск: ${File(activeTemplates.first().first).nameWithoutExtension.take(10)}" else "Поиск шаблона",
+                                        searchTitle = if (activeTemplates.size > 1) "Мультипоиск (${activeTemplates.size} шб)" else if (activeTemplates.isNotEmpty()) "Поиск: ${File(activeTemplates.first().first).nameWithoutExtension.removePrefix("mask_").trim()}" else "Поиск шаблона",
                                         searchStartTime = pollStartTime,
                                         searchTimeoutMs = timeoutMs,
                                         isInfiniteSearch = isInfinite,
