@@ -1,19 +1,14 @@
-# Walkthrough - Tag Filtration in Logs & Detailed CV Execution Debugging
+# Walkthrough - Multi-Search Template Starvation Fix
 
 ## Changes
 
-### 1. LogViewerDialog.kt (Interactive Tag Filtration)
-- **Tag Extraction**: `LogViewerDialog.kt` now automatically parses `error_log.txt` lines to extract unique categories (e.g., `[CV_EXECUTION]`, `[GRAPH_CV_EXECUTION]`, `[FATAL_CRASH]`).
-- **Filter Buttons**: Added a horizontally scrollable row of tag buttons dynamically created above the log text.
-- **Interactive Filtering**: Tapping a tag instantly filters the displayed logs to show ONLY lines matching that category (plus stack trace lines), making it incredibly easy to track down exact macro stopping causes. Tapping "ВСЕ ЛОГИ" restores full visibility.
-
-### 2. MacroExecutionEngine.kt (Granular Diagnostics)
-- **Linear Macros (`[CV_EXECUTION]`)**:
-  - Added logs if search stops due to timeout without matching: `"ТАЙМАУТ ПОИСКА. Ни одна из целей не достигла порога X% за выделенное время."`
-  - Added success logs containing exact percentage: `"УСПЕХ [MATCH_SUCCESS]. Найдена цель 'X' со сходимостью Y%"`
-- **Graph Macros (`[GRAPH_CV_EXECUTION]`)**:
-  - Added explicit logs on trigger fail: `"Триггер-шаблон 'X' НЕ НАЙДЕН. Порог: Y%, ROI: ЗАДАН"`
-  - Added explicit logs on trigger success: `"Триггер 'X' УСПЕШНО НАЙДЕН на (x, y) со сходимостью Y%. Пул локаций: Z"`
+### TemplateMatchingEngine.kt
+- **Template Starvation in Multi-Search (`findMultiTemplatesFastCascade`)**:
+  - The previous multi-search engine prematurely restricted candidate sectors to the top `10` or `24` spatial sectors *before* sequentially testing individual templates against the screen. In a scenario with 5 templates, background noise or imperfect early clusters from Template #1 would completely monopolize the top 10 sectors, starving Template #5 from being evaluated at its true location (which might have ranked 15th overall in the raw coarse evaluation before fine tuning).
+  - Increased `sectorsToScan` limits dynamically:
+    - Standard multi-search: Top 10 -> **Top 32 sectors**.
+    - Find All Matches mode: Top 24 -> **Top 64 sectors**.
+  - This guarantees sufficient L1/L2 buffer capacity so later templates in the multi-search array are fairly and exhaustively evaluated at their proper coordinates without dropping true targets.
 
 ## Verification Results
 

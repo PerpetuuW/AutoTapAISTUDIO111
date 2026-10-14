@@ -872,11 +872,11 @@ class TemplateFeatures(
                     }
                     val distWeight = if (inside) 1.25f else (1.0f - (minDist / (sw * 0.75f)).coerceIn(0f, 0.40f))
                     spot.third * distWeight
-                }.take(if (findAllMatches) 24 else 10)
+                }.take(if (findAllMatches) 64 else 32)
             } else if (findAllMatches) {
-                spatialSectors.values.sortedByDescending { it.third }.take(24)
+                spatialSectors.values.sortedByDescending { it.third }.take(64)
             } else {
-                spatialSectors.values.sortedByDescending { it.third }.take(10)
+                spatialSectors.values.sortedByDescending { it.third }.take(32)
             }
             for (spot in sectorsToScan) {
                 if (isCancelled()) break
