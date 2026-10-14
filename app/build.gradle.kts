@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -131,6 +132,15 @@ dependencies {
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.viewmodel.compose)
     
+    // Serialization & Preferences
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.datastore.preferences)
+
+    // Images & Telemetry
+    implementation(libs.coil)
+    implementation(libs.coil.compose)
+    implementation(libs.anr.watchdog)
+
     // LeakCanary
     debugImplementation(libs.leakcanary.android)
 

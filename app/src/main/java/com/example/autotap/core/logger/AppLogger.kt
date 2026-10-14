@@ -47,6 +47,19 @@ object AppLogger {
                 logError(appContext, "FATAL_CRASH", throwable)
                 defaultHandler?.uncaughtException(thread, throwable)
             }
+
+            try {
+                com.github.anrwatchdog.ANRWatchDog(3000)
+                    .setANRListener { error ->
+                        logError(appContext, "ANR_FREEZE", error)
+                    }
+                    .setIgnoreDebugger(true)
+                    .start()
+                log(null, "TELEMETRY", "ANR-WatchDog успешно запущен (порог 3000мс)")
+            } catch (e: Exception) {
+                Log.e(TAG, "Ошибка запуска ANR-WatchDog", e)
+            }
+
             isCrashHandlerInstalled = true
         }
     }

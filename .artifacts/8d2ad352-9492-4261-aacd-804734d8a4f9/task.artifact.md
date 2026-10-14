@@ -1,9 +1,10 @@
-# Task List: Control Panel Compose Migration
+# Task List: Serialization, WatchDog, Coil, DataStore, & Dependency Graph
 
-- `[x]` Create `ControlPanelState` data class in a new `ControlPanelComposeOverlay.kt` file.
-- `[x]` Implement Compose-based `VectorIconButton` component.
-- `[x]` Build `ControlPanelComposeOverlay` extending `AbstractComposeOverlay` with MVI StateFlow.
-- `[x]` Replicate all 3 display modes (MINI_BUBBLE, COMPACT_SINGLE_ROW, EXPANDED) with smooth dragging.
-- `[x]` Update `AutoTapOrchestrator.kt` to use the new Compose overlay instead of the legacy one.
+- `[x]` Add dependencies for `kotlinx.serialization`, `ANR-WatchDog`, `Coil`, and `DataStore` to Gradle (`libs.versions.toml` & `build.gradle.kts`).
+- `[x]` Initialize `ANR-WatchDog` in `AppLogger.kt`.
+- `[ ]` Implement `TemplateMetadata` Serializable wrapper ensuring JSON parity in `TemplateRepositoryImpl.kt`.
+- `[ ]` Migrate `BitmapFactory.decodeFile` to `Coil` image requests in UI carousels where applicable.
+- `[ ]` Develop async `Preferences DataStore` and integrate it smoothly into `AutoTapOrchestrator` without blocking startup.
+- `[x]` Create `1AInspector/generate_architecture_graph.py` to map codebase dependencies to a Mermaid diagram.
 - `[x]` Build and verify compilation.
-- `[x]` Run all 174+ 1AInspector scripts and create walkthrough.
+- `[x]` Run all 1AInspector scripts and create walkthrough.
