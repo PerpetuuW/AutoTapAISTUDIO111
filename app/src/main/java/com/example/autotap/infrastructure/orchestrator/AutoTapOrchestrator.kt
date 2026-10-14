@@ -33,7 +33,7 @@ import com.example.autotap.domain.repository.ITemplateRepository
 import com.example.autotap.infrastructure.accessibility.AutoTapAccessibilityService
 import com.example.autotap.infrastructure.engine.MacroExecutionEngine
 import com.example.autotap.infrastructure.overlay.OverlayWindowManager
-import com.example.autotap.infrastructure.overlay.badge.RunningBadgeOverlay
+import com.example.autotap.infrastructure.overlay.badge.RunningBadgeComposeOverlay
 import com.example.autotap.infrastructure.overlay.capture.CalibrationOverlay
 import com.example.autotap.infrastructure.overlay.capture.CaptureFrameOverlay
 import com.example.autotap.infrastructure.overlay.capture.EyedropperOverlay
@@ -104,7 +104,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
     val controlPanelOverlay by lazy { ControlPanelOverlay(appContext, overlayWindowManager, this) }
 
     val screenLockOverlay by lazy { ScreenLockOverlay(appContext, overlayWindowManager) }
-    val runningBadgeOverlay by lazy { RunningBadgeOverlay(appContext, overlayWindowManager) }
+    val runningBadgeOverlay by lazy { RunningBadgeComposeOverlay(appContext, overlayWindowManager, onLockClick = { screenLockOverlay.show() }, onStopClick = { macroEngine.stop() }) }
     val debuggerToolbarOverlay by lazy { DebuggerToolbarOverlay(appContext, overlayWindowManager) }
 
     val graphEditorOverlay by lazy {
@@ -1484,7 +1484,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                         debuggerToolbarOverlay.updateStepInfo(state.currentStepIndex, state.totalSteps, state.stepType.name)
                     }
                     if (!macroEngine.isDebugRunning) {
-                        runningBadgeOverlay.show(onLockClick = { screenLockOverlay.show() }, onStopClick = { macroEngine.stop() })
+                        runningBadgeOverlay.show()
                         runningBadgeOverlay.forceVisible() // Гарантирует появление кнопки СТОП
                         runningBadgeOverlay.updateState(state)
                     } else {

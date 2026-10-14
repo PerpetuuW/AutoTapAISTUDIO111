@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    alias(libs.plugins.compose.compiler)
 }
 
 android {
@@ -97,6 +98,10 @@ android {
         }
     }
 
+    buildFeatures {
+        compose = true
+    }
+
     androidResources {
         noCompress += listOf("tflite", "task")
     }
@@ -114,6 +119,20 @@ dependencies {
     implementation(libs.mediapipe.tasks.vision)
     implementation(libs.yandex.mobileads)
     implementation(libs.rustore.pay)
+
+    // Jetpack Compose & UI
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.material3)
+    implementation(libs.compose.ui.tooling.preview)
+    debugImplementation(libs.compose.ui.tooling)
+    
+    // Lifecycle & StateFlow
+    implementation(libs.lifecycle.runtime.ktx)
+    implementation(libs.lifecycle.viewmodel.compose)
+    
+    // LeakCanary
+    debugImplementation(libs.leakcanary.android)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

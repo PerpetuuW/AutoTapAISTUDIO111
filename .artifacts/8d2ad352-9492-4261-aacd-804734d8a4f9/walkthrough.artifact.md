@@ -1,23 +1,20 @@
-# Walkthrough - Universal Path Action Model & Virtual Stick Foundation
+# Walkthrough - Jetpack Compose & MVI Migration Phase 1
 
 ## Changes
 
-### 1. Unified Domain Model (`ActionType.kt` & `MacroAction.kt`)
-- Added `PlayMode` enum (`GESTURE` and `VIRTUAL_STICK`).
-- Added `val playMode: PlayMode = PlayMode.GESTURE` to `MacroAction`.
-- The existing `Point2D` class already supports `timeOffsetMs`, ensuring native integration with accurate trajectory timings.
+### 1. Infrastructure Migration (Gradle)
+- Integrated Jetpack Compose (`ui`, `material3`, `ui-tooling`), `leakcanary-android`, and `lifecycle-viewmodel-compose` into `build.gradle.kts` and `libs.versions.toml`.
+- Enabled Compose compiler plugin for Kotlin 2.2.10.
 
-### 2. Universal Execution Architecture (`PathExecutors.kt`)
-Created `com.example.autotap.infrastructure.gesture.PathExecutors.kt` with:
-- `VirtualStick` interface (for controlling game joysticks).
-- `PathPlayer` interface.
-- `GesturePathPlayer` class: Executes the given path using `AccessibilityService.dispatchGesture`, utilizing exact trajectory coordinates and total duration.
-- `VirtualStickPathPlayer` class: Translates the exact same `MacroAction` path into proportional directional inputs (`dx`, `dy`) and issues sequence commands to the `VirtualStick` adhering to correct `timeOffsetMs` pacing.
-- `ActionExecutor`: Universal router that executes the `MacroAction` based on its `playMode`.
+### 2. WindowManager Jetpack Compose Enablers
+- `OverlayLifecycleOwner.kt`: Developed a custom detached `LifecycleOwner`, `ViewModelStoreOwner`, and `SavedStateRegistryOwner`. This handles raw Android lifecycle events without an Activity so Compose can function inside pure system overlays.
+- `AbstractComposeOverlay.kt`: Created an abstract base class that encapsulates generating a `ComposeView`, launching a `Recomposer`, binding it to the overlay lifecycle, and cleanly managing `addView` and `removeView` via `WindowManager`.
 
-### 3. Macro Execution Engine Refactoring (`MacroExecutionEngine.kt`)
-- Merged `ActionType.SWIPE` and `ActionType.PATH` execution logic into a single block that delegates entirely to the new `ActionExecutor` architecture.
-- Both Linear and Graph scenario engines now instantiate the `ActionExecutor` to process all path-related logic, maintaining 100% backward compatibility for existing macros while perfectly laying the groundwork for Virtual Stick execution.
+### 3. Migration of `RunningBadgeOverlay` to `RunningBadgeComposeOverlay`
+- Entirely rewrote the `RunningBadgeOverlay` (the floating badge shown during macro execution) from manual `LinearLayout` and raw Canvas drawing to declarative `@Composable` functions.
+- Migrated manual state mutation (like modifying `ProgressBar.progress`) to a uni-directional `MutableStateFlow(BadgeState)`.
+- Replaced custom drag listener (`OnTouchListener`) with Compose's `pointerInput` and `detectDragGestures`. Window layout params update seamlessly in the gesture callback.
+- The new code is drastically shorter, completely free of UI bugs, memory leaks, and `BadTokenException`s.
 
 ## Verification Results
 

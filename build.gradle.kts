@@ -1,5 +1,7 @@
 // AutoTap Greenfield Architecture — Root Build Script (v34.0)
 plugins {
-    id("com.android.application") version "9.3.3" apply false
+    alias(libs.plugins.android.application) apply false
     id("org.jetbrains.kotlin.android") version "2.2.10" apply false
+    alias(libs.plugins.compose.compiler) apply false
+    alias(libs.plugins.detekt) apply false
 }

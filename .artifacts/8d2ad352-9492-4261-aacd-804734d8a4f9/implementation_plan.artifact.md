@@ -1,33 +1,27 @@
-# Root-Cause Fix: False Negatives in Multi-Search (Calibration vs Execution Divergence)
+# Architectural Modernization Plan (Compose, LeakCanary, Detekt, StateFlow)
 
-## Problem
-In `TemplateMatchingEngine.findMultiTemplatesFastCascade`, the algorithm logs `Результат: 0 целей` (0 matches) despite `CalibrationOverlay` showing `score=92% (PASS)` for the exact same template.
-
-## Root-Cause Analysis
-The divergence between single calibration and multi-template search comes down to two aggressive NMS (Non-Maximum Suppression) & spatial sectoring optimizations inside `findMultiTemplatesFastCascade`:
-
-1. **Premature Sector Pruning**: In `findMultiTemplatesFastCascade`:
-   ```kotlin
-   val sectorsToScan = ... .take(if (findAllMatches) 24 else 10)
-   ```
-   If a macro step uses multiple templates (e.g. 5 templates), the screen is partitioned into `spatialSectors`. By taking only the top 10 or 24 global spots *before* iterating over the templates sequentially, the top spots for Template #1 might crowd out the correct locations for Template #5. If Template #5's correct location ranks 25th in the coarse scan (due to noise/downscaling), it gets discarded completely before fine evaluation.
-
-2. **Downscale Factor Hardcoding Divergence**:
-   The loop uses `val lastUsedDownscale = features.optimalDownscaleFactorFromMeta` which might enforce `downscaleFactor = 3` from previous global settings, whereas calibration dynamically recalibrates it.
+## Goal
+Implement the top-tier industry standards to eliminate UI layout bugs, memory leaks, and architectural spaghetti code in AutoTap. We will integrate Jetpack Compose, LeakCanary, Detekt, and StateFlow infrastructure.
 
 ## Proposed Changes
 
-### TemplateMatchingEngine.kt
-- [MODIFY] [TemplateMatchingEngine.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/vision/TemplateMatchingEngine.kt)
-  - In `findMultiTemplatesFastCascade`: Expand the sector pruning limit significantly for `findAllMatches` (from 24 to 64) and non-findAll (from 10 to 32) to ensure candidates for later templates in the multi-search array aren't starved out by the first template's false peaks.
-  - Apply the exact same local L2 search expansion radius used in `findTemplateFastCascade` to `findMultiTemplatesFastCascade` to guarantee symmetry.
+### 1. Build Config & Dependencies (`libs.versions.toml`, `build.gradle.kts`)
+- Add **Jetpack Compose** compiler plugin (Kotlin 2.2.10 requires `org.jetbrains.kotlin.plugin.compose`).
+- Enable `buildFeatures { compose = true }` in `app/build.gradle.kts`.
+- Add `androidx.compose.ui`, `material3`, and `ui-tooling`.
+- Add **LeakCanary** to `debugImplementation` for automatic memory leak detection (OOM prevention).
+- Add **Detekt** static analysis plugin to catch cognitive complexity, unused variables, and missing null-safety.
+- Add `kotlinx-coroutines-android` and `lifecycle-viewmodel-compose` for **StateFlow/MVI** architecture.
 
-## Verification Plan
+### 2. Detekt Configuration
+- Create a `detekt.yml` config or baseline script to automatically run static analysis and integrate it with your existing `1AInspector` suite.
 
-### Automated Tests
-- Gradle build: `./gradlew :app:compileDebugKotlin`
-- Run all 174+ 1AInspector scripts.
+### 3. StateFlow & Jetpack Compose Demonstration (Optional/Foundation)
+- Create a foundational `AbstractComposeOverlay` class that allows rendering Jetpack Compose inside the `WindowManager`. This will serve as a bridge for you to incrementally migrate complex dialogs (like `EditActionDialog` or `GraphEditorOverlay`) to clean declarative UI without `LayoutParams` math.
 
-### Manual Verification
-- Execute a macro step with 5 image templates. Verify `CV_PROFILER` reports `1 целей` instead of `0 целей` and correctly clicks the match.
-- Compare calibration score and macro execution score to ensure they yield identical or near-identical results.
+## User Review Required
+
+> [!IMPORTANT]
+> **Scope of Migration**: Do you want me to *only* setup the infrastructure (add dependencies, configure plugins, and create base Compose classes) so you can use them gradually? Or would you also like me to completely rewrite a specific overlay (e.g., `RunningBadgeOverlay`) to demonstrate Jetpack Compose and StateFlow in action right now?
+
+Please approve the plan or specify which part you want to focus on.
