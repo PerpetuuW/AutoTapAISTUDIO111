@@ -1,14 +1,7 @@
-# Task List: Backend Enhancements (Phase A, B, C)
+# Task List
 
-**Phase A: Smooth Path Interpolation**
-- `[x]` Implement Catmull-Rom Spline interpolation in `PathCompressionEngine.kt`.
-- `[x]` Integrate smooth path generation into `PathExecutors.kt` (`GesturePathPlayer` & `VirtualStickPathPlayer`).
-- `[x]` Build and verify compilation.
-- `[x]` Run 1AInspector scripts.
-
-**Phase B: Subroutine Safety & Telemetry**
-- `[x]` Add Subroutine Call Stack to `SafetyGovernor.kt`.
-- `[x]` Add granular `[SUBROUTINE]` logging in `MacroExecutionEngine.kt`.
-
-**Phase C: App Profile Detector Optimization**
-- `[x]` Add caching, debouncing, and whitelist system to `AppProfileDetector.kt`.
+- `[x]` Archive the 15 legacy dialog inspector scripts into `1AInspector/archive_legacy_dialog_checks/`
+- `[x]` Implement `getTutorialRect` in `ControlPanelComposeOverlay.kt` for interactive tutorial support
+- `[x]` Configure `singleLine = true`, `imeOptions = EditorInfo.IME_ACTION_DONE`, and Done/Enter listener across all overlay text fields
+- `[x]` Build and verify compilation
+- `[x]` Run active `1AInspector` scripts and create walkthrough

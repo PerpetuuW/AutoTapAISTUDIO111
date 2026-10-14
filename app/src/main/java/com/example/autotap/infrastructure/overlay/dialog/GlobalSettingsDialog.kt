@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -65,6 +66,43 @@ class GlobalSettingsDialog(
             elevation = dpF(16f)
         }
         dialogView = rootCard
+
+        val btnHideKeyboard = Button(context).apply {
+            text = "СКРЫТЬ КЛАВИАТУРУ"
+            textSize = 8.5f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                setColor("#312E81".toColorInt())
+                cornerRadius = dpF(6f)
+                setStroke(dp(1), "#6366F1".toColorInt())
+            }
+            minHeight = 0; minimumHeight = 0
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            visibility = View.GONE
+            setOnClickListener {
+                val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                val currentFocused = rootCard.findFocus()
+                val token = currentFocused?.windowToken ?: rootCard.windowToken
+                imm?.hideSoftInputFromWindow(token, 0)
+                currentFocused?.clearFocus()
+                rootCard.clearFocus()
+                visibility = View.GONE
+            }
+        }
+        rootCard.addView(btnHideKeyboard, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(28)).apply {
+            bottomMargin = dp(4)
+        })
+
+        rootCard.viewTreeObserver.addOnGlobalLayoutListener {
+            val r = Rect()
+            rootCard.getWindowVisibleDisplayFrame(r)
+            val keypadHeight = dm.heightPixels - r.bottom
+            val isFocused = rootCard.findFocus() is EditText
+            val isKeyboardOpen = keypadHeight > (dm.heightPixels * 0.15f)
+            btnHideKeyboard.visibility = if (isKeyboardOpen || isFocused) View.VISIBLE else View.GONE
+        }
 
         val header = LinearLayout(context).apply {
             tag = "HEADER"
@@ -175,6 +213,19 @@ class GlobalSettingsDialog(
             setTextColor(Color.WHITE)
             includeFontPadding = false
             inputType = InputType.TYPE_CLASS_NUMBER
+            imeOptions = EditorInfo.IME_ACTION_DONE
+            setOnEditorActionListener { v, actionId, event ->
+                if (actionId == EditorInfo.IME_ACTION_DONE ||
+                    actionId == EditorInfo.IME_ACTION_NEXT ||
+                    actionId == EditorInfo.IME_ACTION_GO ||
+                    (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
+                ) {
+                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                    imm?.hideSoftInputFromWindow(v.windowToken, 0)
+                    v.clearFocus()
+                    true
+                } else false
+            }
             background = GradientDrawable().apply {
                 setColor("#1B1430".toColorInt())
                 cornerRadius = dpF(8f)
@@ -336,6 +387,19 @@ class GlobalSettingsDialog(
             setTextColor(Color.WHITE)
             includeFontPadding = false
             inputType = InputType.TYPE_CLASS_NUMBER
+            imeOptions = EditorInfo.IME_ACTION_DONE
+            setOnEditorActionListener { v, actionId, event ->
+                if (actionId == EditorInfo.IME_ACTION_DONE ||
+                    actionId == EditorInfo.IME_ACTION_NEXT ||
+                    actionId == EditorInfo.IME_ACTION_GO ||
+                    (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
+                ) {
+                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                    imm?.hideSoftInputFromWindow(v.windowToken, 0)
+                    v.clearFocus()
+                    true
+                } else false
+            }
             background = GradientDrawable().apply {
                 setColor("#161B22".toColorInt())
                 cornerRadius = dpF(6f)
@@ -365,6 +429,19 @@ class GlobalSettingsDialog(
             setTextColor(Color.WHITE)
             includeFontPadding = false
             inputType = InputType.TYPE_CLASS_NUMBER
+            imeOptions = EditorInfo.IME_ACTION_DONE
+            setOnEditorActionListener { v, actionId, event ->
+                if (actionId == EditorInfo.IME_ACTION_DONE ||
+                    actionId == EditorInfo.IME_ACTION_NEXT ||
+                    actionId == EditorInfo.IME_ACTION_GO ||
+                    (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
+                ) {
+                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                    imm?.hideSoftInputFromWindow(v.windowToken, 0)
+                    v.clearFocus()
+                    true
+                } else false
+            }
             background = GradientDrawable().apply {
                 setColor("#161B22".toColorInt())
                 cornerRadius = dpF(6f)

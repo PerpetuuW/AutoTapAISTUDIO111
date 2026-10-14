@@ -1,35 +1,43 @@
-# Backend Enhancements (A, B, C in order)
+# Jetpack Compose Step Editor (`EditActionComposeDialog`), Tutorial Target Rects, Universal Keyboard Dismissal, & Inspector Archiving
 
-## Goal
-Implement a series of high-impact backend improvements focusing on gesture fluidity, subroutine safety, and reliable background detection, executed sequentially.
+## Problem
+1. **Legacy Inspector Constraints**: 15 legacy Python inspector scripts tied to `EditActionDialog.kt` string literals were blocking the migration to Jetpack Compose. As requested, these scripts will be moved to `1AInspector/archive_legacy_dialog_checks/` so the new Compose step editor can be implemented cleanly.
+2. **Compose Step Editor (`EditActionComposeDialog`)**: Create a modern, modular, MVI-driven step editor dialog in Jetpack Compose (`EditActionComposeDialog.kt`) using `EditActionState`, supporting all 3 tabs (Settings, Vision & Multi-Search, Logic/Routing) without layout bugs or string wrapping errors.
+3. **Tutorial Coordinates for Compose Overlays**: Implement `getTutorialRect(tagKey: String): Rect?` in `ControlPanelComposeOverlay.kt` so `InteractiveTutorialOverlay` spotlight and laser lines point directly to target buttons.
+4. **Universal Keyboard Action (Checkmark & Hide Button)**: Configure all text inputs across overlays (`CalibrationOverlay`, `GlobalSettingsDialog`, `ScriptsDialog`, `EditActionComposeDialog`) with:
+   - `singleLine = true` and `imeOptions = EditorInfo.IME_ACTION_DONE` (rendering the soft keyboard Checkmark/Done icon).
+   - Soft input dismissal on Done/Enter press.
+   - Dynamic **"СКРЫТЬ КЛАВИАТУРУ"** button and layout listener for manual dismissal.
 
-## Phase A: Smooth Path Interpolation (Human-like Gestures)
-**Problem:** `PathCompressionEngine` heavily compresses points into sharp angles (zig-zags). When played back via `AccessibilityService` or `VirtualStick`, the movement is perfectly linear and robotic, which can trigger game anti-cheats or look unnatural.
-**Proposed Change:**
-- Add a Spline Interpolation module (e.g., Catmull-Rom spline) to `PathExecutors.kt` or `PathCompressionEngine.kt`.
-- When `PathPlayer` executes a path, it will generate smooth intermediate points, converting sharp angles into fluid, human-like curves.
+## Proposed Changes
 
-## Phase B: Subroutine Safety & Telemetry
-**Problem:** `ActionType.SUBROUTINE` allows jumping to another script. If Script A calls Script B, and Script B calls Script A, it creates an infinite recursion that will crash the app with a `StackOverflowError`.
-**Proposed Change:**
-- Enhance `SafetyGovernor.kt` to maintain a call stack for subroutines.
-- Set a hard limit (e.g., depth of 10). If exceeded, gracefully abort execution and log the cycle.
-- Add detailed `AppLogger` entries for `[SUBROUTINE]` jumps to easily trace execution flow in the Log Viewer.
+### 1AInspector/archive_legacy_dialog_checks/
+- Move the 15 legacy dialog inspector scripts that require raw XML-like View code into `1AInspector/archive_legacy_dialog_checks/`.
+- Add new Compose inspector scripts for `EditActionComposeDialog.kt`.
 
-## Phase C: App Profile Detector Optimization
-**Problem:** `AppProfileDetector.kt` switches macros based on the active foreground app. If a system notification (`com.android.systemui`), volume panel, or transient ad overlay pops up, the detector might think the game was closed and abruptly stop the macro.
-**Proposed Change:**
-- Implement a caching and debouncing mechanism in `AppProfileDetector.kt`.
-- Ignore known transient packages (System UI, package installer, etc.).
-- Allow a brief "grace period" (e.g., 2-3 seconds) before switching profiles to ride out temporary interruptions.
+### EditActionComposeDialog.kt
+- [NEW] Create `EditActionComposeDialog.kt` extending `AbstractComposeOverlay`:
+  - **Header**: Step counter, type title, close button.
+  - **Tabs**: `1. НАСТРОЙКИ`, `2. ИИ & ЗРЕНИЕ`, `3. ЛОГИКА`.
+  - **Action Settings Tab**: Steppers for delay, hold duration, repeat count, random radius, pinch distance, global action types.
+  - **Vision Tab**: Interactive multi-search carousel (image templates and blue OCR cards), similarity slider, shape mode toggle, AI engine toggle, ROI selection button, `+ ТЕКСТ (OCR)`, `+ С ЭКРАНА (OCR)`.
+  - **Logic Tab**: Jump on match / timeout step selectors and subroutine picker.
+  - **Footer**: `СОХРАНИТЬ`, `ДУБЛИРОВАТЬ`, `УДАЛИТЬ`, `РЕДАКТИРОВАТЬ`.
+
+### ControlPanelComposeOverlay.kt
+- [MODIFY] [ControlPanelComposeOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt)
+  - Add `getTutorialRect(tagKey: String): Rect?` returning exact screen bounds for every button tag (`BTN_PLAY_VIEW`, `BTN_RECORD`, `BTN_ADD`, `BTN_SETTINGS`, `BTN_LOCK`, `BTN_CLEAR`, `BTN_SCRIPTS`, etc.).
+
+### Keyboard Dismissal across Overlays
+- Configure `singleLine = true`, `imeOptions = EditorInfo.IME_ACTION_DONE`, and `setOnEditorActionListener` on all text input fields in `CalibrationOverlay.kt`, `GlobalSettingsDialog.kt`, `ScriptsDialog.kt`, and `EditActionComposeDialog.kt`.
 
 ## Verification Plan
-For each phase:
-- Compile and build (`:app:compileDebugKotlin`).
-- Run all 174+ `1AInspector` python scripts to ensure no layout/protocol regressions.
 
-## User Review Required
+### Automated Tests
+- Gradle build: `./gradlew :app:compileDebugKotlin`
+- Run active `1AInspector` python scripts.
 
-> [!IMPORTANT]
-> I have formalized the plan to execute A, B, and C in order.
-> Please **approve** this plan so I can begin immediately with **Phase A: Smooth Path Interpolation**.
+### Manual Verification
+- Test opening `EditActionComposeDialog`: verify tabs, steppers, and carousel.
+- Test Interactive Tutorial on Control Panel: verify spotlight laser points directly to buttons.
+- Test soft keyboard: verify Checkmark/Done icon is shown and pressing Enter hides the keyboard.

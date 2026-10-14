@@ -63,6 +63,47 @@ class ControlPanelComposeOverlay(
         return params
     }
 
+    fun getTutorialRect(tagKey: String): android.graphics.Rect? {
+        val btnW = dp(42)
+        val btnH = dp(42)
+        val pad = dp(8)
+        val margin = dp(8)
+
+        val colIndex = when (tagKey) {
+            "BTN_PLAY_VIEW" -> 0
+            "BTN_ADD", "BTN_CAPTURE" -> 1
+            "BTN_RECORD" -> 2
+            "BTN_TOGGLE_VIEW" -> 3
+            "BTN_TUTORIAL", "BTN_HIDE" -> 4
+            "BTN_SETTINGS" -> 5
+            else -> -1
+        }
+
+        if (colIndex >= 0) {
+            val left = posX + pad + colIndex * (btnW + margin)
+            val top = posY + pad
+            return android.graphics.Rect(left, top, left + btnW, top + btnH)
+        }
+
+        val subRowIndex = when (tagKey) {
+            "BTN_CLOSE" -> 0
+            "BTN_LOCK" -> 1
+            "BTN_CLEAR", "BTN_WIPE" -> 2
+            "BTN_GRAPH" -> 3
+            "BTN_SCRIPTS" -> 4
+            "BTN_HELP" -> 5
+            else -> -1
+        }
+
+        if (subRowIndex >= 0) {
+            val left = posX + pad + subRowIndex * (dp(36) + dp(6))
+            val top = posY + pad + btnH + margin
+            return android.graphics.Rect(left, top, left + dp(36), top + dp(36))
+        }
+
+        return android.graphics.Rect(posX, posY, posX + dp(280), posY + dp(90))
+    }
+
     fun updateVisibilityMode(mode: OverlayVisibilityMode) {
         overlayState.update { it.copy(
             visibilityMode = mode,
