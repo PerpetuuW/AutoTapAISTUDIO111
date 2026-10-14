@@ -30,10 +30,13 @@ class GesturePathPlayer(
         if (points.isEmpty()) return
 
         // Поддержка обычных свайпов, если pathPoints пусто, но есть координаты
-        val effectivePoints = if (points.size >= 2) points else listOf(
+        val rawPoints = if (points.size >= 2) points else listOf(
             Point2D(action.posX, action.posY, 0L),
             Point2D(action.endX ?: (action.posX + 100f), action.endY ?: (action.posY + 100f), action.holdDurationMs)
         )
+
+        // Генерируем сглаженную траекторию сплайнами
+        val effectivePoints = com.example.autotap.core.math.PathCompressionEngine.generateSmoothSpline(rawPoints, pointsPerSegment = 6)
 
         val androidPath = Path()
         effectivePoints.forEachIndexed { index, point ->
@@ -72,8 +75,10 @@ class VirtualStickPathPlayer(
     private val stick: VirtualStick
 ) : PathPlayer {
     override suspend fun play(action: MacroAction) {
-        val points = action.pathPoints
-        if (points.size < 2) return
+        val rawPoints = action.pathPoints
+        if (rawPoints.size < 2) return
+
+        val points = com.example.autotap.core.math.PathCompressionEngine.generateSmoothSpline(rawPoints, pointsPerSegment = 6)
 
         for (i in 1 until points.size) {
             val prev = points[i - 1]

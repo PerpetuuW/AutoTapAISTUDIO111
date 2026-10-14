@@ -18,9 +18,23 @@ class AppProfileDetector(context: Context) {
         }
     }
 
+    private val transientPackages = setOf(
+        "com.android.systemui",
+        "com.google.android.packageinstaller",
+        "com.android.packageinstaller",
+        "com.google.android.permissioncontroller",
+        "com.example.autotap",
+        "android"
+    )
+
+    fun isIgnoredPackage(packageName: String): Boolean {
+        val clean = packageName.trim().lowercase()
+        return clean.isEmpty() || transientPackages.contains(clean)
+    }
+
     fun getScriptForPackage(packageName: String): String? {
         val cleanPkg = packageName.trim()
-        if (cleanPkg.isEmpty()) return null
+        if (cleanPkg.isEmpty() || isIgnoredPackage(cleanPkg)) return null
         return prefs.getString(cleanPkg, null)
     }
 

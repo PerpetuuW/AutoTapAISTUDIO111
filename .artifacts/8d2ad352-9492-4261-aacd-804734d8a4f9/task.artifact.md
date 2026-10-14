@@ -1,10 +1,14 @@
-# Task List: Serialization, WatchDog, Coil, DataStore, & Dependency Graph
+# Task List: Backend Enhancements (Phase A, B, C)
 
-- `[x]` Add dependencies for `kotlinx.serialization`, `ANR-WatchDog`, `Coil`, and `DataStore` to Gradle (`libs.versions.toml` & `build.gradle.kts`).
-- `[x]` Initialize `ANR-WatchDog` in `AppLogger.kt`.
-- `[x]` Implement `TemplateMetadata` Serializable wrapper ensuring JSON parity in `TemplateRepositoryImpl.kt` (with backward compatibility wrapper).
-- `[x]` Create `1AInspector/generate_architecture_graph.py` to map codebase dependencies to a Mermaid diagram.
+**Phase A: Smooth Path Interpolation**
+- `[x]` Implement Catmull-Rom Spline interpolation in `PathCompressionEngine.kt`.
+- `[x]` Integrate smooth path generation into `PathExecutors.kt` (`GesturePathPlayer` & `VirtualStickPathPlayer`).
 - `[x]` Build and verify compilation.
-- `[x]` Run all 1AInspector scripts and create walkthrough.
+- `[x]` Run 1AInspector scripts.
 
-*(Note: DataStore and Coil migrations postponed for future iterations due to their extensive dependencies deeply woven into legacy activities and views.)*
+**Phase B: Subroutine Safety & Telemetry**
+- `[x]` Add Subroutine Call Stack to `SafetyGovernor.kt`.
+- `[x]` Add granular `[SUBROUTINE]` logging in `MacroExecutionEngine.kt`.
+
+**Phase C: App Profile Detector Optimization**
+- `[x]` Add caching, debouncing, and whitelist system to `AppProfileDetector.kt`.

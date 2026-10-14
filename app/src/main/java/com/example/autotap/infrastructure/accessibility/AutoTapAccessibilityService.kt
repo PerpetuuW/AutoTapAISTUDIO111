@@ -197,10 +197,12 @@ class AutoTapAccessibilityService : AccessibilityService() {
                         }
                     }
 
-                    val boundScriptName = orchestrator.profileDetector.getScriptForPackage(pkg)
-                    if (boundScriptName != null) {
-                        val scenario = orchestrator.scenarioRepository.loadScenario(boundScriptName)
-                        if (scenario != null) orchestrator.targetManager.loadActions(scenario.actions)
+                    if (!orchestrator.profileDetector.isIgnoredPackage(pkg)) {
+                        val boundScriptName = orchestrator.profileDetector.getScriptForPackage(pkg)
+                        if (boundScriptName != null) {
+                            val scenario = orchestrator.scenarioRepository.loadScenario(boundScriptName)
+                            if (scenario != null) orchestrator.targetManager.loadActions(scenario.actions)
+                        }
                     }
                 }
             }

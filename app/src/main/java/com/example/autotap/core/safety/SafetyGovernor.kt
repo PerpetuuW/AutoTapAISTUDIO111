@@ -95,4 +95,31 @@ class SafetyGovernor(private val context: Context) {
         val gy = (mag * sin(angle)).toFloat().coerceIn(-radius.toFloat(), radius.toFloat())
         return Pair(gx, gy)
     }
+
+    private val subroutineCallStack = java.util.ArrayDeque<String>()
+    private val maxSubroutineDepth = 10
+
+    /**
+     * Защита от бесконечной рекурсии вызовов подпрограмм.
+     * Если глубина вложенности превышает 10, возвращает false.
+     */
+    fun pushSubroutine(tag: String): Boolean {
+        if (subroutineCallStack.size >= maxSubroutineDepth) {
+            return false
+        }
+        subroutineCallStack.push(tag)
+        return true
+    }
+
+    fun popSubroutine() {
+        if (subroutineCallStack.isNotEmpty()) {
+            subroutineCallStack.pop()
+        }
+    }
+
+    fun clearSubroutines() {
+        subroutineCallStack.clear()
+    }
+
+    fun getCurrentSubroutineDepth(): Int = subroutineCallStack.size
 }

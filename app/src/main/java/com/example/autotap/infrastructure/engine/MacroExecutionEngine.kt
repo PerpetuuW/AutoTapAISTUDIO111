@@ -754,16 +754,20 @@ class MacroExecutionEngine(
                                     val subScenario = scenarioRepository.loadScenario(subName)
                                     if (subScenario != null && subScenario.actions.isNotEmpty() &&
                                         subroutineManager.pushFrame(currentScenarioName, activeActionsList, currentIndex + 1)) {
+                                        AppLogger.log(accessibilityServiceProvider(), "SUBROUTINE", "Переход к подпрограмме '$subName' из '$currentScenarioName' (Глубина: ${subroutineManager.currentDepth})")
                                         currentScenarioName = subName
                                         activeActionsList = subScenario.actions.toMutableList()
                                         currentIndex = 0
                                         isJumpTriggered = true
+                                    } else {
+                                        AppLogger.log(accessibilityServiceProvider(), "SUBROUTINE", "ОШИБКА ПОДПРОГРАММЫ: Не удалось вызвать '$subName' (Превышена глубина или сценарий не найден)")
                                     }
                                 }
                             }
                             ActionType.RETURN -> {
                                 val frame = subroutineManager.popFrame()
                                 if (frame != null) {
+                                    AppLogger.log(accessibilityServiceProvider(), "SUBROUTINE", "Возврат из подпрограммы '$currentScenarioName' в '${frame.scenarioName}' (Глубина: ${subroutineManager.currentDepth})")
                                     currentScenarioName = frame.scenarioName
                                     activeActionsList = frame.actions.toMutableList()
                                     currentIndex = (frame.returnIndex - 1).coerceIn(0, activeActionsList.size - 1)

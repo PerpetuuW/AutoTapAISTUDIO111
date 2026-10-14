@@ -179,4 +179,53 @@ object PathCompressionEngine {
         val numerator = abs(dy * pt.x - dx * pt.y + lineEnd.x * lineStart.y - lineEnd.y * lineStart.x)
         return numerator / lineLength
     }
+
+    /**
+     * Генерирует плавную человекоподобную траекторию с использованием сглаживания Catmull-Rom Сплайном.
+     * Устраняет резкие углы и угловатые изломы, делая воспроизведение жестов и джойстика естественным.
+     */
+    fun generateSmoothSpline(
+        points: List<Point2D>,
+        pointsPerSegment: Int = 8
+    ): List<Point2D> {
+        if (points.size < 3) return points
+
+        val result = ArrayList<Point2D>()
+        val p = ArrayList<Point2D>()
+        
+        // Дублируем крайние точки для красивой обработки границ сплайна
+        p.add(points.first())
+        p.addAll(points)
+        p.add(points.last())
+
+        for (i in 1 until p.size - 2) {
+            val p0 = p[i - 1]
+            val p1 = p[i]
+            val p2 = p[i + 1]
+            val p3 = p[i + 2]
+
+            for (step in 0 until pointsPerSegment) {
+                val t = step.toFloat() / pointsPerSegment.toFloat()
+                val t2 = t * t
+                val t3 = t2 * t
+
+                // Формулы Catmull-Rom
+                val x = 0.5f * ((2f * p1.x) +
+                        (-p0.x + p2.x) * t +
+                        (2f * p0.x - 5f * p1.x + 4f * p2.x - p3.x) * t2 +
+                        (-p0.x + 3f * p1.x - 3f * p2.x + p3.x) * t3)
+
+                val y = 0.5f * ((2f * p1.y) +
+                        (-p0.y + p2.y) * t +
+                        (2f * p0.y - 5f * p1.y + 4f * p2.y - p3.y) * t2 +
+                        (-p0.y + 3f * p1.y - 3f * p2.y + p3.x) * t3)
+
+                val timeMs = p1.timeOffsetMs + ((p2.timeOffsetMs - p1.timeOffsetMs) * t).toLong()
+
+                result.add(Point2D(x, y, timeMs))
+            }
+        }
+        result.add(points.last())
+        return result
+    }
 }

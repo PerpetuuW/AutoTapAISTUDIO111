@@ -1,20 +1,18 @@
-# Walkthrough - Kotlin Serialization, ANR-WatchDog & Architectural Dependency Graphing
+# Walkthrough - Backend Enhancements (Phases A, B, C)
 
 ## Changes
 
-### 1. `kotlinx.serialization` (Data Layer Modernization)
-- Replaced the brittle `org.json.JSONObject` manual parsing with type-safe `kotlinx.serialization` for template metadata.
-- Created `@Serializable data class TemplateMetadata` which explicitly declares all 29 fields (e.g., `similarityPercent`, `clickOffsetX`, `roiZones`).
-- **Backward Compatibility Engine**: Added a robust fallback layer inside `TemplateMetadata.fromJsonString()`. If strict serialization fails (e.g., reading a template from an older version of the app), the code automatically catches the error, parses the JSON using legacy `JSONObject`, and gracefully maps the fields using `.optInt()` and `.has()`. This ensures older exported packages or saved macros will never break.
+### 1. Phase A: Smooth Path Interpolation (Human-like Gestures)
+- **Catmull-Rom Spline**: Implemented `generateSmoothSpline` in `PathCompressionEngine.kt` to interpolate discrete path coordinates smoothly into natural curves.
+- **Path Players Integration**: Updated `GesturePathPlayer` and `VirtualStickPathPlayer` in `PathExecutors.kt` to automatically route recorded or drawn paths through Catmull-Rom smoothing before dispatching. This eliminates robotic sharp angles and satisfies anti-cheat humanization heuristics.
 
-### 2. ANR-WatchDog (Telemetry)
-- Integrated `ANRWatchDog` directly into `AppLogger.kt`.
-- The watcher operates on a 3-second heartbeat threshold (`3000ms`). If the main UI thread freezes due to expensive computer vision processing or deadlocks, the WatchDog forcefully interrupts, captures the full thread stack trace, and logs it under the `"ANR_FREEZE"` category. You can instantly view this inside your `LogViewerDialog` using the interactive tag filters.
+### 2. Phase B: Subroutine Safety & Telemetry
+- **Recursion Guard**: Added a stack-based depth counter in `SafetyGovernor.kt` (`pushSubroutine`, `popSubroutine`) with a strict depth limit of 10 to prevent infinite call loops.
+- **Granular Telemetry**: Added explicit `AppLogger` entries tagged with `[SUBROUTINE]` in `MacroExecutionEngine.kt` for `ActionType.SUBROUTINE` and `ActionType.RETURN`, logging depth levels and current scenario names.
 
-### 3. Architecture Graph Generator (`1AInspector`)
-- Developed a new Python module: `1AInspector/generate_architecture_graph.py`.
-- This script recursively scans the entire Kotlin codebase (`app/src/main/java`), extracts packages, classes, and their `import` relationships.
-- It automatically generates a Mermaid diagram (`architecture_graph.artifact.md`) detailing the exact topological dependencies of the project (e.g., `AutoTapOrchestrator` -> `MacroExecutionEngine`).
+### 3. Phase C: App Profile Detector Optimization
+- **Transient Package Whitelist**: Enhanced `AppProfileDetector.kt` with `isIgnoredPackage` to ignore temporary system UI popups (`com.android.systemui`), package installers, and app permission dialogs.
+- **Service Integration**: `AutoTapAccessibilityService.kt` now checks `isIgnoredPackage` before attempting profile switching, preventing active macro interruptions when system notifications appear.
 
 ## Verification Results
 
