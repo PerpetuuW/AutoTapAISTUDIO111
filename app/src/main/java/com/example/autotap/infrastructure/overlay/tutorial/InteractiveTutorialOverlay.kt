@@ -28,7 +28,7 @@ class InteractiveTutorialOverlay(
     private val context: Context,
     private val overlayWindowManager: OverlayWindowManager,
     private val mode: TutorialMode = TutorialMode.CONTROL_PANEL,
-    private val hostViewProvider: (() -> View?)? = null,
+    private val hostViewProvider: (() -> Any?)? = null,
     private val onHighlightStep: ((stepIndex: Int) -> Unit)? = null,
     private val onFinished: (() -> Unit)? = null
 ) {
@@ -360,7 +360,6 @@ class InteractiveTutorialOverlay(
 
         fun resolveHighlightRect(): Rect? {
             val host = hostViewProvider?.invoke() ?: return null
-            if (!host.isAttachedToWindow) return null
 
             val tagOrKey = steps.getOrNull(currentStep)?.third ?: ""
             if (tagOrKey.isEmpty()) return null
@@ -376,28 +375,32 @@ class InteractiveTutorialOverlay(
                 if (canvasRect != null) return canvasRect
             }
 
-            val targetView = findViewWithTagRecursive(host, tagOrKey)
-            if (targetView != null && targetView.visibility == View.VISIBLE && targetView.width > 0 && targetView.height > 0) {
-                var parent = targetView.parent
-                while (parent != null) {
-                    if (parent is ScrollView) {
-                        parent.requestChildFocus(targetView, targetView)
-                        break
+            if (host is View) {
+                if (!host.isAttachedToWindow) return null
+
+                val targetView = findViewWithTagRecursive(host, tagOrKey)
+                if (targetView != null && targetView.visibility == View.VISIBLE && targetView.width > 0 && targetView.height > 0) {
+                    var parent = targetView.parent
+                    while (parent != null) {
+                        if (parent is ScrollView) {
+                            parent.requestChildFocus(targetView, targetView)
+                            break
+                        }
+                        parent = parent.parent
                     }
-                    parent = parent.parent
+
+                    targetView.getLocationOnScreen(targetLoc)
+                    val left = targetLoc[0]
+                    val top = targetLoc[1]
+                    val right = left + targetView.width
+                    val bottom = top + targetView.height
+                    return Rect(left, top, right, bottom)
                 }
 
-                targetView.getLocationOnScreen(targetLoc)
-                val left = targetLoc[0]
-                val top = targetLoc[1]
-                val right = left + targetView.width
-                val bottom = top + targetView.height
-                return Rect(left, top, right, bottom)
-            }
-
-            if (host.width > 0 && host.height > 0) {
-                host.getLocationOnScreen(targetLoc)
-                return Rect(targetLoc[0], targetLoc[1], targetLoc[0] + host.width, targetLoc[1] + host.height)
+                if (host.width > 0 && host.height > 0) {
+                    host.getLocationOnScreen(targetLoc)
+                    return Rect(targetLoc[0], targetLoc[1], targetLoc[0] + host.width, targetLoc[1] + host.height)
+                }
             }
 
             return null

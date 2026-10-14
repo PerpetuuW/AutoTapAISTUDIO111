@@ -1359,7 +1359,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         com.example.autotap.infrastructure.overlay.tutorial.InteractiveTutorialOverlay(
             context = appContext, overlayWindowManager = overlayWindowManager,
             mode = com.example.autotap.infrastructure.overlay.tutorial.InteractiveTutorialOverlay.TutorialMode.CONTROL_PANEL,
-            hostViewProvider = { controlPanelOverlay.containerView }
+            hostViewProvider = { controlPanelOverlay }
         ).show()
     }
     override fun onCloseClicked() { hideOverlays() }

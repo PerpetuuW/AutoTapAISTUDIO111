@@ -6,5 +6,7 @@
 - `[x]` Restore pre-migration Stop button rendering with red gradient & vector icon in RunningBadgeComposeOverlay.kt
 - `[x]` Connect selected action types in AutoTapOrchestrator.kt
 - `[x]` Add long-click support on Play button to launch step-by-step debugger
+- `[x]` Add Close button to Sub Row in ControlPanelComposeOverlay.kt
+- `[x]` Pass `ControlPanelComposeOverlay` directly to `InteractiveTutorialOverlay` for exact spotlight button targeting
 - `[x]` Build and verify compilation
 - `[x]` Run active `1AInspector` scripts and create walkthrough

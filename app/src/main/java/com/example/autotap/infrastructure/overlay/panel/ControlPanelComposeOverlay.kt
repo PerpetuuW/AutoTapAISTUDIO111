@@ -79,11 +79,12 @@ class ControlPanelComposeOverlay(
 
         val colIndex = when (tagKey) {
             "BTN_PLAY_VIEW" -> 0
-            "BTN_ADD", "BTN_CAPTURE" -> 1
-            "BTN_RECORD" -> 2
-            "BTN_TOGGLE_VIEW" -> 3
-            "BTN_TUTORIAL", "BTN_HIDE" -> 4
-            "BTN_SETTINGS" -> 5
+            "BTN_CAPTURE" -> 1
+            "BTN_ADD" -> 2
+            "BTN_RECORD" -> 3
+            "BTN_TOGGLE_VIEW" -> 4
+            "BTN_TUTORIAL", "BTN_HIDE" -> 5
+            "BTN_SETTINGS" -> 6
             else -> -1
         }
 
@@ -97,9 +98,8 @@ class ControlPanelComposeOverlay(
             "BTN_CLOSE" -> 0
             "BTN_LOCK" -> 1
             "BTN_CLEAR", "BTN_WIPE" -> 2
-            "BTN_GRAPH" -> 3
-            "BTN_SCRIPTS" -> 4
-            "BTN_HELP" -> 5
+            "BTN_SCRIPTS" -> 3
+            "BTN_HELP" -> 4
             else -> -1
         }
 
@@ -109,7 +109,7 @@ class ControlPanelComposeOverlay(
             return android.graphics.Rect(left, top, left + dp(36), top + dp(36))
         }
 
-        return android.graphics.Rect(posX, posY, posX + dp(280), posY + dp(90))
+        return android.graphics.Rect(posX, posY, posX + dp(340), posY + dp(90))
     }
 
     fun updateVisibilityMode(mode: OverlayVisibilityMode) {
@@ -241,6 +241,20 @@ class ControlPanelComposeOverlay(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
 
+                // 2. CAPTURE BUTTON (Сразу за кнопкой Play!)
+                VectorIconButton(
+                    icon = VectorIconDrawer.IconType.CAPTURE,
+                    size = 42.dp,
+                    bgStart = Color(0xFF162032),
+                    bgEnd = Color(0xFF0F172A),
+                    stroke = Color(0xFF38BDF8),
+                    iconColor = Color(0xFF38BDF8)
+                ) {
+                    listener.onCaptureClicked()
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // 3. PLUS BUTTON (Добавить мишень / меню действий)
                 VectorIconButton(
                     icon = VectorIconDrawer.IconType.PLUS,
                     size = 42.dp,
@@ -253,6 +267,7 @@ class ControlPanelComposeOverlay(
                 }
                 Spacer(modifier = Modifier.width(8.dp))
 
+                // 4. RECORD BUTTON (Запись жестов)
                 VectorIconButton(
                     icon = VectorIconDrawer.IconType.RECORD,
                     size = 42.dp,
@@ -265,7 +280,7 @@ class ControlPanelComposeOverlay(
                 }
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Expand/Collapse Mode Toggle
+                // 5. Expand/Collapse Mode Toggle
                 val isExpanded = state.mode == PanelDisplayMode.EXPANDED
                 VectorIconButton(
                     icon = if (isExpanded) VectorIconDrawer.IconType.PANEL_COLLAPSE else VectorIconDrawer.IconType.PANEL_EXPAND,
@@ -279,7 +294,7 @@ class ControlPanelComposeOverlay(
                 }
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Eye Toggle
+                // 6. Eye Toggle
                 val eyeBgStart = animateColorAsState(when(state.visibilityMode) {
                     OverlayVisibilityMode.FULL -> Color(0xFF162032)
                     OverlayVisibilityMode.TRANSPARENT -> Color(0xFF2E123D)
@@ -313,6 +328,7 @@ class ControlPanelComposeOverlay(
                 }
                 Spacer(modifier = Modifier.width(8.dp))
 
+                // 7. SETTINGS
                 VectorIconButton(
                     icon = VectorIconDrawer.IconType.SETTINGS,
                     size = 42.dp,
@@ -354,6 +370,20 @@ class ControlPanelComposeOverlay(
                     modifier = Modifier.padding(top = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // 1. CLOSE OVERLAY BUTTON
+                    VectorIconButton(
+                        icon = VectorIconDrawer.IconType.CLOSE,
+                        size = 36.dp,
+                        bgStart = Color(0xFF2A0E0C),
+                        bgEnd = Color(0xFF1C0908),
+                        stroke = Color(0xFF7F1D1D),
+                        iconColor = Color(0xFFF04438)
+                    ) {
+                        listener.onCloseClicked()
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    // 2. LOCK
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.LOCK,
                         size = 36.dp,
@@ -366,6 +396,7 @@ class ControlPanelComposeOverlay(
                     }
                     Spacer(modifier = Modifier.width(6.dp))
 
+                    // 3. CLEAR ALL
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.CLEAR,
                         size = 36.dp,
@@ -378,18 +409,7 @@ class ControlPanelComposeOverlay(
                     }
                     Spacer(modifier = Modifier.width(6.dp))
 
-                    VectorIconButton(
-                        icon = VectorIconDrawer.IconType.ACTION_SUBROUTINE,
-                        size = 36.dp,
-                        bgStart = Color(0xFF14241B),
-                        bgEnd = Color(0xFF09140E),
-                        stroke = Color(0xFF059669),
-                        iconColor = Color(0xFF34D399)
-                    ) {
-                        listener.onCaptureClicked()
-                    }
-                    Spacer(modifier = Modifier.width(6.dp))
-
+                    // 4. SCRIPTS MANAGER
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.SCRIPTS,
                         size = 36.dp,
@@ -402,6 +422,7 @@ class ControlPanelComposeOverlay(
                     }
                     Spacer(modifier = Modifier.width(6.dp))
 
+                    // 5. HELP / TUTORIAL
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.HELP,
                         size = 36.dp,
