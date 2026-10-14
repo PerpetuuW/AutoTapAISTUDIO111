@@ -190,31 +190,20 @@ class MacroExecutionEngine(
                                 }
                                 totalExecutedSteps++
                             }
-                            ActionType.SWIPE -> {
-                                val sx = action.posX
-                                val sy = action.posY
-                                val ex = action.endX ?: (sx + 100f)
-                                val ey = action.endY ?: (sy + 100f)
-                                val effHold = if (action.holdDurationMs > 0L) action.holdDurationMs.coerceAtLeast(30L) else 300L
+                            ActionType.SWIPE, ActionType.PATH -> {
+                                val executor = com.example.autotap.infrastructure.gesture.ActionExecutor(
+                                    com.example.autotap.infrastructure.gesture.GesturePathPlayer { accessibilityServiceProvider() },
+                                    com.example.autotap.infrastructure.gesture.VirtualStickPathPlayer(object : com.example.autotap.infrastructure.gesture.VirtualStick {
+                                        override fun setDirection(dx: Float, dy: Float, strength: Float) {
+                                            com.example.autotap.core.logger.AppLogger.log(accessibilityServiceProvider(), "VIRTUAL_STICK", "Симуляция стика: dx=%.2f, dy=%.2f".format(dx, dy))
+                                        }
+                                        override fun release() {
+                                            com.example.autotap.core.logger.AppLogger.log(accessibilityServiceProvider(), "VIRTUAL_STICK", "Стик отпущен")
+                                        }
+                                    })
+                                )
                                 withContext(Dispatchers.IO) {
-                                    gestureGateway.performSwipe(sx, sy, ex, ey, effHold)
-                                }
-                                totalExecutedSteps++
-                            }
-                            ActionType.PATH -> {
-                                val ex = action.endX
-                                val ey = action.endY
-                                val pts = if (action.pathPoints.isNotEmpty()) {
-                                    action.pathPoints
-                                } else if (ex != null && ey != null) {
-                                    listOf(Point2D(action.posX, action.posY), Point2D(ex, ey))
-                                } else emptyList()
-
-                                if (pts.isNotEmpty()) {
-                                    val totalDuration = if (action.holdDurationMs > 0L) action.holdDurationMs.coerceAtLeast(30L) else 300L
-                                    withContext(Dispatchers.IO) {
-                                        gestureGateway.performPath(pts, totalDuration)
-                                    }
+                                    executor.execute(action)
                                 }
                                 totalExecutedSteps++
                             }
@@ -886,26 +875,30 @@ class MacroExecutionEngine(
                                     }
                                     totalExecutedSteps++
                                 }
-                                ActionType.SWIPE -> {
-                                    val ex = act.endX ?: (act.x + 100f)
-                                    val ey = act.endY ?: (act.y + 100f)
+                                ActionType.SWIPE, ActionType.PATH -> {
+                                    val actMacro = MacroAction(
+                                        id = 1,
+                                        type = ActionType.PATH,
+                                        posX = act.x,
+                                        posY = act.y,
+                                        endX = act.endX,
+                                        endY = act.endY,
+                                        pathPoints = act.pathPoints,
+                                        holdDurationMs = act.holdDurationMs
+                                    )
+                                    val executor = com.example.autotap.infrastructure.gesture.ActionExecutor(
+                                        com.example.autotap.infrastructure.gesture.GesturePathPlayer { accessibilityServiceProvider() },
+                                        com.example.autotap.infrastructure.gesture.VirtualStickPathPlayer(object : com.example.autotap.infrastructure.gesture.VirtualStick {
+                                            override fun setDirection(dx: Float, dy: Float, strength: Float) {
+                                                com.example.autotap.core.logger.AppLogger.log(accessibilityServiceProvider(), "VIRTUAL_STICK", "Симуляция стика: dx=%.2f, dy=%.2f".format(dx, dy))
+                                            }
+                                            override fun release() {
+                                                com.example.autotap.core.logger.AppLogger.log(accessibilityServiceProvider(), "VIRTUAL_STICK", "Стик отпущен")
+                                            }
+                                        })
+                                    )
                                     withContext(Dispatchers.IO) {
-                                        gestureGateway.performSwipe(act.x, act.y, ex, ey, act.holdDurationMs.coerceAtLeast(100L))
-                                    }
-                                    totalExecutedSteps++
-                                }
-                                ActionType.PATH -> {
-                                    val pts = if (act.pathPoints.isNotEmpty()) {
-                                        act.pathPoints
-                                    } else if (act.endX != null && act.endY != null) {
-                                        listOf(Point2D(act.x, act.y), Point2D(act.endX ?: 0f, act.endY ?: 0f))
-                                    } else emptyList()
-
-                                    if (pts.isNotEmpty()) {
-                                        val totalDuration = if (act.holdDurationMs > 0L) act.holdDurationMs.coerceAtLeast(30L) else 300L
-                                        withContext(Dispatchers.IO) {
-                                            gestureGateway.performPath(pts, totalDuration)
-                                        }
+                                        executor.execute(actMacro)
                                     }
                                     totalExecutedSteps++
                                 }

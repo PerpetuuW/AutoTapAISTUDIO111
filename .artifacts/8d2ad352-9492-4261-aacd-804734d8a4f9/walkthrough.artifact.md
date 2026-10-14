@@ -1,14 +1,23 @@
-# Walkthrough - Multi-Search Template Starvation Fix
+# Walkthrough - Universal Path Action Model & Virtual Stick Foundation
 
 ## Changes
 
-### TemplateMatchingEngine.kt
-- **Template Starvation in Multi-Search (`findMultiTemplatesFastCascade`)**:
-  - The previous multi-search engine prematurely restricted candidate sectors to the top `10` or `24` spatial sectors *before* sequentially testing individual templates against the screen. In a scenario with 5 templates, background noise or imperfect early clusters from Template #1 would completely monopolize the top 10 sectors, starving Template #5 from being evaluated at its true location (which might have ranked 15th overall in the raw coarse evaluation before fine tuning).
-  - Increased `sectorsToScan` limits dynamically:
-    - Standard multi-search: Top 10 -> **Top 32 sectors**.
-    - Find All Matches mode: Top 24 -> **Top 64 sectors**.
-  - This guarantees sufficient L1/L2 buffer capacity so later templates in the multi-search array are fairly and exhaustively evaluated at their proper coordinates without dropping true targets.
+### 1. Unified Domain Model (`ActionType.kt` & `MacroAction.kt`)
+- Added `PlayMode` enum (`GESTURE` and `VIRTUAL_STICK`).
+- Added `val playMode: PlayMode = PlayMode.GESTURE` to `MacroAction`.
+- The existing `Point2D` class already supports `timeOffsetMs`, ensuring native integration with accurate trajectory timings.
+
+### 2. Universal Execution Architecture (`PathExecutors.kt`)
+Created `com.example.autotap.infrastructure.gesture.PathExecutors.kt` with:
+- `VirtualStick` interface (for controlling game joysticks).
+- `PathPlayer` interface.
+- `GesturePathPlayer` class: Executes the given path using `AccessibilityService.dispatchGesture`, utilizing exact trajectory coordinates and total duration.
+- `VirtualStickPathPlayer` class: Translates the exact same `MacroAction` path into proportional directional inputs (`dx`, `dy`) and issues sequence commands to the `VirtualStick` adhering to correct `timeOffsetMs` pacing.
+- `ActionExecutor`: Universal router that executes the `MacroAction` based on its `playMode`.
+
+### 3. Macro Execution Engine Refactoring (`MacroExecutionEngine.kt`)
+- Merged `ActionType.SWIPE` and `ActionType.PATH` execution logic into a single block that delegates entirely to the new `ActionExecutor` architecture.
+- Both Linear and Graph scenario engines now instantiate the `ActionExecutor` to process all path-related logic, maintaining 100% backward compatibility for existing macros while perfectly laying the groundwork for Virtual Stick execution.
 
 ## Verification Results
 

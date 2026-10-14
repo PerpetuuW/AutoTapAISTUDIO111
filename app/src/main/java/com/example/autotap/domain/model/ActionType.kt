@@ -3,8 +3,8 @@ package com.example.autotap.domain.model
 enum class ActionType {
     CLICK,          // Одиночное нажатие с настраиваемой длительностью и рандомизацией
     LONG_PRESS,     // Длительное удержание в точке
-    SWIPE,          // Прямой векторный свайп между двумя точками
-    PATH,           // Криволинейная векторная траектория жеста (ручной ввод / стик)
+    SWIPE,          // [Устарело, слито с PATH] Прямой векторный свайп
+    PATH,           // Универсальный путь (Gesture / Virtual Stick)
     PINCH,          // Двупальцевый жест сжатия / растяжения (масштабирование камеры в играх)
     TRIGGER,        // Компьютерное зрение (ИИ-поиск графического шаблона)
     OCR,            // Оптическое распознавание текста на экране (ML Kit)
@@ -14,4 +14,9 @@ enum class ActionType {
     GLOBAL_BACK,    // Системная кнопка "Назад" (AccessibilityService.GLOBAL_ACTION_BACK)
     GLOBAL_HOME,    // Системная кнопка "Домой" (AccessibilityService.GLOBAL_ACTION_HOME)
     DELAY           // Пауза / Человеческая рандомизированная задержка
+}
+
+enum class PlayMode {
+    GESTURE,
+    VIRTUAL_STICK
 }

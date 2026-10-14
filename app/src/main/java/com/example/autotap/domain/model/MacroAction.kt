@@ -48,6 +48,7 @@ data class MacroAction(
     val jumpToStepOnMatch: Int? = null,
     val jumpToStepOnTimeout: Int? = null,
     val pathPoints: List<Point2D> = emptyList(),
+    val playMode: PlayMode = PlayMode.GESTURE,
     val targetScriptOrQuery: String = "",
     val targetOccurrenceIndex: Int = 0,
     val subroutineTag: String = "",
