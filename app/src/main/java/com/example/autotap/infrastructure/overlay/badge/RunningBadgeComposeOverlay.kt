@@ -12,6 +12,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -33,6 +35,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import com.example.autotap.infrastructure.overlay.ui.VectorIconDrawer
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -263,7 +268,7 @@ class RunningBadgeComposeOverlay(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Row {
-                    // Lock button (using simple canvas drawing as placeholder to match old VectorIconDrawer)
+                    // Lock button
                     Box(
                         modifier = Modifier
                             .size(36.dp)
@@ -279,7 +284,19 @@ class RunningBadgeComposeOverlay(
                                 )
                             }
                     ) {
-                        Text("🔒", modifier = Modifier.align(Alignment.Center), fontSize = 14.sp)
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val padding = 36.dp.toPx() * 0.25f
+                            val bounds = android.graphics.RectF(padding, padding, 36.dp.toPx() - padding, 36.dp.toPx() - padding)
+                            drawIntoCanvas { canvas ->
+                                VectorIconDrawer.drawIcon(
+                                    canvas.nativeCanvas,
+                                    VectorIconDrawer.IconType.LOCK,
+                                    bounds,
+                                    android.graphics.Color.WHITE,
+                                    36.dp.toPx() * 0.05f
+                                )
+                            }
+                        }
                     }
                     
                     Spacer(modifier = Modifier.width(6.dp))
@@ -300,11 +317,22 @@ class RunningBadgeComposeOverlay(
                                 )
                             }
                     ) {
-                        Text("⏹", modifier = Modifier.align(Alignment.Center), fontSize = 14.sp, color = androidx.compose.ui.graphics.Color.White)
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val padding = 36.dp.toPx() * 0.25f
+                            val bounds = android.graphics.RectF(padding, padding, 36.dp.toPx() - padding, 36.dp.toPx() - padding)
+                            drawIntoCanvas { canvas ->
+                                VectorIconDrawer.drawIcon(
+                                    canvas.nativeCanvas,
+                                    VectorIconDrawer.IconType.STOP,
+                                    bounds,
+                                    android.graphics.Color.WHITE,
+                                    36.dp.toPx() * 0.05f
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
-
 }

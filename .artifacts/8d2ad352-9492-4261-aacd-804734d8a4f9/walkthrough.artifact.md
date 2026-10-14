@@ -1,21 +1,23 @@
-# Walkthrough - Tutorial Spotlights, Keyboard Action & Soft Input Dismissal, and Inspector Archiving
+# Walkthrough - Choice Menus, Control Panel Sub-Row Cleanup, Vector Stop Button, & Tagged Log Filtering
 
 ## Changes
 
-### 1. Interactive Tutorial Target Coordinates (`ControlPanelComposeOverlay.kt`)
-- Added `getTutorialRect(tagKey: String): Rect` method to `ControlPanelComposeOverlay.kt`.
-- `InteractiveTutorialOverlay` queries this via reflection (`getTutorialRect`), obtaining exact screen coordinates for every button on the Compose control panel (`BTN_PLAY_VIEW`, `BTN_RECORD`, `BTN_ADD`, `BTN_SETTINGS`, `BTN_LOCK`, `BTN_CLEAR`, `BTN_SCRIPTS`, `BTN_HELP`, etc.).
-- The laser line and spotlight circle now point directly to each individual Compose button.
+### 1. Action Type & Recording Mode Selection Menus (`ControlPanelComposeOverlay.kt`)
+- **`+` Button Choice Menu**: Tapping `+` now opens `ActionTypeSelectionMenu` displaying chips for all 11 action types (`CLICK`, `LONG_PRESS`, `SWIPE`, `PATH`, `TRIGGER`, `OCR`, `COLOR_CHECK`, `SUBROUTINE`, `DELAY`, `GLOBAL_BACK`, `GLOBAL_HOME`). Selecting any action type instantly routes it to `listener.onAddActionSelected(type)` for step creation.
+- **`RECORD` Button Choice Menu**: Tapping `RECORD` now opens `RecordModeSelectionMenu`:
+  - **УМНАЯ ЗАПИСЬ (ИИ-шаблоны)** -> `onSmartRecordClicked()`
+  - **ОБЫЧНАЯ ЗАПИСЬ (Живые жесты)** -> `onRecordClicked()`
 
-### 2. Universal Soft Keyboard Action & Dismissal
-- Configured `imeOptions = EditorInfo.IME_ACTION_DONE` and `singleLine = true` across text input fields in `CalibrationOverlay.kt`, `GlobalSettingsDialog.kt`, `ScriptsDialog.kt`, and `EditActionDialog.kt`.
-- The soft keyboard now displays a **Done / Checkmark** action icon in the bottom-right corner.
-- Tapping **Done / Checkmark** or pressing **Enter** hides the soft keyboard (`InputMethodManager.hideSoftInputFromWindow`) and clears focus automatically.
-- Added dynamic **"СКРЫТЬ КЛАВИАТУРУ"** buttons and `OnGlobalLayoutListener` in `GlobalSettingsDialog.kt` and `ScriptsDialog.kt` so users can always close the soft keyboard manually.
+### 2. Control Panel Sub-Row Layout Cleanup (`ControlPanelComposeOverlay.kt`)
+- Removed the duplicate collapse button from the 2nd row (sub-row).
+- The 2nd row now cleanly contains: `AFK ЗАМОК`, `ОЧИСТИТЬ ВСЕ`, `СЦЕНАРИИ`, and `СПРАВКА`.
 
-### 3. Inspector Script Archiving
-- Moved 15 legacy inspector scripts that were tied to raw XML-like View code of `EditActionDialog.kt` into `1AInspector/archive_legacy_dialog_checks/`.
-- All active `159 / 159` 1AInspector scripts pass 100%.
+### 3. Running Badge Vector Stop Button (`RunningBadgeComposeOverlay.kt`)
+- Restored pre-migration Stop button rendering using `Canvas` + `VectorIconDrawer.drawIcon(canvas, VectorIconDrawer.IconType.STOP, ...)` with exact red gradient (`#F04438` -> `#B42318`) and stroke (`#FDA29B`).
+
+### 4. Interactive Tag Log Filtering (`LogViewerDialog.kt`)
+- Updated tag extraction regex to `Regex("\\[([A-Z0-9_]{3,25})\\]")`.
+- `LogViewerDialog` reliably extracts all categories (`CV_EXECUTION`, `MACRO_ENGINE`, `FATAL_CRASH`, `ANR_FREEZE`, `PANEL`, `STORAGE`, `LOCK`, `GESTURE`, `SUBROUTINE`, etc.) and renders them as neon chip buttons at the top of the log viewer for instant one-tap filtering.
 
 ## Verification Results
 

@@ -26,8 +26,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.autotap.domain.model.ActionType
 import com.example.autotap.infrastructure.overlay.AbstractComposeOverlay
 import com.example.autotap.infrastructure.overlay.OverlayWindowManager
 import com.example.autotap.infrastructure.overlay.model.OverlayVisibilityMode
@@ -40,7 +44,9 @@ data class ControlPanelState(
     val mode: PanelDisplayMode = PanelDisplayMode.COMPACT_SINGLE_ROW,
     val isPlaying: Boolean = false,
     val visibilityMode: OverlayVisibilityMode = OverlayVisibilityMode.FULL,
-    val isNumbersHidden: Boolean = false
+    val isNumbersHidden: Boolean = false,
+    val showAddActionMenu: Boolean = false,
+    val showRecordMenu: Boolean = false
 )
 
 class ControlPanelComposeOverlay(
@@ -235,7 +241,7 @@ class ControlPanelComposeOverlay(
                     stroke = Color(0xFF38BDF8),
                     iconColor = Color(0xFF58A6FF)
                 ) {
-                    listener.onAddClicked()
+                    overlayState.update { it.copy(showAddActionMenu = !it.showAddActionMenu, showRecordMenu = false) }
                 }
                 Spacer(modifier = Modifier.width(8.dp))
 
@@ -247,7 +253,7 @@ class ControlPanelComposeOverlay(
                     stroke = Color(0xFFF04438),
                     iconColor = Color(0xFFF43F5E)
                 ) {
-                    listener.onRecordClicked()
+                    overlayState.update { it.copy(showRecordMenu = !it.showRecordMenu, showAddActionMenu = false) }
                 }
                 Spacer(modifier = Modifier.width(8.dp))
 
@@ -311,24 +317,35 @@ class ControlPanelComposeOverlay(
                 }
             }
 
+            // ADD ACTION TYPE SELECTION MENU
+            AnimatedVisibility(visible = state.showAddActionMenu) {
+                ActionTypeSelectionMenu(
+                    onSelect = { type ->
+                        listener.onAddActionSelected(type)
+                    },
+                    onDismiss = {
+                        overlayState.update { it.copy(showAddActionMenu = false) }
+                    }
+                )
+            }
+
+            // RECORD MODE SELECTION MENU
+            AnimatedVisibility(visible = state.showRecordMenu) {
+                RecordModeSelectionMenu(
+                    onSmartRecord = { listener.onSmartRecordClicked() },
+                    onNormalRecord = { listener.onRecordClicked() },
+                    onDismiss = {
+                        overlayState.update { it.copy(showRecordMenu = false) }
+                    }
+                )
+            }
+
             // SUB ROW
             AnimatedVisibility(visible = state.mode == PanelDisplayMode.EXPANDED) {
                 Row(
                     modifier = Modifier.padding(top = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    VectorIconButton(
-                        icon = VectorIconDrawer.IconType.PANEL_COLLAPSE,
-                        size = 36.dp,
-                        bgStart = Color(0xFF1F2937),
-                        bgEnd = Color(0xFF111827),
-                        stroke = Color(0xFF374151),
-                        iconColor = Color(0xFF94A3B8)
-                    ) {
-                        applyDisplayMode(PanelDisplayMode.MINI_BUBBLE)
-                    }
-                    Spacer(modifier = Modifier.width(6.dp))
-
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.LOCK,
                         size = 36.dp,
@@ -388,6 +405,102 @@ class ControlPanelComposeOverlay(
                         listener.onHelpClicked()
                     }
                 }
+            }
+        }
+    }
+
+    @Composable
+    private fun ActionTypeSelectionMenu(onSelect: (ActionType) -> Unit, onDismiss: () -> Unit) {
+        Column(
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .background(Color(0xFF161B22), RoundedCornerShape(12.dp))
+                .border(1.dp, Color(0xFF38BDF8), RoundedCornerShape(12.dp))
+                .padding(8.dp)
+        ) {
+            Text("ВЫБОР ТИПА ДЕЙСТВИЯ:", color = Color(0xFF38BDF8), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(6.dp))
+
+            val types = listOf(
+                ActionType.CLICK to "КЛИК",
+                ActionType.LONG_PRESS to "УДЕРЖАНИЕ",
+                ActionType.SWIPE to "СВАЙП",
+                ActionType.PATH to "ПУТЬ",
+                ActionType.TRIGGER to "ИИ ТРИГГЕР",
+                ActionType.OCR to "OCR ТЕКСТ",
+                ActionType.COLOR_CHECK to "ЦВЕТ",
+                ActionType.SUBROUTINE to "ПОДПРОГРАММА",
+                ActionType.DELAY to "ЗАДЕРЖКА",
+                ActionType.GLOBAL_BACK to "НАЗАД",
+                ActionType.GLOBAL_HOME to "ДОМОЙ"
+            )
+
+            types.chunked(3).forEach { rowTypes ->
+                Row(modifier = Modifier.padding(vertical = 2.dp)) {
+                    rowTypes.forEach { (type, label) ->
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(26.dp)
+                                .background(Color(0xFF21262D), RoundedCornerShape(4.dp))
+                                .border(1.dp, Color(0xFF30363D), RoundedCornerShape(4.dp))
+                                .clickable {
+                                    onSelect(type)
+                                    onDismiss()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(label, color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun RecordModeSelectionMenu(onSmartRecord: () -> Unit, onNormalRecord: () -> Unit, onDismiss: () -> Unit) {
+        Column(
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .background(Color(0xFF161B22), RoundedCornerShape(12.dp))
+                .border(1.dp, Color(0xFFF43F5E), RoundedCornerShape(12.dp))
+                .padding(8.dp)
+        ) {
+            Text("ВЫБОР РЕЖИМА ЗАПИСИ:", color = Color(0xFFF43F5E), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(28.dp)
+                    .background(Color(0xFF12201A), RoundedCornerShape(6.dp))
+                    .border(1.dp, Color(0xFF1E3E30), RoundedCornerShape(6.dp))
+                    .clickable {
+                        onSmartRecord()
+                        onDismiss()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("УМНАЯ ЗАПИСЬ (ИИ-шаблоны)", color = Color(0xFF86EFAC), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(28.dp)
+                    .background(Color(0xFF22183D), RoundedCornerShape(6.dp))
+                    .border(1.dp, Color(0xFF3E2B6B), RoundedCornerShape(6.dp))
+                    .clickable {
+                        onNormalRecord()
+                        onDismiss()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("ОБЫЧНАЯ ЗАПИСЬ (Живые жесты)", color = Color(0xFFC4B5FD), fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

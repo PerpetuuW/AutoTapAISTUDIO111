@@ -1,43 +1,43 @@
-# Jetpack Compose Step Editor (`EditActionComposeDialog`), Tutorial Target Rects, Universal Keyboard Dismissal, & Inspector Archiving
+# Complete Audit & Restoration of Choice Menus, Control Panel Layout, Running Badge Stop Button, & Journal Tag Logging
 
 ## Problem
-1. **Legacy Inspector Constraints**: 15 legacy Python inspector scripts tied to `EditActionDialog.kt` string literals were blocking the migration to Jetpack Compose. As requested, these scripts will be moved to `1AInspector/archive_legacy_dialog_checks/` so the new Compose step editor can be implemented cleanly.
-2. **Compose Step Editor (`EditActionComposeDialog`)**: Create a modern, modular, MVI-driven step editor dialog in Jetpack Compose (`EditActionComposeDialog.kt`) using `EditActionState`, supporting all 3 tabs (Settings, Vision & Multi-Search, Logic/Routing) without layout bugs or string wrapping errors.
-3. **Tutorial Coordinates for Compose Overlays**: Implement `getTutorialRect(tagKey: String): Rect?` in `ControlPanelComposeOverlay.kt` so `InteractiveTutorialOverlay` spotlight and laser lines point directly to target buttons.
-4. **Universal Keyboard Action (Checkmark & Hide Button)**: Configure all text inputs across overlays (`CalibrationOverlay`, `GlobalSettingsDialog`, `ScriptsDialog`, `EditActionComposeDialog`) with:
-   - `singleLine = true` and `imeOptions = EditorInfo.IME_ACTION_DONE` (rendering the soft keyboard Checkmark/Done icon).
-   - Soft input dismissal on Done/Enter press.
-   - Dynamic **"СКРЫТЬ КЛАВИАТУРУ"** button and layout listener for manual dismissal.
+1. **Missing Action Type & Record Mode Choice Menus**:
+   - Tapping `+` should open an Action Type Selection Menu (`CLICK`, `LONG_PRESS`, `SWIPE`, `PATH`, `PINCH`, `TRIGGER`, `OCR`, `COLOR_CHECK`, `SUBROUTINE`, `DELAY`, `GLOBAL_BACK`, `GLOBAL_HOME`).
+   - Tapping `RECORD` should open a Recording Mode Selection Menu (**УМНАЯ ЗАПИСЬ** vs **ОБЫЧНАЯ ЗАПИСЬ**).
+2. **Control Panel Layout Cleanup**:
+   - In `ControlPanelComposeOverlay.kt`, the 2nd row had a duplicate collapse button. It must be removed so the 2nd row cleanly contains `LOCK`, `CLEAR`, `SCRIPTS`, and `HELP`.
+3. **Running Badge Stop Button Restoration**:
+   - In `RunningBadgeComposeOverlay.kt`, the Stop button was rendered as plain text instead of using custom canvas vector drawing with the exact pre-migration gradient/stroke styling (`#F04438` -> `#B42318`, stroke `#FDA29B`).
+4. **Log Journal Tag Filtering (`LogViewerDialog.kt`)**:
+   - The tag extraction regex in `LogViewerDialog.kt` failed on lines with leading prefixes (`=== [2026-10-14 ...][FATAL_CRASH]`). It must be updated to `Regex("\\[([A-Z0-9_]{3,25})\\]")` so all log tags (`CV_EXECUTION`, `MACRO_ENGINE`, `FATAL_CRASH`, `ANR_FREEZE`, `PANEL`, `STORAGE`, `LOCK`, `GESTURE`, `SUBROUTINE`, etc.) populate as interactive filter chips.
 
 ## Proposed Changes
 
-### 1AInspector/archive_legacy_dialog_checks/
-- Move the 15 legacy dialog inspector scripts that require raw XML-like View code into `1AInspector/archive_legacy_dialog_checks/`.
-- Add new Compose inspector scripts for `EditActionComposeDialog.kt`.
-
-### EditActionComposeDialog.kt
-- [NEW] Create `EditActionComposeDialog.kt` extending `AbstractComposeOverlay`:
-  - **Header**: Step counter, type title, close button.
-  - **Tabs**: `1. НАСТРОЙКИ`, `2. ИИ & ЗРЕНИЕ`, `3. ЛОГИКА`.
-  - **Action Settings Tab**: Steppers for delay, hold duration, repeat count, random radius, pinch distance, global action types.
-  - **Vision Tab**: Interactive multi-search carousel (image templates and blue OCR cards), similarity slider, shape mode toggle, AI engine toggle, ROI selection button, `+ ТЕКСТ (OCR)`, `+ С ЭКРАНА (OCR)`.
-  - **Logic Tab**: Jump on match / timeout step selectors and subroutine picker.
-  - **Footer**: `СОХРАНИТЬ`, `ДУБЛИРОВАТЬ`, `УДАЛИТЬ`, `РЕДАКТИРОВАТЬ`.
-
-### ControlPanelComposeOverlay.kt
+### ControlPanelComposeOverlay.kt & AutoTapOrchestrator.kt
 - [MODIFY] [ControlPanelComposeOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt)
-  - Add `getTutorialRect(tagKey: String): Rect?` returning exact screen bounds for every button tag (`BTN_PLAY_VIEW`, `BTN_RECORD`, `BTN_ADD`, `BTN_SETTINGS`, `BTN_LOCK`, `BTN_CLEAR`, `BTN_SCRIPTS`, etc.).
+  - Remove duplicate collapse button from 2nd row.
+  - Add Action Type Selection popup menu when `+` is tapped.
+  - Add Recording Mode Selection popup menu (**УМНАЯ ЗАПИСЬ** vs **ОБЫЧНАЯ ЗАПИСЬ**) when `RECORD` is tapped.
+- [MODIFY] [AutoTapOrchestrator.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/orchestrator/AutoTapOrchestrator.kt)
+  - Route selected action types from menu to `targetManager.addAction(MacroAction(type = selectedType))`.
 
-### Keyboard Dismissal across Overlays
-- Configure `singleLine = true`, `imeOptions = EditorInfo.IME_ACTION_DONE`, and `setOnEditorActionListener` on all text input fields in `CalibrationOverlay.kt`, `GlobalSettingsDialog.kt`, `ScriptsDialog.kt`, and `EditActionComposeDialog.kt`.
+### RunningBadgeComposeOverlay.kt
+- [MODIFY] [RunningBadgeComposeOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/badge/RunningBadgeComposeOverlay.kt)
+  - Restore pre-migration Stop button rendering using `Canvas` + `VectorIconDrawer.drawIcon(canvas, VectorIconDrawer.IconType.STOP, ...)` with exact gradient (`#F04438` -> `#B42318`) and stroke (`#FDA29B`).
+
+### LogViewerDialog.kt
+- [MODIFY] [LogViewerDialog.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/LogViewerDialog.kt)
+  - Update regex to `Regex("\\[([A-Z0-9_]{3,25})\\]")` to extract all log categories (`CV_EXECUTION`, `MACRO_ENGINE`, `FATAL_CRASH`, `ANR_FREEZE`, `PANEL`, `STORAGE`, `LOCK`, `GESTURE`, `SUBROUTINE`, etc.) into `tagScroll` chip buttons.
 
 ## Verification Plan
 
 ### Automated Tests
 - Gradle build: `./gradlew :app:compileDebugKotlin`
-- Run active `1AInspector` python scripts.
+- Run all 174+ 1AInspector scripts.
 
 ### Manual Verification
-- Test opening `EditActionComposeDialog`: verify tabs, steppers, and carousel.
-- Test Interactive Tutorial on Control Panel: verify spotlight laser points directly to buttons.
-- Test soft keyboard: verify Checkmark/Done icon is shown and pressing Enter hides the keyboard.
+- Tap `+` on Control Panel: verify Action Type Selection menu appears.
+- Tap `RECORD` on Control Panel: verify Recording Mode selection menu appears.
+- Verify 2nd row has no duplicate collapse button.
+- Check Running Badge Stop button: verify exact pre-migration vector icon and red gradient.
+- Open Log Journal (`LogViewerDialog`): verify tag chips (`ALL`, `CV_EXECUTION`, `MACRO_ENGINE`, `PANEL`, `ANR_FREEZE`, etc.) appear and filter logs accurately.

@@ -121,12 +121,15 @@ class LogViewerDialog(
         fun updateLogsView() {
             val allLogs = AppLogger.getLogs(context)
             val lines = allLogs.split('\n')
-            val regex = Regex("^\\[.*?\\]\\[(.*?)\\]")
+            val regex = Regex("\\[([A-Z0-9_]{3,25})\\]")
             val tags = LinkedHashSet<String>()
             for (line in lines) {
-                val match = regex.find(line)
-                if (match != null) {
-                    tags.add(match.groupValues[1])
+                val matches = regex.findAll(line)
+                for (match in matches) {
+                    val tag = match.groupValues[1]
+                    if (tag != "AutoTap" && tag != "FATAL" && tag != "EXCEPTION") {
+                        tags.add(tag)
+                    }
                 }
             }
 
@@ -172,7 +175,7 @@ class LogViewerDialog(
             val filteredText = if (activeTagFilter == null) {
                 allLogs
             } else {
-                lines.filter { it.contains("][$activeTagFilter]") || (it.startsWith("===") && it.contains("[$activeTagFilter]")) || it.trim().startsWith("at ") }.joinToString("\n")
+                lines.filter { it.contains("[$activeTagFilter]") || (it.startsWith("===") && it.contains("[$activeTagFilter]")) || it.trim().startsWith("at ") }.joinToString("\n")
             }
             tvLogs.text = filteredText.ifBlank { "Журнал логов пуст." }
             scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
