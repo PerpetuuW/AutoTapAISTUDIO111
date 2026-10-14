@@ -8,9 +8,11 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -198,9 +200,12 @@ class ControlPanelComposeOverlay(
                 .padding(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            PlayPauseButton(state.isPlaying, 36.dp) {
-                if (state.isPlaying) listener.onPlayClicked() else listener.onPlayClicked()
-            }
+            PlayPauseButton(
+                isPlaying = state.isPlaying,
+                size = 36.dp,
+                onClick = { listener.onPlayClicked() },
+                onLongClick = { listener.onPlayLongClicked() }
+            )
             Spacer(modifier = Modifier.width(6.dp))
             VectorIconButton(
                 icon = VectorIconDrawer.IconType.PANEL_COLLAPSE,
@@ -228,9 +233,12 @@ class ControlPanelComposeOverlay(
         ) {
             // MAIN ROW
             Row(verticalAlignment = Alignment.CenterVertically) {
-                PlayPauseButton(state.isPlaying, 42.dp) {
-                    if (state.isPlaying) listener.onPlayClicked() else listener.onPlayClicked()
-                }
+                PlayPauseButton(
+                    isPlaying = state.isPlaying,
+                    size = 42.dp,
+                    onClick = { listener.onPlayClicked() },
+                    onLongClick = { listener.onPlayLongClicked() }
+                )
                 Spacer(modifier = Modifier.width(8.dp))
 
                 VectorIconButton(
@@ -506,7 +514,7 @@ class ControlPanelComposeOverlay(
     }
 
     @Composable
-    private fun PlayPauseButton(isPlaying: Boolean, size: Dp, onClick: () -> Unit) {
+    private fun PlayPauseButton(isPlaying: Boolean, size: Dp, onClick: () -> Unit, onLongClick: () -> Unit = {}) {
         val bgStart = animateColorAsState(if (isPlaying) Color(0xFF3A1016) else Color(0xFF0D2E1E), label = "pbgS").value
         val bgEnd = animateColorAsState(if (isPlaying) Color(0xFF1C080F) else Color(0xFF061A10), label = "pbgE").value
         val stroke = animateColorAsState(if (isPlaying) Color(0xFFF43F5E) else Color(0xFF34D399), label = "pStr").value
@@ -518,10 +526,12 @@ class ControlPanelComposeOverlay(
             bgEnd = bgEnd,
             stroke = stroke,
             iconColor = Color.White,
-            onClick = onClick
+            onClick = onClick,
+            onLongClick = onLongClick
         )
     }
 
+    @OptIn(ExperimentalFoundationApi::class)
     @Composable
     private fun VectorIconButton(
         icon: VectorIconDrawer.IconType,
@@ -530,6 +540,7 @@ class ControlPanelComposeOverlay(
         bgEnd: Color,
         stroke: Color,
         iconColor: Color,
+        onLongClick: (() -> Unit)? = null,
         onClick: () -> Unit
     ) {
         Box(
@@ -538,7 +549,16 @@ class ControlPanelComposeOverlay(
                 .background(Brush.verticalGradient(listOf(bgStart, bgEnd)), CircleShape)
                 .border(1.dp, stroke, CircleShape)
                 .clip(CircleShape)
-                .clickable { onClick() }
+                .then(
+                    if (onLongClick != null) {
+                        Modifier.combinedClickable(
+                            onClick = onClick,
+                            onLongClick = onLongClick
+                        )
+                    } else {
+                        Modifier.clickable { onClick() }
+                    }
+                )
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val padding = size.toPx() * 0.25f
