@@ -99,18 +99,86 @@ class LogViewerDialog(
         }
 
         val tvLogs = TextView(context).apply {
-            text = AppLogger.getLogs(context)
             textSize = 9f
             typeface = Typeface.MONOSPACE
             setTextColor("#C9D1D9".toColorInt())
             setTextIsSelectable(true)
         }
         scrollView.addView(tvLogs)
+
+        var activeTagFilter: String? = null
+        val tagContainerRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+        }
+        val tagScroll = android.widget.HorizontalScrollView(context).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(tagContainerRow)
+        }
+        rootCard.addView(tagScroll)
         rootCard.addView(scrollView)
 
-        scrollView.post {
-            scrollView.fullScroll(ScrollView.FOCUS_DOWN)
+        fun updateLogsView() {
+            val allLogs = AppLogger.getLogs(context)
+            val lines = allLogs.split('\n')
+            val regex = Regex("^\\[.*?\\]\\[(.*?)\\]")
+            val tags = LinkedHashSet<String>()
+            for (line in lines) {
+                val match = regex.find(line)
+                if (match != null) {
+                    tags.add(match.groupValues[1])
+                }
+            }
+
+            tagContainerRow.removeAllViews()
+            val allBtn = Button(context).apply {
+                text = "ВСЕ ЛОГИ"
+                textSize = 8.5f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(if (activeTagFilter == null) Color.WHITE else Color.parseColor("#8B949E"))
+                background = GradientDrawable().apply {
+                    setColor(if (activeTagFilter == null) Color.parseColor("#38BDF8") else Color.parseColor("#21262D"))
+                    cornerRadius = dpF(4f)
+                }
+                setPadding(dp(6), dp(2), dp(6), dp(2))
+                minHeight = 0; minimumHeight = 0
+                setOnClickListener {
+                    activeTagFilter = null
+                    updateLogsView()
+                }
+            }
+            tagContainerRow.addView(allBtn, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(4) })
+
+            for (tag in tags) {
+                val tagBtn = Button(context).apply {
+                    text = tag
+                    textSize = 8.5f
+                    typeface = Typeface.DEFAULT_BOLD
+                    setTextColor(if (activeTagFilter == tag) Color.WHITE else Color.parseColor("#8B949E"))
+                    background = GradientDrawable().apply {
+                        setColor(if (activeTagFilter == tag) Color.parseColor("#38BDF8") else Color.parseColor("#21262D"))
+                        cornerRadius = dpF(4f)
+                    }
+                    setPadding(dp(6), dp(2), dp(6), dp(2))
+                    minHeight = 0; minimumHeight = 0
+                    setOnClickListener {
+                        activeTagFilter = tag
+                        updateLogsView()
+                    }
+                }
+                tagContainerRow.addView(tagBtn, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(4) })
+            }
+
+            val filteredText = if (activeTagFilter == null) {
+                allLogs
+            } else {
+                lines.filter { it.contains("][$activeTagFilter]") || (it.startsWith("===") && it.contains("[$activeTagFilter]")) || it.trim().startsWith("at ") }.joinToString("\n")
+            }
+            tvLogs.text = filteredText.ifBlank { "Журнал логов пуст." }
+            scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
         }
+
+        updateLogsView()
 
         val actionsRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -132,8 +200,7 @@ class LogViewerDialog(
             minimumHeight = 0
             setPadding(dp(4), 0, dp(4), 0)
             setOnClickListener {
-                tvLogs.text = AppLogger.getLogs(context)
-                scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
+                updateLogsView()
                 Toast.makeText(context, "Логи обновлены", Toast.LENGTH_SHORT).show()
             }
         }

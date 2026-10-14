@@ -342,7 +342,21 @@ class MacroExecutionEngine(
                                                             delay(checkInterval)
                                                         }
 
-                                                                                                if (isMatched && bestMatchCand != null) {
+                                                        if (!isMatched) {
+                                                            com.example.autotap.core.logger.AppLogger.log(
+                                                                accessibilityServiceProvider() ?: return@launch,
+                                                                "CV_EXECUTION",
+                                                                "Шаг #${action.id}: ТАЙМАУТ ПОИСКА. Ни одна из целей не достигла порога $baseSimilarity% за выделенное время."
+                                                            )
+                                                        }
+
+                                                        if (isMatched && bestMatchCand != null) {
+                                                            com.example.autotap.core.logger.AppLogger.log(
+                                                                accessibilityServiceProvider() ?: return@launch,
+                                                                "CV_EXECUTION",
+                                                                String.format(Locale.US, "Шаг #${action.id}: УСПЕХ [MATCH_SUCCESS]. Найдена цель '%s' со сходимостью %.1f%%", bestMatchCand.templateName, bestMatchCand.score * 100f)
+                                                            )
+
                                     // [V13.1] В мультипоиске каждый шаблон использует строго СВОИ калибровочные смещения из метаданных
                                     val isMulti = activeTemplates.size > 1
                                     val finalOffsetX = if (isMulti) {
@@ -1166,6 +1180,10 @@ class MacroExecutionEngine(
                     }
                 }
 
+                if (resolvedMatches.isEmpty()) {
+                    AppLogger.log(accessibilityServiceProvider(), "GRAPH_CV_EXECUTION", "Триггер-шаблон '${File(trig.templatePath).nameWithoutExtension}' НЕ НАЙДЕН. Порог: ${trig.similarityThreshold}%, ROI: ${if (trig.roiLeft != null) "ЗАДАН" else "ВЕСЬ ЭКРАН"}")
+                }
+
                 if (resolvedMatches.isNotEmpty()) {
                     // Исключение совпадений, попавших в превью или интерфейс пульта
                     val validMatches = resolvedMatches.filterNot { cand ->
@@ -1183,14 +1201,15 @@ class MacroExecutionEngine(
                     trig.registerDiscoveredLocation(discoveredPoint)
 
                     AppLogger.log(
-                        null,
-                        "TRIGGER_CV",
+                        accessibilityServiceProvider(),
+                        "GRAPH_CV_EXECUTION",
                         String.format(
                             Locale.US,
-                            "AI Trigger template '%s' discovered at (%.0f, %.0f). Recorded to initial search pool (size: %d)",
-                            trig.templatePath,
+                            "Триггер '%s' УСПЕШНО НАЙДЕН на (%.0f, %.0f) со сходимостью %.1f%%. Пул локаций: %d",
+                            File(trig.templatePath).nameWithoutExtension,
                             discoveredPoint.x,
                             discoveredPoint.y,
+                            best.score * 100f,
                             trig.additionalSearchLocations.size
                         )
                     )
