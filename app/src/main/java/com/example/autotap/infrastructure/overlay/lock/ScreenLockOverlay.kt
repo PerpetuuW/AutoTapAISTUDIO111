@@ -410,7 +410,8 @@ class ScreenLockOverlay(
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (hypot((event.rawX - touchDownX).toDouble(), (event.rawY - touchDownY).toDouble()) > dp(50)) {
+                    // Увеличен радиус дрейфа до 100dp для гарантированной доступности разблокировки
+                    if (hypot((event.rawX - touchDownX).toDouble(), (event.rawY - touchDownY).toDouble()) > dp(100)) {
                         stopCountdown()
                     }
                     true

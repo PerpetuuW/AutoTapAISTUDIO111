@@ -405,6 +405,24 @@ class GestureRecorderOverlay(
                             "GESTURE_RECORDER",
                             "Записан жест #${lastAct.id} [${lastAct.type}]: start=(${startPt.x.toInt()}, ${startPt.y.toInt()}), end=(${endPt.x.toInt()}, ${endPt.y.toInt()}), dist=%.1fpx, dur=${duration}ms, delay=${actualDelay}ms".format(totalDistance)
                         )
+                        // [V150.1] Трансляция записанного жеста (passthrough playback) после завершения ACTION_UP
+                        if (!isSmartTemplateMode) {
+                            val service = com.example.autotap.infrastructure.accessibility.AutoTapAccessibilityService.instance
+                            if (service != null) {
+                                kotlin.concurrent.thread {
+                                    if (lastAct.type == ActionType.CLICK) {
+                                        service.gestureDispatcher.performClick(lastAct.posX, lastAct.posY, lastAct.holdDurationMs)
+                                    } else if (lastAct.type == ActionType.LONG_PRESS) {
+                                        service.gestureDispatcher.performClick(lastAct.posX, lastAct.posY, lastAct.holdDurationMs)
+                                    } else if (lastAct.type == ActionType.SWIPE || lastAct.type == ActionType.PATH) {
+                                        val endX = lastAct.endX ?: lastAct.posX
+                                        val endY = lastAct.endY ?: lastAct.posY
+                                        val points = lastAct.pathPoints.ifEmpty { listOf(com.example.autotap.domain.model.Point2D(lastAct.posX, lastAct.posY), com.example.autotap.domain.model.Point2D(endX, endY)) }
+                                        service.gestureDispatcher.performPath(points, lastAct.holdDurationMs)
+                                    }
+                                }
+                            }
+                        }
                     }
                     currentTouchPoints.clear()
                     tvRecordCount?.text = "REC: ${recordedActions.size}"

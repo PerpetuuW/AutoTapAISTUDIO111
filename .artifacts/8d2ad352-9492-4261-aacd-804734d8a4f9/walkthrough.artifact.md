@@ -1,21 +1,14 @@
-# Walkthrough - Full OCR Multi-Search Engine, Screen Text OCR Picker, & Granular CV Logging
+# Walkthrough - Reliable Screen Unlock & Simultaneous Gesture Recording
 
 ## Changes
 
-### MacroExecutionEngine.kt
-- **OCR Multi-Search Support**:
-  - Extracted all `"ocr:Text"` entries from `action.multiTemplatePaths`.
-  - During multi-search polling, executed ML Kit `OcrEngine.findTextOnScreen(screenshot, query, timeoutMs, roi, variableContext)` for each OCR query alongside image templates.
-  - Converted recognized text into valid `MatchCandidate` objects (`templatePath = "ocr:$query"`, `score = 0.95f`, `clickX`, `clickY`) and evaluated them in multi-search.
-- **Granular Recognition Logging**:
-  - Added comprehensive `AppLogger.log(context, "CV_EXECUTION", ...)` logging for polling start, target counts, per-template scores, match success (`[MATCH_SUCCESS]`), and timeouts (`[SEARCH_TIMEOUT]`).
+### ScreenLockOverlay.kt
+- **Reliable Unlock Resilience**: Increased the allowable finger drift radius (tolerance) during the 3-second hold to unlock from 50dp to 100dp. Users can now slightly move or shake their finger on the unlock target without the 3-second counter resetting unexpectedly, ensuring the unlock functionality is always accessible.
 
-### EditActionDialog.kt & AutoTapOrchestrator.kt
-- **On-Screen OCR Text Extraction (`+ С ЭКРАНА (OCR)`)**:
-  - Added `+ С ЭКРАНА (OCR)` button in `multiControlRow` of `EditActionDialog.kt`.
-  - Implemented `startScreenTextOcrSelection(action)` in `AutoTapOrchestrator.kt`: opens `CaptureFrameOverlay` for screen selection, crops the region, runs ML Kit `OcrEngine.findTextOnScreen`, extracts text, appends `"ocr:Text"` to `multiTemplatePaths`, and re-opens `EditActionDialog`.
-- **Carousel Support**:
-  - All `"ocr:..."` entries in `selectedMultiPaths` are rendered as interactive blue OCR cards in the carousel with click-to-remove actions.
+### GestureRecorderOverlay.kt
+- **Simultaneous Gesture Recording & Device Action**: Implemented live gesture passthrough (playback) immediately after recording a gesture step (`ACTION_UP`) in non-smart mode:
+  - When the user taps the screen during recording, the click is logged and instantly passed through to the Android device via `AccessibilityService.performClick()`.
+  - Swipes and Paths are also simultaneously evaluated and dispatched via `AccessibilityService.performPath()` exactly simulating the user's action with minimal delay.
 
 ## Verification Results
 

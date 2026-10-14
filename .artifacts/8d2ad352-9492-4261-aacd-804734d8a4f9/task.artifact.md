@@ -1,8 +1,6 @@
 # Task List
 
-- `[x]` Implement OCR multi-search evaluation in MacroExecutionEngine.kt for "ocr:..." entries in multiTemplatePaths
-- `[x]` Add "+ С ЭКРАНА (OCR)" button and OCR carousel cards in EditActionDialog.kt
-- `[x]` Implement `startScreenTextOcrSelection` in AutoTapOrchestrator.kt for on-screen text extraction
-- `[x]` Add detailed, granular recognition logs (`AppLogger.log(context, "CV_EXECUTION", ...)`) in MacroExecutionEngine.kt
+- `[x]` Improve `ScreenLockOverlay.kt` unlock resilience (allow larger finger drift without resetting the 3-second timer).
+- `[x]` Implement live gesture playback (passthrough with small delay) on `ACTION_UP` in `GestureRecorderOverlay.kt` for standard clicks and swipes.
 - `[x]` Build and verify compilation
 - `[x]` Run all 174+ 1AInspector scripts and create walkthrough
