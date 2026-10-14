@@ -1,20 +1,19 @@
-# Walkthrough - Jetpack Compose & MVI Migration Phase 1
+# Walkthrough - Jetpack Compose Migration: Phase 2 (Control Panel Overlay)
 
 ## Changes
 
-### 1. Infrastructure Migration (Gradle)
-- Integrated Jetpack Compose (`ui`, `material3`, `ui-tooling`), `leakcanary-android`, and `lifecycle-viewmodel-compose` into `build.gradle.kts` and `libs.versions.toml`.
-- Enabled Compose compiler plugin for Kotlin 2.2.10.
+### 1. Unified State Management (`ControlPanelState`)
+- Replaced the fragmented state tracking (many local `Boolean` variables like `isPlayingState`, `isNumbersHiddenState`, `currentMode`) with a single deterministic `ControlPanelState` data class managed by a `MutableStateFlow`.
+- The UI is now purely a reflection of this single source of truth, completely eliminating desync bugs (e.g. eye toggle not matching visibility state).
 
-### 2. WindowManager Jetpack Compose Enablers
-- `OverlayLifecycleOwner.kt`: Developed a custom detached `LifecycleOwner`, `ViewModelStoreOwner`, and `SavedStateRegistryOwner`. This handles raw Android lifecycle events without an Activity so Compose can function inside pure system overlays.
-- `AbstractComposeOverlay.kt`: Created an abstract base class that encapsulates generating a `ComposeView`, launching a `Recomposer`, binding it to the overlay lifecycle, and cleanly managing `addView` and `removeView` via `WindowManager`.
+### 2. Full Jetpack Compose Re-Write (`ControlPanelComposeOverlay.kt`)
+- Completely replaced the legacy manual `ControlPanelOverlay` code (`LinearLayout` and `.addView` math).
+- Used declarative Compose Layouts (`Row`, `Column`, `Box`) to effortlessly reconstruct all 3 operational modes (`MINI_BUBBLE`, `COMPACT_SINGLE_ROW`, `EXPANDED`).
+- Implemented buttery smooth transition animations with `AnimatedVisibility` for expanding/collapsing the sub-row panel.
+- Developed a `VectorIconButton` `@Composable` wrapper for `VectorIconDrawer` to draw the custom canvas icons within a Jetpack Compose pipeline seamlessly.
 
-### 3. Migration of `RunningBadgeOverlay` to `RunningBadgeComposeOverlay`
-- Entirely rewrote the `RunningBadgeOverlay` (the floating badge shown during macro execution) from manual `LinearLayout` and raw Canvas drawing to declarative `@Composable` functions.
-- Migrated manual state mutation (like modifying `ProgressBar.progress`) to a uni-directional `MutableStateFlow(BadgeState)`.
-- Replaced custom drag listener (`OnTouchListener`) with Compose's `pointerInput` and `detectDragGestures`. Window layout params update seamlessly in the gesture callback.
-- The new code is drastically shorter, completely free of UI bugs, memory leaks, and `BadTokenException`s.
+### 3. Smooth Window Gestures
+- Employed Compose's native `Modifier.pointerInput` -> `detectDragGestures` to allow flawless dragging of the entire floating panel, computing offsets directly and feeding them back to the `WindowManager`.
 
 ## Verification Results
 

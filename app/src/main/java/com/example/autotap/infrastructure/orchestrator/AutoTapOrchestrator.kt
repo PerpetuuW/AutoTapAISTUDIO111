@@ -101,7 +101,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
     val quickRingOverlay by lazy { TargetQuickRingOverlay(appContext, overlayWindowManager) }
     val graphOverlayView by lazy { GraphOverlayView(appContext) }
     val targetManager by lazy { TargetOverlayManager(appContext, overlayWindowManager, quickRingOverlay, graphOverlayView) }
-    val controlPanelOverlay by lazy { ControlPanelOverlay(appContext, overlayWindowManager, this) }
+    val controlPanelOverlay by lazy { com.example.autotap.infrastructure.overlay.panel.ControlPanelComposeOverlay(appContext, overlayWindowManager, this) }
 
     val screenLockOverlay by lazy { ScreenLockOverlay(appContext, overlayWindowManager) }
     val runningBadgeOverlay by lazy { RunningBadgeComposeOverlay(appContext, overlayWindowManager, onLockClick = { screenLockOverlay.show() }, onStopClick = { macroEngine.stop() }) }

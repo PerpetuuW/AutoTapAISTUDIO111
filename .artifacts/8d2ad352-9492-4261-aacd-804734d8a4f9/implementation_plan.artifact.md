@@ -1,27 +1,38 @@
-# Architectural Modernization Plan (Compose, LeakCanary, Detekt, StateFlow)
+# Phase 2: Jetpack Compose Migration for Control Panel Overlay
 
 ## Goal
-Implement the top-tier industry standards to eliminate UI layout bugs, memory leaks, and architectural spaghetti code in AutoTap. We will integrate Jetpack Compose, LeakCanary, Detekt, and StateFlow infrastructure.
+Migrate the complex, tag-based manual UI creation of `ControlPanelOverlay.kt` to a clean, declarative Jetpack Compose UI (`ControlPanelComposeOverlay.kt`). This will eliminate manual view lookups (`findViewWithTag`), unify state management, and enable smooth expanding/collapsing animations.
 
 ## Proposed Changes
 
-### 1. Build Config & Dependencies (`libs.versions.toml`, `build.gradle.kts`)
-- Add **Jetpack Compose** compiler plugin (Kotlin 2.2.10 requires `org.jetbrains.kotlin.plugin.compose`).
-- Enable `buildFeatures { compose = true }` in `app/build.gradle.kts`.
-- Add `androidx.compose.ui`, `material3`, and `ui-tooling`.
-- Add **LeakCanary** to `debugImplementation` for automatic memory leak detection (OOM prevention).
-- Add **Detekt** static analysis plugin to catch cognitive complexity, unused variables, and missing null-safety.
-- Add `kotlinx-coroutines-android` and `lifecycle-viewmodel-compose` for **StateFlow/MVI** architecture.
+### 1. Unified State Management
+- Define a `ControlPanelState` data class encapsulating:
+  - `mode: PanelDisplayMode` (`COMPACT_SINGLE_ROW`, `EXPANDED`, `MINI_BUBBLE`)
+  - `isPlaying: Boolean`
+  - `visibilityMode: OverlayVisibilityMode` (`FULL`, `TRANSPARENT`, `HIDDEN`)
+- Use `MutableStateFlow<ControlPanelState>` to drive the entire UI deterministically.
 
-### 2. Detekt Configuration
-- Create a `detekt.yml` config or baseline script to automatically run static analysis and integrate it with your existing `1AInspector` suite.
+### 2. UI Reconstruction in Compose
+- Create `ControlPanelComposeOverlay.kt` inheriting from `AbstractComposeOverlay`.
+- Replicate the 3 modes:
+  - **MINI_BUBBLE**: The 2-button floating pill (Play/Pause and Expand).
+  - **COMPACT_SINGLE_ROW**: The main row (Play, Rec, Target, Expand/Collapse, Hide, Settings).
+  - **EXPANDED**: Main row + Sub row (Lock, Wipe, Subroutines, Scripts, Help).
+- Utilize standard Compose modifiers (`Modifier.pointerInput`, `detectDragGestures`) for smooth window dragging (which updates `WindowManager.LayoutParams`).
+- Create a Compose-based `VectorIconButton` component to wrap custom canvas icon drawing, removing the old `CanvasIconButton` view.
 
-### 3. StateFlow & Jetpack Compose Demonstration (Optional/Foundation)
-- Create a foundational `AbstractComposeOverlay` class that allows rendering Jetpack Compose inside the `WindowManager`. This will serve as a bridge for you to incrementally migrate complex dialogs (like `EditActionDialog` or `GraphEditorOverlay`) to clean declarative UI without `LayoutParams` math.
+### 3. Orchestrator Integration
+- Modify `AutoTapOrchestrator.kt` to instantiate and use `ControlPanelComposeOverlay` instead of the legacy `ControlPanelOverlay`.
+- Hook all callbacks to `ControlPanelListener`.
 
-## User Review Required
+## Verification Plan
 
-> [!IMPORTANT]
-> **Scope of Migration**: Do you want me to *only* setup the infrastructure (add dependencies, configure plugins, and create base Compose classes) so you can use them gradually? Or would you also like me to completely rewrite a specific overlay (e.g., `RunningBadgeOverlay`) to demonstrate Jetpack Compose and StateFlow in action right now?
+### Automated Tests
+- Gradle build: `./gradlew :app:compileDebugKotlin`
+- Run all 174+ 1AInspector scripts.
 
-Please approve the plan or specify which part you want to focus on.
+### Manual Verification
+- Expand/collapse animations should work flawlessly.
+- Dragging the control panel should feel smooth and boundary-constrained.
+- Playing/Stopping should correctly update the icon to Pause/Play across all modes.
+- Toggling "Eye" should cycle through visibility modes smoothly.

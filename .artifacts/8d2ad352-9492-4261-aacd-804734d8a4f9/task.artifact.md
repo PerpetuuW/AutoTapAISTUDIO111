@@ -1,10 +1,9 @@
-# Task List: Sequential Architectural Migration
+# Task List: Control Panel Compose Migration
 
-**Phase 1: Infrastructure & First Overlay Migration**
-- `[x]` Add Jetpack Compose, LeakCanary, and Detekt to Gradle (`libs.versions.toml` & `build.gradle.kts`).
-- `[x]` Implement `OverlayLifecycleOwner` to allow Jetpack Compose to run inside raw `WindowManager` Views.
-- `[x]` Refactor `RunningBadgeOverlay.kt` to use Jetpack Compose and `StateFlow` (MVI pattern).
+- `[x]` Create `ControlPanelState` data class in a new `ControlPanelComposeOverlay.kt` file.
+- `[x]` Implement Compose-based `VectorIconButton` component.
+- `[x]` Build `ControlPanelComposeOverlay` extending `AbstractComposeOverlay` with MVI StateFlow.
+- `[x]` Replicate all 3 display modes (MINI_BUBBLE, COMPACT_SINGLE_ROW, EXPANDED) with smooth dragging.
+- `[x]` Update `AutoTapOrchestrator.kt` to use the new Compose overlay instead of the legacy one.
 - `[x]` Build and verify compilation.
-- `[x]` Ensure 1AInspector scripts pass and create walkthrough.
-
-*(Subsequent overlays will be migrated in following iterations after Phase 1 is verified)*
+- `[x]` Run all 174+ 1AInspector scripts and create walkthrough.
