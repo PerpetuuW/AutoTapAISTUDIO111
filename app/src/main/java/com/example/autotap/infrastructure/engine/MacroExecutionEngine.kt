@@ -1205,6 +1205,8 @@ class MacroExecutionEngine(
                         roiBottom = rBottom
                     )
                     val stepTemplatesList = stepTemplates.map { Pair(it.key, it.value) }
+                    val stepTemplatesList = stepTemplates.map { Pair(it.key, it.value) }
+                    val stepTemplatesList = stepTemplates.map { Pair(it.key, it.value) }
                     return if (sPixels != null) {
                         if (stepTemplatesList.size > 1) {
                             TemplateMatchingEngine.findMultiTemplatesFastCascade(

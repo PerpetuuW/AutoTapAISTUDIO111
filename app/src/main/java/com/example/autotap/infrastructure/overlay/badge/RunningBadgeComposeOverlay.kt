@@ -156,11 +156,7 @@ class RunningBadgeComposeOverlay(
         // Anti-strobe logic
         val effectiveAlpha = if (state.isTransparent && !MediaProjectionService.isStreaming && !state.isSearchingMode) 0f else 1f
 
-        AnimatedVisibility(
-            visible = state.isVisible && effectiveAlpha > 0f,
-            enter = fadeIn(),
-            exit = fadeOut()
-        ) {
+        if (state.isVisible && effectiveAlpha > 0f) {
             BadgeCard(state)
         }
     }
@@ -223,17 +219,19 @@ class RunningBadgeComposeOverlay(
 
                 Spacer(modifier = Modifier.height(2.dp))
 
-                // Progress Bar
+                // Progress Bar (без холостого 25 FPS цикла при завершении или бесконечном поиске)
                 var currentProgress by remember { mutableIntStateOf(0) }
                 LaunchedEffect(state.searchStartTime, state.searchTimeoutMs, state.isSearchingMode, state.isInfiniteMode) {
-                    while(true) {
-                        val elapsed = System.currentTimeMillis() - state.searchStartTime
-                        currentProgress = if (state.isSearchingMode && state.isInfiniteMode) {
-                            50
-                        } else {
-                            ((elapsed.toFloat() / state.searchTimeoutMs.toFloat()).coerceIn(0f, 1f) * 100).toInt()
+                    if (state.isSearchingMode && state.isInfiniteMode) {
+                        currentProgress = 50
+                    } else {
+                        while (true) {
+                            val elapsed = System.currentTimeMillis() - state.searchStartTime
+                            val pct = ((elapsed.toFloat() / state.searchTimeoutMs.toFloat()).coerceIn(0f, 1f) * 100).toInt()
+                            if (currentProgress != pct) currentProgress = pct
+                            if (pct >= 100) break
+                            delay(50L)
                         }
-                        delay(40L)
                     }
                 }
 

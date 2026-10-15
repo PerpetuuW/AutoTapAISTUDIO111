@@ -24,27 +24,34 @@ abstract class AbstractComposeOverlay(
 ) {
     protected var composeView: ComposeView? = null
     private var lifecycleOwner: OverlayLifecycleOwner? = null
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    protected fun runOnMainSyncOrPost(block: () -> Unit) {
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            block()
+        } else {
+            mainHandler.post(block)
+        }
+    }
 
     /**
      * Создает или возвращает готовый к работе ComposeView.
-     * Не добавляет его в WindowManager автоматически! Используйте [show].
+     * Владельцы жизненного цикла привязываются строго ДО setContent во избежание краша WindowRecomposer.
      */
     protected fun createComposeView(content: @Composable () -> Unit): ComposeView {
-        val view = ComposeView(context).apply {
-            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
-            setContent(content)
-        }
-
         val owner = OverlayLifecycleOwner()
         lifecycleOwner = owner
-
-        view.setViewTreeLifecycleOwner(owner)
-        view.setViewTreeViewModelStoreOwner(owner)
-        view.setViewTreeSavedStateRegistryOwner(owner)
-
         owner.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         owner.handleLifecycleEvent(Lifecycle.Event.ON_START)
         owner.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+
+        val view = ComposeView(context).apply {
+            setViewTreeLifecycleOwner(owner)
+            setViewTreeViewModelStoreOwner(owner)
+            setViewTreeSavedStateRegistryOwner(owner)
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent(content)
+        }
 
         return view
     }
@@ -64,25 +71,64 @@ abstract class AbstractComposeOverlay(
     }
 
     open fun show() {
-        if (composeView != null) return
+        runOnMainSyncOrPost {
+            val existing = composeView
+            if (existing != null) {
+                existing.visibility = android.view.View.VISIBLE
+                if (lifecycleOwner?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.STARTED) == true) {
+                    lifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+                }
+                if (existing.parent == null) {
+                    overlayWindowManager.addViewSafe(existing, getLayoutParams())
+                } else {
+                    overlayWindowManager.updateViewSafe(existing, getLayoutParams())
+                }
+                return@runOnMainSyncOrPost
+            }
 
-        val view = createComposeView {
-            Content()
+            val view = createComposeView {
+                Content()
+            }
+            composeView = view
+            overlayWindowManager.addViewSafe(view, getLayoutParams())
         }
-        composeView = view
-        overlayWindowManager.addViewSafe(view, getLayoutParams())
+    }
+
+    open fun hide() {
+        runOnMainSyncOrPost {
+            composeView?.let { view ->
+                if (view.visibility != android.view.View.GONE) {
+                    view.visibility = android.view.View.GONE
+                    if (lifecycleOwner?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+                        lifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+                    }
+                }
+            }
+        }
     }
 
     open fun dismiss() {
-        composeView?.let {
-            overlayWindowManager.removeViewSafe(it)
-            lifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
-            lifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
-            lifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-            it.disposeComposition()
+        runOnMainSyncOrPost {
+            val view = composeView
+            val owner = lifecycleOwner
+            composeView = null
+            lifecycleOwner = null
+            if (view != null) {
+                try {
+                    if (owner != null && owner.lifecycle.currentState != Lifecycle.State.DESTROYED) {
+                        if (owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                            owner.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+                        }
+                        if (owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                            owner.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+                        }
+                        owner.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+                    }
+                    view.disposeComposition()
+                } catch (_: Exception) {}
+                overlayWindowManager.removeViewSafe(view)
+            }
         }
-        composeView = null
-        lifecycleOwner = null
     }
 
     @Composable

@@ -4,19 +4,24 @@
 1Apatch.py — Комплексный транзакционный патч ветки 1Gemini (AutoTap v34.9)
 Устраняет:
 1. Все провалы 1AInspector (4 шт.) и блокировки CI Pre-Flight Gate (G-02 !!).
-2. Ошибки калибровки и поиска:
+2. Фризы, подтормаживания и краши после перехода на Jetpack Compose (AbstractComposeOverlay, ControlPanelComposeOverlay, RunningBadgeComposeOverlay):
+   - Защита от краша IllegalStateException (handleLifecycleEvent must be called on the main thread) и корректный порядок привязки ViewTreeLifecycleOwner ДО setContent в AbstractComposeOverlay;
+   - Устранение 80 мс холодного перезапуска Recomposer при каждом hide()/show() пульта (перевод hide() на мгновенное скрытие View.GONE без разрушения ComposeView);
+   - Устранение шторма из 600 IPC-вызовов WindowManager.updateViewLayout и декодирования PNG с диска на главном потоке в секунду во время ExecutionState.Running (AutoTapOrchestrator, TargetOverlayManager);
+   - Отключение бесконечного 25 FPS цикла перекомпозиции и 300 мс задержки fadeOut() в RunningBadgeComposeOverlay, удаление 7 лишних корутин animateColorAsState в ControlPanelComposeOverlay.
+3. Ошибки калибровки и поиска:
    - Сдвиг координат (baseAnchorX/baseAnchorY) и коллизию кэша в SmartMaskEngine.autoOptimizeGlyphSegmentationFast;
    - Пространственный рассинхрон кропа raw_*.png и mask_*.png при сохранении шаблона в CalibrationOverlay;
    - Перезапись центральных координат calibratedX/Y левым верхним углом rectLeft/rectTop в MacroExecutionEngine;
    - Блокировку интерактивного ползунка порога и режима формы старыми JSON-метаданными при перекалибровке в TemplateMatchingEngine;
    - Подключение каскадного шага sampleStride от optimalDownscaleFactor в TemplateMatchingEngine.
-3. Ошибки эргономики и UI:
+4. Ошибки эргономики и UI:
    - Неработающую кнопку сворачивания карточки (calibrationContentLayout) в CalibrationOverlay;
    - Центрирование новой зоны "+ ROI ЗОНА" и обновление превью "ЭКРАН 1:1" при выборе альтернативного кандидата в CalibrationOverlay;
    - Коллизию повторного addView(inputLayout) и жесткую обрезку .take() в EditActionDialog;
    - Пропущенные кнопки ГРАФ, ОТЛАДКА, ЛОГИ в нижнем ряду ControlPanelComposeOverlay и плавность перетаскивания RunningBadgeComposeOverlay;
    - Возврат видимости оверлеев и освобождение памяти cropped Bitmap в AutoTapOrchestrator.startScreenTextOcrSelection.
-4. Ошибки архитектуры и выполнения графов:
+5. Ошибки архитектуры и выполнения графов:
    - Несовпадение ID портов ("timeout" вместо "out_timeout", "out_match" вместо "out_match_trig_...") и шаблонов узлов в Wire-to-Empty (GraphEditorOverlay);
    - Смещение хитбокса входного порта (headerHeight вместо headerHeight / 2f), декодирование PNG с диска в onDraw (60 FPS) и синхронизацию entryNodeId при перепривязке узла СТАРТ в GraphCanvasView;
    - Залипание степпера итераций цикла (+/-) и отсутствие сохранения при удалении узла/перемещении связей в GraphEditorOverlay;
@@ -40,11 +45,162 @@ from patch_engine import (
 from git_sync import execute_auto_git_sync
 
 print("=" * 80)
-print("[MODE: 1APATCH — FULL 1GEMINI BRANCH AUDIT FIX & SYNC (SEARCH, CALIB, UI, GRAPH)]")
+print("[MODE: 1APATCH — FULL 1GEMINI BRANCH AUDIT FIX & COMPOSE TURBO OPTIMIZATION]")
 print("=" * 80)
 
 diffs = [
-    # 1. MacroExecutionEngine.kt:
+    # 1. AbstractComposeOverlay.kt:
+    # - Гарантированное выполнение LifecycleRegistry и ComposeView строго на Main Thread (устранение крашей IllegalStateException)
+    # - Привязка ViewTreeLifecycleOwner/SavedStateRegistryOwner ДО вызова setContent
+    # - Мгновенный режим hide()/show() через View.GONE / View.VISIBLE без пересоздания Recomposer и окна WindowManager
+    (
+        os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/AbstractComposeOverlay.kt"),
+        r"""    protected var composeView: ComposeView? = null
+    private var lifecycleOwner: OverlayLifecycleOwner? = null
+
+    /**
+     * Создает или возвращает готовый к работе ComposeView.
+     * Не добавляет его в WindowManager автоматически! Используйте [show].
+     */
+    protected fun createComposeView(content: @Composable () -> Unit): ComposeView {
+        val view = ComposeView(context).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
+            setContent(content)
+        }
+
+        val owner = OverlayLifecycleOwner()
+        lifecycleOwner = owner
+
+        view.setViewTreeLifecycleOwner(owner)
+        view.setViewTreeViewModelStoreOwner(owner)
+        view.setViewTreeSavedStateRegistryOwner(owner)
+
+        owner.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+        owner.handleLifecycleEvent(Lifecycle.Event.ON_START)
+        owner.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+
+        return view
+    }""",
+        r"""    protected var composeView: ComposeView? = null
+    private var lifecycleOwner: OverlayLifecycleOwner? = null
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    protected fun runOnMainSyncOrPost(block: () -> Unit) {
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            block()
+        } else {
+            mainHandler.post(block)
+        }
+    }
+
+    /**
+     * Создает или возвращает готовый к работе ComposeView.
+     * Владельцы жизненного цикла привязываются строго ДО setContent во избежание краша WindowRecomposer.
+     */
+    protected fun createComposeView(content: @Composable () -> Unit): ComposeView {
+        val owner = OverlayLifecycleOwner()
+        lifecycleOwner = owner
+        owner.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+        owner.handleLifecycleEvent(Lifecycle.Event.ON_START)
+        owner.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+
+        val view = ComposeView(context).apply {
+            setViewTreeLifecycleOwner(owner)
+            setViewTreeViewModelStoreOwner(owner)
+            setViewTreeSavedStateRegistryOwner(owner)
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent(content)
+        }
+
+        return view
+    }"""
+    ),
+    (
+        os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/AbstractComposeOverlay.kt"),
+        r"""    open fun show() {
+        if (composeView != null) return
+
+        val view = createComposeView {
+            Content()
+        }
+        composeView = view
+        overlayWindowManager.addViewSafe(view, getLayoutParams())
+    }
+
+    open fun dismiss() {
+        composeView?.let {
+            overlayWindowManager.removeViewSafe(it)
+            lifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+            lifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+            lifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+            it.disposeComposition()
+        }
+        composeView = null
+        lifecycleOwner = null
+    }""",
+        r"""    open fun show() {
+        runOnMainSyncOrPost {
+            val existing = composeView
+            if (existing != null) {
+                existing.visibility = android.view.View.VISIBLE
+                if (lifecycleOwner?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.STARTED) == true) {
+                    lifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+                }
+                if (existing.parent == null) {
+                    overlayWindowManager.addViewSafe(existing, getLayoutParams())
+                } else {
+                    overlayWindowManager.updateViewSafe(existing, getLayoutParams())
+                }
+                return@runOnMainSyncOrPost
+            }
+
+            val view = createComposeView {
+                Content()
+            }
+            composeView = view
+            overlayWindowManager.addViewSafe(view, getLayoutParams())
+        }
+    }
+
+    open fun hide() {
+        runOnMainSyncOrPost {
+            composeView?.let { view ->
+                if (view.visibility != android.view.View.GONE) {
+                    view.visibility = android.view.View.GONE
+                    if (lifecycleOwner?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+                        lifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+                    }
+                }
+            }
+        }
+    }
+
+    open fun dismiss() {
+        runOnMainSyncOrPost {
+            val view = composeView
+            val owner = lifecycleOwner
+            composeView = null
+            lifecycleOwner = null
+            if (view != null) {
+                try {
+                    if (owner != null && owner.lifecycle.currentState != Lifecycle.State.DESTROYED) {
+                        if (owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                            owner.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+                        }
+                        if (owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                            owner.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+                        }
+                        owner.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+                    }
+                    view.disposeComposition()
+                } catch (_: Exception) {}
+                overlayWindowManager.removeViewSafe(view)
+            }
+        }
+    }"""
+    ),
+
+    # 2. MacroExecutionEngine.kt:
     # - Поддержка AI (action.isNeuralEngine -> NeuralVisualMatcher.findMatches) и 60 FPS стриминга в ActionType.TRIGGER
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/engine/MacroExecutionEngine.kt"),
@@ -144,7 +300,7 @@ diffs = [
                                                                         candidateList.addAll(imageMatches)
                                                                     }"""
     ),
-    # 2. MacroExecutionEngine.kt:
+    # 3. MacroExecutionEngine.kt:
     # - Исправление сохранения центральной точки calibratedX/Y (clickX/clickY вместо rectLeft/rectTop)
     # - Ликвидация оператора !! (строки 435 и 499) и обрезки .take(10) (строка 560)
     (
@@ -221,7 +377,7 @@ diffs = [
                                         searchTitle = "Поиск текста: '$query'",
                                         searchStartTime = pollStartTime,"""
     ),
-    # 3. MacroExecutionEngine.kt:
+    # 4. MacroExecutionEngine.kt:
     # - Синхронизация размеров кадра в startGraph при стриминге
     # - Поддержка мультишаблонов (stepTemplates) и useCustomClick в evaluateSingleGraphTrigger
     # - Отказ от случайного шаблона в resolveActiveTemplatesRobust при чисто текстовых OCR целях
@@ -374,7 +530,7 @@ diffs = [
         return if (hasOnlyOcrTargets) result else result.ifEmpty { allFromDisk.take(1) }"""
     ),
 
-    # 4. MediaProjectionService.kt: Экспорт актуальных размеров кадра стриминга
+    # 5. MediaProjectionService.kt: Экспорт актуальных размеров кадра стриминга
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/projection/MediaProjectionService.kt"),
         r"""        private val frameLock = ReentrantLock()
@@ -394,7 +550,7 @@ diffs = [
         fun copyLatestFrame(outPixels: IntArray, width: Int, height: Int): Boolean {"""
     ),
 
-    # 5. NeuralVisualMatcher.kt: Восстановление буфера +5% при сохранении порога 98%
+    # 6. NeuralVisualMatcher.kt: Восстановление буфера +5% при сохранении порога 98%
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/vision/NeuralVisualMatcher.kt"),
         r"""        // [V180.0] Защитный запас сходимости AI +5% против ложных срабатываний на рекламе
@@ -403,7 +559,7 @@ diffs = [
         val effectiveSimilarity = (if (minSimilarityPercent >= 98) minSimilarityPercent else (minSimilarityPercent + 5)).coerceIn(50, 99)"""
     ),
 
-    # 6. VisionGatewayImpl.kt: Корректная привязка templatePath каждого шаблона в мультипоиске AI
+    # 7. VisionGatewayImpl.kt: Корректная привязка templatePath каждого шаблона в мультипоиске AI
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/vision/VisionGatewayImpl.kt"),
         r"""    if (actionOverride?.isNeuralEngine == true) {
@@ -433,7 +589,7 @@ diffs = [
     }"""
     ),
 
-    # 7. SmartMaskEngine.kt:
+    # 8. SmartMaskEngine.kt:
     # - Учет полноэкранных координат baseAnchorX/baseAnchorY при калибровке на полном кадре экрана
     # - Защита от коллизии кэша TemplateMatchingEngine.extractFeatures при переборе exp (5, 15, 30)
     (
@@ -460,7 +616,7 @@ diffs = [
             val features = TemplateMatchingEngine.extractFeatures(tPixels, tw, th, "opt_${exp}_${tPixels.contentHashCode()}", 80, "", false)"""
     ),
 
-    # 8. TemplateMatchingEngine.kt:
+    # 9. TemplateMatchingEngine.kt:
     # - Приоритет интерактивного порога и флага формы в режиме калибровки (findAllMatches == true) при сохранении features.individualThreshold в рантайме
     # - Подключение каскадного ускорения sampleStride от effectiveDownscale
     (
@@ -485,7 +641,7 @@ diffs = [
             val sampleStride = if (isSmall) 1 else (effectiveDownscale / 2).coerceIn(1, 2)"""
     ),
 
-    # 9. EditActionDialog.kt: Устранение коллизии повторного addView(inputLayout) и жесткой обрезки .take(8)
+    # 10. EditActionDialog.kt: Устранение коллизии повторного addView(inputLayout) и жесткой обрезки .take(8)
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/EditActionDialog.kt"),
         r"""            // Инлайн-диалог перемещения с защитой от Window Token Exception
@@ -595,7 +751,7 @@ diffs = [
                 }"""
     ),
 
-    # 10. CalibrationOverlay.kt:
+    # 11. CalibrationOverlay.kt:
     # - Обновление превью "ЭКРАН 1:1" и процента сходимости при тапе по альтернативному кандидату
     # - Устранение .take(8) в заголовке
     # - Реальное сворачивание карточки через calibrationContentLayout
@@ -878,7 +1034,7 @@ diffs = [
                 }"""
     ),
 
-    # 11. GraphEditorOverlay.kt:
+    # 12. GraphEditorOverlay.kt:
     # - Автосохранение изменений графа при перетаскивании узлов и протяжке связей
     # - Устранение .take(12) в имени шаблона
     # - Исправление залипания степпера итераций цикла (+/-) и сохранение при удалении узла
@@ -1060,7 +1216,7 @@ diffs = [
             }"""
     ),
 
-    # 12. GraphCanvasView.kt:
+    # 13. GraphCanvasView.kt:
     # - In-memory кэш миниатюр шаблонов thumbnailCache (устранение BitmapFactory.decodeFile на каждом кадре onDraw)
     # - Исправление хитбокса входного порта (node.canvasY + headerHeight / 2f) и синхронизация entryNodeId при протяжке от node_start
     (
@@ -1175,7 +1331,7 @@ diffs = [
                                 onScenarioModified?.invoke()"""
     ),
 
-    # 13. LinearToGraphMigrator.kt: Устранение .take(...) и корректная связка узла таймаута в generateMultiTemplateBranchingGraph
+    # 14. LinearToGraphMigrator.kt: Устранение .take(...)
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/core/math/LinearToGraphMigrator.kt"),
         r"""                        val templateFile = File(path)
@@ -1212,7 +1368,7 @@ diffs = [
         """
     ),
 
-    # 14. ScenarioRepositoryImpl.kt:
+    # 15. ScenarioRepositoryImpl.kt:
     # - Сериализация и десериализация isNeuralEngine в линейных сценариях
     # - Сериализация и десериализация behavior (TriggerBehavior) и targetOccurrenceIndex в графовых сценариях
     (
@@ -1282,7 +1438,7 @@ diffs = [
                         useCustomClick = tObj.optBoolean("useCustomClick", false),"""
     ),
 
-    # 15. TemplateNoiseStressCalibrationTestSuite.kt: Устранение оператора !! (G-02)
+    # 16. TemplateNoiseStressCalibrationTestSuite.kt: Устранение оператора !! (G-02)
     (
         os.path.join(root_dir, "app/src/test/java/com/example/autotap/TemplateNoiseStressCalibrationTestSuite.kt"),
         r"""        assertNotNull("Должен существовать хотя бы один порог с 0 False Positives и 100% Recall", optimalThreshold)
@@ -1292,7 +1448,10 @@ diffs = [
         assertTrue("Оптимальный рабочий порог калибровки AutoTap лежит в диапазоне [0.55..0.85], найден: $verifiedOptimal", verifiedOptimal in 0.55f..0.85f)"""
     ),
 
-    # 16. RunningBadgeComposeOverlay.kt: Плавное обновление координат posX/posY вне троттлинга и очистка дублей импортов
+    # 17. RunningBadgeComposeOverlay.kt:
+    # - Мгновенное скрытие без 300 мс fadeOut() (исключение попадания бейджа на скриншоты и лишних анимаций)
+    # - Остановка бесконечного 25 FPS цикла while(true) когда поиск не активен или прогресс завершен
+    # - Плавное перетаскивание и предвыделение RectF вне onDraw
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/badge/RunningBadgeComposeOverlay.kt"),
         r"""import com.example.autotap.infrastructure.overlay.ui.VectorIconDrawer
@@ -1303,6 +1462,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment""",
         r"""import com.example.autotap.infrastructure.overlay.ui.VectorIconDrawer
 import androidx.compose.ui.Alignment"""
+    ),
+    (
+        os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/badge/RunningBadgeComposeOverlay.kt"),
+        r"""        AnimatedVisibility(
+            visible = state.isVisible && effectiveAlpha > 0f,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            BadgeCard(state)
+        }""",
+        r"""        if (state.isVisible && effectiveAlpha > 0f) {
+            BadgeCard(state)
+        }"""
     ),
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/badge/RunningBadgeComposeOverlay.kt"),
@@ -1337,8 +1509,42 @@ import androidx.compose.ui.Alignment"""
                     }
                 }"""
     ),
+    (
+        os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/badge/RunningBadgeComposeOverlay.kt"),
+        r"""                // Progress Bar
+                var currentProgress by remember { mutableIntStateOf(0) }
+                LaunchedEffect(state.searchStartTime, state.searchTimeoutMs, state.isSearchingMode, state.isInfiniteMode) {
+                    while(true) {
+                        val elapsed = System.currentTimeMillis() - state.searchStartTime
+                        currentProgress = if (state.isSearchingMode && state.isInfiniteMode) {
+                            50
+                        } else {
+                            ((elapsed.toFloat() / state.searchTimeoutMs.toFloat()).coerceIn(0f, 1f) * 100).toInt()
+                        }
+                        delay(40L)
+                    }
+                }""",
+        r"""                // Progress Bar (без холостого 25 FPS цикла при завершении или бесконечном поиске)
+                var currentProgress by remember { mutableIntStateOf(0) }
+                LaunchedEffect(state.searchStartTime, state.searchTimeoutMs, state.isSearchingMode, state.isInfiniteMode) {
+                    if (state.isSearchingMode && state.isInfiniteMode) {
+                        currentProgress = 50
+                    } else {
+                        while (true) {
+                            val elapsed = System.currentTimeMillis() - state.searchStartTime
+                            val pct = ((elapsed.toFloat() / state.searchTimeoutMs.toFloat()).coerceIn(0f, 1f) * 100).toInt()
+                            if (currentProgress != pct) currentProgress = pct
+                            if (pct >= 100) break
+                            delay(50L)
+                        }
+                    }
+                }"""
+    ),
 
-    # 17. ControlPanelComposeOverlay.kt: Восстановление кнопок ГРАФ, ОТЛАДКА, ЛОГИ в нижнем ряду и точных координат getTutorialRect
+    # 18. ControlPanelComposeOverlay.kt:
+    # - Мгновенный hide() через super.hide() (View.GONE без уничтожения ComposeView)
+    # - Удаление 7 избыточных корутин animateColorAsState и animateFloatAsState
+    # - Восстановление кнопок ГРАФ, ОТЛАДКА, ЛОГИ в нижнем ряду и точных координат getTutorialRect
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt"),
         r"""        val subRowIndex = when (tagKey) {
@@ -1358,6 +1564,69 @@ import androidx.compose.ui.Alignment"""
             "BTN_HELP" -> 6
             else -> -1
         }"""
+    ),
+    (
+        os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt"),
+        r"""    fun hide() {
+        dismiss()
+    }""",
+        r"""    override fun hide() {
+        super.hide()
+    }"""
+    ),
+    (
+        os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt"),
+        r"""        val globalAlpha by animateFloatAsState(
+            targetValue = if (state.visibilityMode == OverlayVisibilityMode.TRANSPARENT) 0.40f else 1.0f,
+            animationSpec = tween(200),
+            label = "alpha"
+        )""",
+        r"""        val globalAlpha = if (state.visibilityMode == OverlayVisibilityMode.TRANSPARENT) 0.40f else 1.0f"""
+    ),
+    (
+        os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt"),
+        r"""                // 6. Eye Toggle
+                val eyeBgStart = animateColorAsState(when(state.visibilityMode) {
+                    OverlayVisibilityMode.FULL -> Color(0xFF162032)
+                    OverlayVisibilityMode.TRANSPARENT -> Color(0xFF2E123D)
+                    OverlayVisibilityMode.HIDDEN -> Color(0xFF3B2606)
+                }, label = "eyeBgS").value
+                val eyeBgEnd = animateColorAsState(when(state.visibilityMode) {
+                    OverlayVisibilityMode.FULL -> Color(0xFF0F172A)
+                    OverlayVisibilityMode.TRANSPARENT -> Color(0xFF170924)
+                    OverlayVisibilityMode.HIDDEN -> Color(0xFFFBBF24)
+                }, label = "eyeBgE").value
+                val eyeStroke = animateColorAsState(when(state.visibilityMode) {
+                    OverlayVisibilityMode.FULL -> Color(0xFF38BDF8)
+                    OverlayVisibilityMode.TRANSPARENT -> Color(0xFFA78BFA)
+                    OverlayVisibilityMode.HIDDEN -> Color(0xFFF59E0B)
+                }, label = "eyeStr").value
+                val eyeIconColor = animateColorAsState(when(state.visibilityMode) {
+                    OverlayVisibilityMode.FULL -> Color(0xFF38BDF8)
+                    OverlayVisibilityMode.TRANSPARENT -> Color(0xFFA78BFA)
+                    OverlayVisibilityMode.HIDDEN -> Color(0xFFFBBF24)
+                }, label = "eyeIc").value""",
+        r"""                // 6. Eye Toggle (Zero-Allocation Direct Color Mapping)
+                val eyeBgStart = when (state.visibilityMode) {
+                    OverlayVisibilityMode.FULL -> Color(0xFF162032)
+                    OverlayVisibilityMode.TRANSPARENT -> Color(0xFF2E123D)
+                    OverlayVisibilityMode.HIDDEN -> Color(0xFF3B2606)
+                }
+                val eyeBgEnd = when (state.visibilityMode) {
+                    OverlayVisibilityMode.FULL -> Color(0xFF0F172A)
+                    OverlayVisibilityMode.TRANSPARENT -> Color(0xFF170924)
+                    OverlayVisibilityMode.HIDDEN -> Color(0xFF1F1403)
+                }
+                val eyeStroke = when (state.visibilityMode) {
+                    OverlayVisibilityMode.FULL -> Color(0xFF38BDF8)
+                    OverlayVisibilityMode.TRANSPARENT -> Color(0xFFA78BFA)
+                    OverlayVisibilityMode.HIDDEN -> Color(0xFFF59E0B)
+                }
+                val eyeIconColor = when (state.visibilityMode) {
+                    OverlayVisibilityMode.FULL -> Color(0xFF38BDF8)
+                    OverlayVisibilityMode.TRANSPARENT -> Color(0xFFA78BFA)
+                    OverlayVisibilityMode.HIDDEN -> Color(0xFFFBBF24)
+                }"""
     ),
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt"),
@@ -1420,7 +1689,7 @@ import androidx.compose.ui.Alignment"""
                 }
             }""",
         r"""            // SUB ROW
-            AnimatedVisibility(visible = state.mode == PanelDisplayMode.EXPANDED) {
+            if (state.mode == PanelDisplayMode.EXPANDED) {
                 Row(
                     modifier = Modifier.padding(top = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -1517,8 +1786,155 @@ import androidx.compose.ui.Alignment"""
                 }
             }"""
     ),
+    (
+        os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt"),
+        r"""    @Composable
+    private fun PlayPauseButton(isPlaying: Boolean, size: Dp, onClick: () -> Unit, onLongClick: () -> Unit = {}) {
+        val bgStart = animateColorAsState(if (isPlaying) Color(0xFF3A1016) else Color(0xFF0D2E1E), label = "pbgS").value
+        val bgEnd = animateColorAsState(if (isPlaying) Color(0xFF1C080F) else Color(0xFF061A10), label = "pbgE").value
+        val stroke = animateColorAsState(if (isPlaying) Color(0xFFF43F5E) else Color(0xFF34D399), label = "pStr").value""",
+        r"""    @Composable
+    private fun PlayPauseButton(isPlaying: Boolean, size: Dp, onClick: () -> Unit, onLongClick: () -> Unit = {}) {
+        val bgStart = if (isPlaying) Color(0xFF3A1016) else Color(0xFF0D2E1E)
+        val bgEnd = if (isPlaying) Color(0xFF1C080F) else Color(0xFF061A10)
+        val stroke = if (isPlaying) Color(0xFFF43F5E) else Color(0xFF34D399)"""
+    ),
 
-    # 18. AutoTapOrchestrator.kt: Передача экземпляра controlPanelOverlay в туториал и безопасное снятие скриншота в startScreenTextOcrSelection
+    # 19. TargetOverlayManager.kt:
+    # - Защита от повторных IPC-вызовов WindowManager.updateViewLayout в setTargetsTouchable
+    # - Отказ от вызова bindAction (и декодирования PNG с диска) когда мишени скрываются (visible == false)
+    # - In-memory кэш миниатюр шаблонов targetBitmapCache
+    (
+        os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/target/TargetOverlayManager.kt"),
+        r"""    private val targetViews = HashMap<Int, TargetOverlayView>()
+    private val endTargetViews = HashMap<Int, TargetOverlayView>()
+    private val waypointViews = HashMap<Int, MutableList<View>>()
+    private val templateRepository by lazy { TemplateRepositoryImpl(context) }""",
+        r"""    private val targetViews = HashMap<Int, TargetOverlayView>()
+    private val endTargetViews = HashMap<Int, TargetOverlayView>()
+    private val waypointViews = HashMap<Int, MutableList<View>>()
+    private val templateRepository by lazy { TemplateRepositoryImpl(context) }
+    private val targetBitmapCache = java.util.concurrent.ConcurrentHashMap<String, Bitmap>()
+    private var areTargetsTouchableState: Boolean = true"""
+    ),
+    (
+        os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/target/TargetOverlayManager.kt"),
+        r"""    override fun setTargetsTouchable(touchable: Boolean) {
+        mainHandler.post {
+            targetViews.values.forEach { v ->
+                val lp = v.layoutParams as? WindowManager.LayoutParams ?: return@forEach
+                if (touchable) lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+                else lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                overlayWindowManager.updateViewSafe(v, lp)
+            }
+
+            endTargetViews.values.forEach { v ->
+                val lp = v.layoutParams as? WindowManager.LayoutParams ?: return@forEach
+                if (touchable) lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+                else lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                overlayWindowManager.updateViewSafe(v, lp)
+            }
+            waypointViews.values.flatten().forEach { v ->
+                val lp = v.layoutParams as? WindowManager.LayoutParams ?: return@forEach
+                if (touchable) lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+                else lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                overlayWindowManager.updateViewSafe(v, lp)
+            }
+        }
+    }
+
+    override fun setOverlaysVisible(visible: Boolean) {
+        isOverlaysVisibleState = visible
+        mainHandler.post {
+            val vis = if (visible) View.VISIBLE else View.GONE
+            val currentAlpha = when (visibilityMode) {
+                OverlayVisibilityMode.TRANSPARENT -> 0.30f
+                else -> 1.0f
+            }
+            val isHidden = (visibilityMode == OverlayVisibilityMode.HIDDEN)
+
+            targetViews.values.forEach { tv ->
+                tv.visibility = vis
+                tv.alpha = currentAlpha
+                val actId = tv.tag as? Int
+                val act = actionsList.find { it.id == actId }
+                if (act != null) {
+                    tv.bindAction(act, visibilityMode)
+                } else {""",
+        r"""    override fun setTargetsTouchable(touchable: Boolean) {
+        if (areTargetsTouchableState == touchable) return
+        areTargetsTouchableState = touchable
+        mainHandler.post {
+            targetViews.values.forEach { v ->
+                val lp = v.layoutParams as? WindowManager.LayoutParams ?: return@forEach
+                val newFlags = if (touchable) lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+                               else lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                if (lp.flags != newFlags) {
+                    lp.flags = newFlags
+                    overlayWindowManager.updateViewSafe(v, lp)
+                }
+            }
+
+            endTargetViews.values.forEach { v ->
+                val lp = v.layoutParams as? WindowManager.LayoutParams ?: return@forEach
+                val newFlags = if (touchable) lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+                               else lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                if (lp.flags != newFlags) {
+                    lp.flags = newFlags
+                    overlayWindowManager.updateViewSafe(v, lp)
+                }
+            }
+            waypointViews.values.flatten().forEach { v ->
+                val lp = v.layoutParams as? WindowManager.LayoutParams ?: return@forEach
+                val newFlags = if (touchable) lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+                               else lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                if (lp.flags != newFlags) {
+                    lp.flags = newFlags
+                    overlayWindowManager.updateViewSafe(v, lp)
+                }
+            }
+        }
+    }
+
+    override fun setOverlaysVisible(visible: Boolean) {
+        isOverlaysVisibleState = visible
+        mainHandler.post {
+            val vis = if (visible) View.VISIBLE else View.GONE
+            if (!visible) {
+                targetViews.values.forEach { it.visibility = View.GONE }
+                endTargetViews.values.forEach { it.visibility = View.GONE }
+                waypointViews.values.flatten().forEach { it.visibility = View.GONE }
+                graphOverlayView.visibility = View.GONE
+                return@post
+            }
+            val currentAlpha = when (visibilityMode) {
+                OverlayVisibilityMode.TRANSPARENT -> 0.30f
+                else -> 1.0f
+            }
+            val isHidden = (visibilityMode == OverlayVisibilityMode.HIDDEN)
+
+            targetViews.values.forEach { tv ->
+                tv.visibility = vis
+                tv.alpha = currentAlpha
+                val actId = tv.tag as? Int
+                val act = actionsList.find { it.id == actId }
+                if (act != null) {
+                    tv.bindAction(act, visibilityMode)
+                } else {"""
+    ),
+    (
+        os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/target/TargetOverlayManager.kt"),
+        r"""        val targetView = TargetOverlayView(context, isEndTarget = false) { templateRepository.getTemplate(it) }.apply {""",
+        r"""        val targetView = TargetOverlayView(context, isEndTarget = false) { path ->
+            targetBitmapCache[path]?.takeIf { !it.isRecycled }
+                ?: templateRepository.getTemplate(path)?.also { targetBitmapCache[path] = it }
+        }.apply {"""
+    ),
+
+    # 20. AutoTapOrchestrator.kt:
+    # - Передача экземпляра controlPanelOverlay в туториал
+    # - Безопасное снятие скриншота в startScreenTextOcrSelection
+    # - Однократное скрытие пульта и мишеней при старте ExecutionState.Running (без 60 FPS IPC-спама)
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/orchestrator/AutoTapOrchestrator.kt"),
         r"""                        InteractiveTutorialOverlay(
@@ -1596,8 +2012,47 @@ import androidx.compose.ui.Alignment"""
                     screenshot.recycle()
                 }"""
     ),
+    (
+        os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/orchestrator/AutoTapOrchestrator.kt"),
+        r"""                is ExecutionState.Running -> {
+                    wasExecutingBeforeStop = true
+                    controlPanelOverlay.hide(); targetManager.setTargetsTouchable(false); targetManager.setOverlaysVisible(false)
 
-    # 19. 1Abuild.py и 1Aautomation.py: Кроссплатформенное разрешение регистра имен скриптов (Linux/Windows)
+                    if (state.isDebugPaused) {
+                        debuggerToolbarOverlay.updateStepInfo(state.currentStepIndex, state.totalSteps, state.stepType.name)
+                    }
+                    if (!macroEngine.isDebugRunning) {
+                        runningBadgeOverlay.show()
+                        runningBadgeOverlay.forceVisible() // Гарантирует появление кнопки СТОП
+                        runningBadgeOverlay.updateState(state)
+                    } else {
+                        runningBadgeOverlay.dismiss()
+                    }
+                }""",
+        r"""                is ExecutionState.Running -> {
+                    if (!wasExecutingBeforeStop) {
+                        wasExecutingBeforeStop = true
+                        controlPanelOverlay.hide()
+                        targetManager.setTargetsTouchable(false)
+                        targetManager.setOverlaysVisible(false)
+                        if (!macroEngine.isDebugRunning) {
+                            runningBadgeOverlay.show()
+                            runningBadgeOverlay.forceVisible() // Гарантирует появление кнопки СТОП
+                        }
+                    }
+
+                    if (state.isDebugPaused) {
+                        debuggerToolbarOverlay.updateStepInfo(state.currentStepIndex, state.totalSteps, state.stepType.name)
+                    }
+                    if (!macroEngine.isDebugRunning) {
+                        runningBadgeOverlay.updateState(state)
+                    } else {
+                        runningBadgeOverlay.dismiss()
+                    }
+                }"""
+    ),
+
+    # 21. 1Abuild.py и 1Aautomation.py: Кроссплатформенное разрешение регистра имен скриптов (Linux/Windows)
     (
         os.path.join(root_dir, "1Abuild.py"),
         r"""    # 1. Валидация инспекторами
@@ -1689,8 +2144,9 @@ def run_check(root_dir: str) -> tuple[bool, str]:
     cal_p = os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/capture/CalibrationOverlay.kt")
     ge_p = os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/graph/GraphEditorOverlay.kt")
     sr_p = os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/storage/ScenarioRepositoryImpl.kt")
+    aco_p = os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/AbstractComposeOverlay.kt")
 
-    for p in (mee_p, mps_p, cp_p, cal_p, ge_p, sr_p):
+    for p in (mee_p, mps_p, cp_p, cal_p, ge_p, sr_p, aco_p):
         if not os.path.exists(p):
             return False, f"[CRITICAL] Файл не найден: {p}"
 
@@ -1728,7 +2184,12 @@ def run_check(root_dir: str) -> tuple[bool, str]:
     if 'put("behavior", trig.behavior.name)' not in sr_src:
         return False, "[FAIL] В ScenarioRepositoryImpl.kt не сохраняется TriggerBehavior для узлов графа"
 
-    return True, "[PASS] Все исправления аудита ветки 1Gemini (поиск, калибровка, эргономика, графы и Null-Safety) активны."
+    with open(aco_p, "r", encoding="utf-8") as f:
+        aco_src = f.read()
+    if "runOnMainSyncOrPost" not in aco_src:
+        return False, "[FAIL] В AbstractComposeOverlay.kt отсутствует защита главного потока runOnMainSyncOrPost"
+
+    return True, "[PASS] Все исправления аудита ветки 1Gemini (Compose Turbo, поиск, калибровка, эргономика, графы и Null-Safety) активны."
 
 if __name__ == "__main__":
     passed, msg = run_check(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -1739,18 +2200,18 @@ if __name__ == "__main__":
     record_defect_canonical(
         root_dir,
         "DEFECT_BRANCH_1GEMINI_AUDIT_SUITE",
-        "Комплексное исправление поиска, калибровки, эргономики и графов ветки 1Gemini (включая 4 провала 1AInspector и G-02 !!)",
+        "Комплексное исправление поиска, калибровки, эргономики, графов и оптимизация Compose-оверлеев ветки 1Gemini",
         "MacroExecutionEngine.kt",
         "check_branch_1gemini_full_audit_integrity.py"
     )
     append_audit_log(
         root_dir,
         is_feature=False,
-        title="Углубленный аудит и оптимизация поиска, калибровки, эргономики и графов (1Gemini)",
+        title="Углубленный аудит и оптимизация Compose-оверлеев, поиска, калибровки, эргономики и графов (1Gemini)",
         details=(
+            "- Compose Turbo & Защита от крашей: добавлен runOnMainSyncOrPost и корректный порядок setViewTreeLifecycleOwner до setContent в AbstractComposeOverlay, переведен hide() на мгновенный View.GONE без разрушения Recomposer, устранен 60 FPS спам WindowManager.updateViewLayout и BitmapFactory.decodeFile во время ExecutionState.Running.\n"
             "- Поиск и калибровка: исправлены координаты baseAnchorX/Y и коллизия кэша в SmartMaskEngine, синхронизирован кроп raw_*.png с mask_*.png, исправлена запись центра calibratedX/Y (clickX/clickY), разблокирован живой ползунок порога при перекалибровке и подключен sampleStride от downscaleFactor.\n"
-            "- Эргономика: подключено сворачивание карточки calibrationContentLayout, обновлено превью ЭКРАН 1:1 при выборе альтернативного кандидата, центрирована зона +ROI, устранены коллизии addView(inputLayout) и .take(), возвращены кнопки Графа/Отладки/Логов в Compose-пульте.\n"
-            "- Графы: исправлены порты out_timeout/out_match_trig в Wire-to-Empty, хитбокс входного порта (headerHeight/2f), кэширование превью в GraphCanvasView.onDraw, степпер цикла (+/-), сериализация TriggerBehavior и мультишаблоны в evaluateSingleGraphTrigger."
+            "- Эргономика и Графы: подключено сворачивание карточки calibrationContentLayout, исправлены порты out_timeout/out_match_trig в Wire-to-Empty, хитбокс входного порта (headerHeight/2f), кэширование превью в GraphCanvasView.onDraw, степпер цикла (+/-), сериализация TriggerBehavior и мультишаблоны в evaluateSingleGraphTrigger."
         )
     )
 
@@ -1764,7 +2225,7 @@ if __name__ == "__main__":
         subprocess.run([sys.executable, gate_script, "."], cwd=root_dir, check=False)
 
     # Авто-коммит и пуш в ветку 1Gemini + запуск 1Abuild.py при наличии окружения сборки
-    commit_msg = "fix(1Gemini): optimize search & calibration, fix UI ergonomics, graph ports/serialization, and 1AInspector suite"
+    commit_msg = "fix(1Gemini): optimize Compose overlays, search & calibration, UI ergonomics, and graph execution"
     execute_auto_git_sync(root_dir, commit_msg)
 
     build_script = os.path.join(root_dir, "1Abuild.py")

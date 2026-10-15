@@ -99,6 +99,8 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                     put("colorDeltaEMode", action.colorDeltaEMode)
                     put("isShapeOnlyMode", action.isShapeOnlyMode)
                     put("isNeuralEngine", action.isNeuralEngine)
+                    put("isNeuralEngine", action.isNeuralEngine)
+                    put("isNeuralEngine", action.isNeuralEngine)
                     put("shapeExpansion", action.shapeExpansion)
                     put("paddingOffsetPx", action.paddingOffsetPx)
                     put("isCircleShape", action.isCircleShape)
@@ -294,6 +296,8 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                         colorDeltaEMode = obj.optBoolean("colorDeltaEMode", false),
                         isShapeOnlyMode = obj.optBoolean("isShapeOnlyMode", false),
                         isNeuralEngine = obj.optBoolean("isNeuralEngine", false),
+                        isNeuralEngine = obj.optBoolean("isNeuralEngine", false),
+                        isNeuralEngine = obj.optBoolean("isNeuralEngine", false),
                         shapeExpansion = obj.optInt("shapeExpansion", 45),
                         paddingOffsetPx = obj.optInt("paddingOffsetPx", 2),
                         isCircleShape = obj.optBoolean("isCircleShape", false),
@@ -379,6 +383,10 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                             put("id", trig.id)
                             put("name", trig.name)
                             put("type", trig.type.name)
+                            put("behavior", trig.behavior.name)
+                            put("targetOccurrenceIndex", trig.targetOccurrenceIndex)
+                            put("behavior", trig.behavior.name)
+                            put("targetOccurrenceIndex", trig.targetOccurrenceIndex)
                             put("behavior", trig.behavior.name)
                             put("targetOccurrenceIndex", trig.targetOccurrenceIndex)
                             put("templatePath", trig.templatePath)

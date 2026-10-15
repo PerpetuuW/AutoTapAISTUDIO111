@@ -133,8 +133,8 @@ class ControlPanelComposeOverlay(
         overlayState.update { it.copy(mode = mode) }
     }
 
-    fun hide() {
-        dismiss()
+    override fun hide() {
+        super.hide()
     }
 
     val containerView: android.view.View? get() = super.composeView
@@ -146,11 +146,7 @@ class ControlPanelComposeOverlay(
     override fun Content() {
         val state by overlayState.collectAsState()
 
-        val globalAlpha by animateFloatAsState(
-            targetValue = if (state.visibilityMode == OverlayVisibilityMode.TRANSPARENT) 0.40f else 1.0f,
-            animationSpec = tween(200),
-            label = "alpha"
-        )
+        val globalAlpha = if (state.visibilityMode == OverlayVisibilityMode.TRANSPARENT) 0.40f else 1.0f
 
         var lastDragUpdateTime by remember { mutableLongStateOf(0L) }
 
@@ -286,27 +282,27 @@ class ControlPanelComposeOverlay(
                 }
                 Spacer(modifier = Modifier.width(4.dp))
 
-                // 6. Eye Toggle
-                val eyeBgStart = animateColorAsState(when(state.visibilityMode) {
+                // 6. Eye Toggle (Zero-Allocation Direct Color Mapping)
+                val eyeBgStart = when (state.visibilityMode) {
                     OverlayVisibilityMode.FULL -> Color(0xFF162032)
                     OverlayVisibilityMode.TRANSPARENT -> Color(0xFF2E123D)
                     OverlayVisibilityMode.HIDDEN -> Color(0xFF3B2606)
-                }, label = "eyeBgS").value
-                val eyeBgEnd = animateColorAsState(when(state.visibilityMode) {
+                }
+                val eyeBgEnd = when (state.visibilityMode) {
                     OverlayVisibilityMode.FULL -> Color(0xFF0F172A)
                     OverlayVisibilityMode.TRANSPARENT -> Color(0xFF170924)
-                    OverlayVisibilityMode.HIDDEN -> Color(0xFFFBBF24)
-                }, label = "eyeBgE").value
-                val eyeStroke = animateColorAsState(when(state.visibilityMode) {
+                    OverlayVisibilityMode.HIDDEN -> Color(0xFF1F1403)
+                }
+                val eyeStroke = when (state.visibilityMode) {
                     OverlayVisibilityMode.FULL -> Color(0xFF38BDF8)
                     OverlayVisibilityMode.TRANSPARENT -> Color(0xFFA78BFA)
                     OverlayVisibilityMode.HIDDEN -> Color(0xFFF59E0B)
-                }, label = "eyeStr").value
-                val eyeIconColor = animateColorAsState(when(state.visibilityMode) {
+                }
+                val eyeIconColor = when (state.visibilityMode) {
                     OverlayVisibilityMode.FULL -> Color(0xFF38BDF8)
                     OverlayVisibilityMode.TRANSPARENT -> Color(0xFFA78BFA)
                     OverlayVisibilityMode.HIDDEN -> Color(0xFFFBBF24)
-                }, label = "eyeIc").value
+                }
 
                 VectorIconButton(
                     icon = VectorIconDrawer.IconType.VISIBILITY,
