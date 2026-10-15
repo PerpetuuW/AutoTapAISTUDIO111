@@ -1,35 +1,30 @@
-# Control Panel Capture Button Position, Tutorial Spotlight Precision, & Inspector Suite Restoration
+# Root-Cause Fix for Running Badge Drag & Stop Button, plus Inspector Module
 
-## Problem
-1. **Unsuitable Icon & Position for Capture Button**: The primary template capture button (`BTN_CAPTURE` / "Вырезка шаблона") was positioned incorrectly. As the primary tool, it must be located **immediately after the Play button** with the dedicated viewfinder icon `VectorIconDrawer.IconType.CAPTURE` and cyan accent (`#38BDF8`).
-2. **Interactive Tutorial Spotlight Misalignment**: `InteractiveTutorialOverlay` was receiving `hostViewProvider = { composeView }` instead of `{ this }`. Calling reflection `getTutorialRect` on `ComposeView` threw `NoSuchMethodException`, causing the tutorial to fall back to highlighting the entire panel instead of pointing directly to individual buttons.
-3. **Restore Inspector Modules**: Move the 15 archived Python inspector scripts back from `1AInspector/archive_legacy_dialog_checks/` to `1AInspector/` and update them so the full **174 / 174** inspector suite passes 100%.
+## Root-Cause Analysis
+1. **Stop & Lock Button Click Bug**: In `RunningBadgeComposeOverlay.kt`, the Stop (`onStopClick`) and Lock (`onLockClick`) buttons were bound using `pointerInput` -> `detectDragGestures(onDragEnd = ...)` instead of `.clickable { ... }`. Simple taps/clicks did not trigger `onDragEnd`, causing the Stop button to fail.
+2. **Overlay Drag Reset Bug**: `getLayoutParams()` in `RunningBadgeComposeOverlay.kt` was hardcoding default coordinates on every call instead of maintaining `posX` and `posY` state variables. Any drag attempt immediately snapped back to the hardcoded default coordinates.
+3. **Inspector Test Module**: A new python inspector script (`1AInspector/check_running_badge_compose_and_stop_button.py`) will be created to enforce these invariants automatically.
 
 ## Proposed Changes
 
-### ControlPanelComposeOverlay.kt
-- [MODIFY] [ControlPanelComposeOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt)
-  - Reorder main row buttons:
-    1. `PLAY` / `PAUSE` (`BTN_PLAY_VIEW`)
-    2. `CAPTURE` (`BTN_CAPTURE` — icon `VectorIconDrawer.IconType.CAPTURE`, cyan accent `#38BDF8`, right after Play!)
-    3. `PLUS` (`BTN_ADD` — icon `VectorIconDrawer.IconType.PLUS`)
-    4. `RECORD` (`BTN_RECORD` — icon `VectorIconDrawer.IconType.RECORD`)
-    5. `PANEL_EXPAND` / `PANEL_COLLAPSE` (`BTN_TOGGLE_VIEW`)
-    6. `VISIBILITY` (`BTN_HIDE` / Eye)
-    7. `SETTINGS` (`BTN_SETTINGS`)
-  - Pass `hostViewProvider = { this }` when opening `InteractiveTutorialOverlay`.
-  - Update `getTutorialRect` column mapping to reflect the 7-button main row layout.
+### RunningBadgeComposeOverlay.kt
+- [MODIFY] [RunningBadgeComposeOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/badge/RunningBadgeComposeOverlay.kt)
+  - Maintain `posX` and `posY` state variables and update them in `getLayoutParams()`.
+  - Fix window drag listener in `BadgeCard` to update `posX` and `posY` and invoke `overlayWindowManager.updateViewSafe`.
+  - Replace `pointerInput(Unit) { detectDragGestures }` on Lock and Stop buttons with `.clip(CircleShape).clickable { onLockClick() }` and `.clip(CircleShape).clickable { onStopClick() }`.
 
-### 1AInspector Suite
-- [MODIFY] Move all 15 scripts from `1AInspector/archive_legacy_dialog_checks/` back to `1AInspector/`.
-- Update any legacy checks so all 174 inspector modules run and pass 100%.
+### 1AInspector/check_running_badge_compose_and_stop_button.py
+- [NEW] Create `1AInspector/check_running_badge_compose_and_stop_button.py` to test and verify that:
+  - `RunningBadgeComposeOverlay.kt` exists and uses `posX` / `posY`.
+  - Lock and Stop buttons use `.clickable`.
 
 ## Verification Plan
 
 ### Automated Tests
 - Gradle build: `./gradlew :app:compileDebugKotlin`
-- Run all 174 1AInspector scripts (`python -c ...`).
+- Run all 175 1AInspector scripts.
 
 ### Manual Verification
-- Verify `CAPTURE` button is positioned right after Play/Pause on the main row with the viewfinder icon.
-- Open Interactive Tutorial: verify laser line and spotlight point directly to each button on the main panel.
+- Open Running Badge overlay during execution:
+  - Tap Stop button: verify macro stops immediately.
+  - Drag the Running Badge card across the screen: verify smooth dragging without snapping back.

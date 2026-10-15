@@ -15,7 +15,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -90,14 +92,14 @@ class RunningBadgeComposeOverlay(
         val searchTimeoutMs: Long = 1000L
     )
 
-    private var initialX = dp(8)
-    private var initialY = dp(110)
+    private val cardW = dp(78 + 12)
+    private var posX = (dm.widthPixels - cardW - dp(10)).coerceAtLeast(dp(6))
+    private var posY = dp(110)
 
     override fun getLayoutParams(): WindowManager.LayoutParams {
         val params = super.getLayoutParams()
-        val cardW = dp(78 + 12)
-        params.x = (dm.widthPixels - cardW - dp(10)).coerceAtLeast(dp(6))
-        params.y = initialY
+        params.x = posX
+        params.y = posY
         return params
     }
 
@@ -165,31 +167,18 @@ class RunningBadgeComposeOverlay(
 
     @Composable
     private fun BadgeCard(state: BadgeState) {
-        // Draggable container logic
-        var offsetX by remember { mutableFloatStateOf(0f) }
-        var offsetY by remember { mutableFloatStateOf(0f) }
-
         Box(
             modifier = Modifier
                 .padding(6.dp)
                 .pointerInput(Unit) {
                     detectDragGestures { change, dragAmount ->
                         change.consume()
-                        offsetX += dragAmount.x
-                        offsetY += dragAmount.y
-                        
-                        // Update window manager layout params
+                        val maxX = (dm.widthPixels - dp(90)).coerceAtLeast(dp(6))
+                        posX = (posX + dragAmount.x.toInt()).coerceIn(dp(6), maxX)
+                        posY = (posY + dragAmount.y.toInt()).coerceIn(dp(20), dm.heightPixels - dp(80))
+
                         val params = getLayoutParams()
-                        params.x += offsetX.toInt()
-                        params.y += offsetY.toInt()
-                        
-                        // Clamp bounds
-                        params.x = params.x.coerceIn(dp(6), dm.widthPixels - dp(90))
-                        params.y = params.y.coerceIn(dp(20), dm.heightPixels - dp(80))
-                        
-                        overlayWindowManager.updateViewSafe(composeView ?: return@detectDragGestures, params)
-                        offsetX = 0f
-                        offsetY = 0f
+                        composeView?.let { overlayWindowManager.updateViewSafe(it, params) }
                     }
                 }
                 .background(
@@ -274,15 +263,11 @@ class RunningBadgeComposeOverlay(
                             .size(36.dp)
                             .background(
                                 brush = Brush.verticalGradient(listOf(androidx.compose.ui.graphics.Color(0xFF1F6FEB), androidx.compose.ui.graphics.Color(0xFF161B22))),
-                                shape = RoundedCornerShape(18.dp)
+                                shape = CircleShape
                             )
-                            .border(1.dp, androidx.compose.ui.graphics.Color(0xFF58A6FF), RoundedCornerShape(18.dp))
-                            .pointerInput(Unit) {
-                                detectDragGestures(
-                                    onDragEnd = { onLockClick() },
-                                    onDrag = { _, _ -> }
-                                )
-                            }
+                            .border(1.dp, androidx.compose.ui.graphics.Color(0xFF58A6FF), CircleShape)
+                            .clip(CircleShape)
+                            .clickable { onLockClick() }
                     ) {
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             val padding = 36.dp.toPx() * 0.25f
@@ -307,15 +292,11 @@ class RunningBadgeComposeOverlay(
                             .size(36.dp)
                             .background(
                                 brush = Brush.verticalGradient(listOf(androidx.compose.ui.graphics.Color(0xFFF04438), androidx.compose.ui.graphics.Color(0xFFB42318))),
-                                shape = RoundedCornerShape(18.dp)
+                                shape = CircleShape
                             )
-                            .border(1.dp, androidx.compose.ui.graphics.Color(0xFFFDA29B), RoundedCornerShape(18.dp))
-                            .pointerInput(Unit) {
-                                detectDragGestures(
-                                    onDragEnd = { onStopClick() },
-                                    onDrag = { _, _ -> }
-                                )
-                            }
+                            .border(1.dp, androidx.compose.ui.graphics.Color(0xFFFDA29B), CircleShape)
+                            .clip(CircleShape)
+                            .clickable { onStopClick() }
                     ) {
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             val padding = 36.dp.toPx() * 0.25f

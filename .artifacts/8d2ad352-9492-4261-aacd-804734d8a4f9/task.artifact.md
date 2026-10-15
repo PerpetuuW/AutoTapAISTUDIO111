@@ -1,7 +1,7 @@
 # Task List
 
-- `[x]` Move `CLOSE` (`X`) button to top-right corner of main row in ControlPanelComposeOverlay.kt
-- `[x]` Distribute main row and sub row buttons evenly with `Arrangement.SpaceEvenly` to eliminate empty dead spaces
-- `[x]` Update `getTutorialRect` column mappings in ControlPanelComposeOverlay.kt
+- `[x]` Fix `posX` / `posY` state and drag listener in RunningBadgeComposeOverlay.kt
+- `[x]` Fix Lock and Stop button click listeners (`.clickable`) in RunningBadgeComposeOverlay.kt
+- `[x]` Create `1AInspector/check_running_badge_compose_and_stop_button.py` (175th inspector module)
 - `[x]` Build and verify compilation
-- `[x]` Run all 174 1AInspector scripts and create walkthrough
+- `[x]` Run all 175 1AInspector scripts and create walkthrough
