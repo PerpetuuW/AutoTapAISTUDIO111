@@ -2149,7 +2149,8 @@ private val targetStepId: Int? = null,
                     customFileName = customName
                 )
                 com.example.autotap.infrastructure.vision.TemplateMatchingEngine.clearTemplateCache()
-                com.example.autotap.infrastructure.vision.TemplateMatchingEngine.lastMatchedPositions[tPath] = Pair(finalCalibX, finalCalibY)
+                val history = com.example.autotap.infrastructure.vision.TemplateMatchingEngine.historicalSearchAnchors.getOrPut(tPath) { java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap()) }
+                history.add(Pair(finalCalibX, finalCalibY))
 
                 val best = currentCandidates.firstOrNull()
                 val targetX = if (existingAction != null && existingAction.posX > 10f && best == null) existingAction.posX

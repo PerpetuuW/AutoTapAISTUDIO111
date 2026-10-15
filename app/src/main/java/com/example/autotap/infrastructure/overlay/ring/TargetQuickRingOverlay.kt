@@ -90,6 +90,11 @@ class TargetQuickRingOverlay(
             Triple(VectorIconDrawer.IconType.SETTINGS, Pair("#1F6FEB", "#38BDF8")) { dismiss(); onEdit(action) },
             Triple(VectorIconDrawer.IconType.TEMPLATE_ADD, Pair("#1E293B", "#34D399")) { dismiss(); onAddTemplate(action) },
             Triple(VectorIconDrawer.IconType.CALIBRATE, Pair("#1E293B", "#A78BFA")) { dismiss(); onCalibrate(action) },
+            Triple(VectorIconDrawer.IconType.SAVE, Pair("#1E293B", "#10B981")) { 
+                dismiss()
+                val logDialog = com.example.autotap.infrastructure.overlay.dialog.DebugLogViewerDialog(context)
+                logDialog.show()
+            },
             Triple(VectorIconDrawer.IconType.PLUS, Pair("#21262D", "#58A6FF")) { dismiss(); onClone(action) },
             Triple(VectorIconDrawer.IconType.DELETE, Pair("#2A0E0C", "#F04438")) { dismiss(); onDelete(action) }
         )
