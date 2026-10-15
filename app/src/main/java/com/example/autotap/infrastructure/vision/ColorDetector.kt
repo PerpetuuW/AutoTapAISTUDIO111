@@ -94,6 +94,20 @@ object ColorDetector {
         if (v > 0.04045f) Math.pow(((v + 0.055f) / 1.055f).toDouble(), 2.4).toFloat() else v / 12.92f
     }
 
+    private const val CBRT_LUT_SIZE = 1024
+    private val CBRT_LUT = FloatArray(CBRT_LUT_SIZE + 1) { i ->
+        Math.cbrt((i.toDouble() / CBRT_LUT_SIZE) * 1.25).toFloat()
+    }
+
+    private fun fastCbrt(t: Float): Float {
+        if (t <= 0.008856f) return (7.787f * t) + (16f / 116f)
+        val scaled = (t / 1.25f) * CBRT_LUT_SIZE
+        val idx = scaled.toInt()
+        if (idx >= CBRT_LUT_SIZE) return Math.cbrt(t.toDouble()).toFloat()
+        val frac = scaled - idx
+        return CBRT_LUT[idx] + frac * (CBRT_LUT[idx + 1] - CBRT_LUT[idx])
+    }
+
     fun colorToLabFast(color: Int, outLab: FloatArray) {
         val rLin = SRGB_TO_LINEAR[(color ushr 16) and 0xFF]
         val gLin = SRGB_TO_LINEAR[(color ushr 8) and 0xFF]
@@ -103,9 +117,9 @@ object ColorDetector {
         val y = (rLin * 0.2126f + gLin * 0.7152f + bLin * 0.0722f) / 1.00000f
         val z = (rLin * 0.0193f + gLin * 0.1192f + bLin * 0.9505f) / 1.08883f
 
-        val fx = if (x > 0.008856f) Math.cbrt(x.toDouble()).toFloat() else (7.787f * x) + (16f / 116f)
-        val fy = if (y > 0.008856f) Math.cbrt(y.toDouble()).toFloat() else (7.787f * y) + (16f / 116f)
-        val fz = if (z > 0.008856f) Math.cbrt(z.toDouble()).toFloat() else (7.787f * z) + (16f / 116f)
+        val fx = fastCbrt(x)
+        val fy = fastCbrt(y)
+        val fz = fastCbrt(z)
 
         outLab[0] = (116f * fy) - 16f
         outLab[1] = 500f * (fx - fy)
@@ -121,9 +135,9 @@ object ColorDetector {
         val y = (rLin * 0.2126f + gLin * 0.7152f + bLin * 0.0722f) / 1.00000f
         val z = (rLin * 0.0193f + gLin * 0.1192f + bLin * 0.9505f) / 1.08883f
 
-        val fx = if (x > 0.008856f) Math.cbrt(x.toDouble()).toFloat() else (7.787f * x) + (16f / 116f)
-        val fy = if (y > 0.008856f) Math.cbrt(y.toDouble()).toFloat() else (7.787f * y) + (16f / 116f)
-        val fz = if (z > 0.008856f) Math.cbrt(z.toDouble()).toFloat() else (7.787f * z) + (16f / 116f)
+        val fx = fastCbrt(x)
+        val fy = fastCbrt(y)
+        val fz = fastCbrt(z)
 
         val l = (116f * fy) - 16f
         val a = 500f * (fx - fy)

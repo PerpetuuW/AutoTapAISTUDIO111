@@ -11,6 +11,13 @@ import shutil
 import subprocess
 from pathlib import Path
 
+if sys.platform == "win32":
+    try:
+        getattr(sys.stdout, "reconfigure", lambda **kw: None)(encoding="utf-8")
+        getattr(sys.stderr, "reconfigure", lambda **kw: None)(encoding="utf-8")
+    except Exception:
+        pass
+
 def resolve_valid_java_home() -> str:
     raw_home = os.environ.get("JAVA_HOME", "").strip().strip('"').strip("'")
 

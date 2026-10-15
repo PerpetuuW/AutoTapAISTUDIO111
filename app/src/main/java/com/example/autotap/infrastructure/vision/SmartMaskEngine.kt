@@ -449,13 +449,20 @@ object SmartMaskEngine {
         }
 
         // [V16.0] Гарантированная альфа-маска: если оптимизатор не улучшил скор, генерируем маску без фона вместо сырого растра
-        val finalMask = bestMaskBitmap ?: generateContourMaskWithCrop(
-            src = rawTemplate,
-            shapeExpansion = 25,
-            paddingOffsetPx = 2,
-            isCircle = isCircularShape,
-            isRawMode = false
-        ).bitmap
+        val finalMask = if (bestMaskBitmap != null) {
+            bestMaskBitmap
+        } else {
+            val fallback = generateContourMaskWithCrop(
+                src = rawTemplate,
+                shapeExpansion = 25,
+                paddingOffsetPx = 2,
+                isCircle = isCircularShape,
+                isRawMode = false
+            )
+            bestCropOffsetX = fallback.cropOffsetX
+            bestCropOffsetY = fallback.cropOffsetY
+            fallback.bitmap
+        }
         val topScorePct = (bestScore * 100).toInt().coerceIn(60, 100)
         val operationalSim = (topScorePct - 5).coerceIn(80, 95)
 

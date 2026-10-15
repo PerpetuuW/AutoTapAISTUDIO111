@@ -726,7 +726,8 @@ class TemplateFeatures(
             val sectorBinSize = if (isSmall) 16 else 32
             var earlyExitFound = false
 
-            val scanPoints = mutableListOf<Pair<Int, Int>>()
+            val estCount = ((scanLimitY - roiMinY) / gridStepY + 1) * ((scanLimitX - roiMinX) / gridStepX + 1)
+            val scanPoints = ArrayList<Pair<Int, Int>>(maxOf(16, estCount))
             // Формируем плотную регулярную сетку по области поиска
             for (gy in roiMinY..scanLimitY step gridStepY) {
                 for (gx in roiMinX..scanLimitX step gridStepX) {

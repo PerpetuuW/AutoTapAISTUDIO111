@@ -40,7 +40,8 @@ class VisionGatewayImpl(private val context: Context? = null) : IVisionGateway {
                 minSimilarityPercent = minSimilarityPercent,
                 templatePath = actionOverride?.templatePath ?: "",
                 actionOverride = actionOverride,
-                enableL0Cache = true
+                enableL0Cache = true,
+                isCancelled = isCancelled
             )
         } catch (e: Exception) {
             AppLogger.logError(context, "VISION_GATEWAY", e)
