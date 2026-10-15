@@ -24,6 +24,7 @@ import com.example.autotap.infrastructure.overlay.tutorial.InteractiveTutorialOv
 import com.example.autotap.infrastructure.overlay.ui.VectorIconDrawer
 import kotlin.math.abs
 
+@Deprecated("Устаревшая View-реализация оверлея. Заменена на ControlPanelComposeOverlay в рамках перехода на Jetpack Compose Material 3")
 @SuppressLint("ClickableViewAccessibility", "SetTextI18n")
 class ControlPanelOverlay(
     private val context: Context,

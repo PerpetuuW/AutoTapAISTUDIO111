@@ -48,7 +48,6 @@ import com.example.autotap.infrastructure.overlay.graph.GraphOverlayView
 import com.example.autotap.infrastructure.overlay.lock.ScreenLockOverlay
 import com.example.autotap.infrastructure.overlay.model.OverlayVisibilityMode
 import com.example.autotap.infrastructure.overlay.panel.ControlPanelListener
-import com.example.autotap.infrastructure.overlay.panel.ControlPanelOverlay
 import com.example.autotap.infrastructure.overlay.record.GestureRecorderOverlay
 import com.example.autotap.infrastructure.overlay.ring.TargetQuickRingOverlay
 import com.example.autotap.infrastructure.overlay.target.TargetOverlayManager
