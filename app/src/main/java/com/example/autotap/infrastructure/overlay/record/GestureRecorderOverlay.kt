@@ -379,22 +379,31 @@ class GestureRecorderOverlay(
                         recordedActions.add(MacroAction(id = nextId, type = ActionType.LONG_PRESS, posX = startPt.x, posY = startPt.y, holdDurationMs = gestureDuration, delayMs = actualDelay))
                         restoreTouchAfter(60L)
                     } else {
-                        // [Запись путей/свайпов]: жест уже транслировался ВЖИВУЮ в реальном времени во время ACTION_MOVE
+                        // [Запись путей/жестов]: единая система путей (ActionType.PATH)
                         val compressedPoints = PathCompressionEngine.compressPath(currentTouchPoints.toList(), maxPoints = 80)
                         val defaultPathDur = com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(context).globalPathDurationMs
-                        val isStraightSwipe = compressedPoints.size <= 2 && totalDistance > dpF(20f)
                         val instantDuration = duration.coerceIn(100L, 2500L)
                         val recordedHoldDuration = if (duration > 30L) duration else defaultPathDur
+                        val finalPathPoints = if (compressedPoints.size < 3) {
+                            val p0 = compressedPoints.firstOrNull() ?: startPt
+                            val p1 = compressedPoints.lastOrNull() ?: endPt
+                            val midX = (p0.x + p1.x) / 2f
+                            val midY = (p0.y + p1.y) / 2f
+                            val midTime = (p0.timeOffsetMs + p1.timeOffsetMs) / 2L
+                            listOf(p0, Point2D(midX, midY, midTime), p1)
+                        } else {
+                            compressedPoints
+                        }
                         recordedActions.add(MacroAction(
                             id = nextId,
-                            type = if (isStraightSwipe) ActionType.SWIPE else ActionType.PATH,
+                            type = ActionType.PATH,
                             posX = startPt.x,
                             posY = startPt.y,
                             endX = endPt.x,
                             endY = endPt.y,
                             holdDurationMs = recordedHoldDuration,
                             delayMs = actualDelay,
-                            pathPoints = compressedPoints
+                            pathPoints = finalPathPoints
                         ))
                         restoreTouchAfter(instantDuration + 60L)
                     }
@@ -406,19 +415,19 @@ class GestureRecorderOverlay(
                             "Записан жест #${lastAct.id} [${lastAct.type}]: start=(${startPt.x.toInt()}, ${startPt.y.toInt()}), end=(${endPt.x.toInt()}, ${endPt.y.toInt()}), dist=%.1fpx, dur=${duration}ms, delay=${actualDelay}ms".format(totalDistance)
                         )
                         // [V150.1] Трансляция записанного жеста (passthrough playback) после завершения ACTION_UP
-                        if (!isSmartTemplateMode) {
-                            val service = com.example.autotap.infrastructure.accessibility.AutoTapAccessibilityService.instance
-                            if (service != null) {
+                        val service = com.example.autotap.infrastructure.accessibility.AutoTapAccessibilityService.instance
+                        if (service != null) {
+                            if (lastAct.type == ActionType.SWIPE || lastAct.type == ActionType.PATH) {
                                 kotlin.concurrent.thread {
-                                    if (lastAct.type == ActionType.CLICK) {
+                                    val endX = lastAct.endX ?: lastAct.posX
+                                    val endY = lastAct.endY ?: lastAct.posY
+                                    val points = lastAct.pathPoints.ifEmpty { listOf(com.example.autotap.domain.model.Point2D(lastAct.posX, lastAct.posY), com.example.autotap.domain.model.Point2D(endX, endY)) }
+                                    service.gestureDispatcher.performPath(points, lastAct.holdDurationMs)
+                                }
+                            } else if (!isSmartTemplateMode) {
+                                kotlin.concurrent.thread {
+                                    if (lastAct.type == ActionType.CLICK || lastAct.type == ActionType.LONG_PRESS) {
                                         service.gestureDispatcher.performClick(lastAct.posX, lastAct.posY, lastAct.holdDurationMs)
-                                    } else if (lastAct.type == ActionType.LONG_PRESS) {
-                                        service.gestureDispatcher.performClick(lastAct.posX, lastAct.posY, lastAct.holdDurationMs)
-                                    } else if (lastAct.type == ActionType.SWIPE || lastAct.type == ActionType.PATH) {
-                                        val endX = lastAct.endX ?: lastAct.posX
-                                        val endY = lastAct.endY ?: lastAct.posY
-                                        val points = lastAct.pathPoints.ifEmpty { listOf(com.example.autotap.domain.model.Point2D(lastAct.posX, lastAct.posY), com.example.autotap.domain.model.Point2D(endX, endY)) }
-                                        service.gestureDispatcher.performPath(points, lastAct.holdDurationMs)
                                     }
                                 }
                             }

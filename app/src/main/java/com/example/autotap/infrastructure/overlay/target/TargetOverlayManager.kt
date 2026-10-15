@@ -71,13 +71,16 @@ class TargetOverlayManager(
     var isNumbersHidden: Boolean
         get() = (visibilityMode == OverlayVisibilityMode.HIDDEN)
         set(value) {
-            visibilityMode = if (value) OverlayVisibilityMode.HIDDEN else OverlayVisibilityMode.FULL
-            setOverlaysVisible(true)
+            val nextMode = if (value) OverlayVisibilityMode.HIDDEN else OverlayVisibilityMode.FULL
+            applyVisibilityMode(nextMode)
         }
+
+    var onVisibilityModeChanged: ((OverlayVisibilityMode) -> Unit)? = null
 
     fun applyVisibilityMode(mode: OverlayVisibilityMode) {
         visibilityMode = mode
-        setOverlaysVisible(true)
+        setOverlaysVisible(isOverlaysVisibleState)
+        onVisibilityModeChanged?.invoke(mode)
     }
 
     var onActionEditRequested: ((MacroAction) -> Unit)? = null
@@ -124,7 +127,7 @@ class TargetOverlayManager(
     fun loadActions(actions: List<MacroAction>) {
         clearAll()
         ensureGraphOverlayAttached()
-        visibilityMode = OverlayVisibilityMode.FULL
+        onVisibilityModeChanged?.invoke(visibilityMode)
         actions.forEach { act ->
             actionsList.add(act)
             spawnTargetView(act)
@@ -154,7 +157,6 @@ class TargetOverlayManager(
 
     fun addAction(action: MacroAction) {
         ensureGraphOverlayAttached()
-        visibilityMode = OverlayVisibilityMode.FULL
         val nextId = actionsList.size + 1
         val (screenW, screenH) = getRealScreenDimensions()
 

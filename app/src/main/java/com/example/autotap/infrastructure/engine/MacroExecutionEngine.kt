@@ -346,6 +346,10 @@ class MacroExecutionEngine(
                                                                 }
                                                             }
                                                             if (streamedMatched) break
+                                                            if (MediaProjectionService.isStreaming) {
+                                                                delay(30L)
+                                                                continue
+                                                            }
 
                                                             val screenshot = service?.captureScreenshotSync(1500L)
                                                             if (screenshot != null) {

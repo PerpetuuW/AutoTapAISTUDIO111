@@ -52,6 +52,7 @@ import com.example.autotap.infrastructure.vision.TemplateMorphologyClassifier
 import com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer
 import java.io.File
 import kotlin.concurrent.thread
+import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
@@ -1147,6 +1148,9 @@ private val targetStepId: Int? = null,
                 val cx = rawCx.coerceIn(rw / 2, sw - rw / 2)
                 val cy = rawCy.coerceIn(rh / 2, sh - rh / 2)
                 activeRoiZones.add(Rect(cx - rw / 2, cy - rh / 2, cx + rw / 2, cy + rh / 2))
+                if (!existingTemplatePath.isNullOrBlank()) {
+                    com.example.autotap.infrastructure.vision.TemplateMatchingEngine.registerDiscoveredLocation(existingTemplatePath, cx, cy)
+                }
                 vibrate(20L)
                 candidatesCanvasView?.invalidate()
                 reevaluateMatching()
@@ -2127,6 +2131,55 @@ private val targetStepId: Int? = null,
                     val verifArr = org.json.JSONArray()
                     coVerificationTemplates.forEach { verifArr.put(it) }
                     put("coVerificationTemplates", verifArr)
+                    val discArr = org.json.JSONArray()
+                    val targetExistingPath = existingTemplatePath
+                    if (!targetExistingPath.isNullOrBlank()) {
+                        try {
+                            val oldMaskFile = if (targetExistingPath.startsWith("/")) {
+                                File(targetExistingPath)
+                            } else {
+                                val tDir = File(context.filesDir, "templates")
+                                val f = File(tDir, targetExistingPath)
+                                if (f.exists()) f else {
+                                    val fName = File(targetExistingPath).name
+                                    tDir.walkTopDown().filter { it.isFile && it.name == fName }.firstOrNull() ?: File(targetExistingPath)
+                                }
+                            }
+                            val oldMetaFile = if (oldMaskFile.parentFile != null) File(oldMaskFile.parentFile, "${oldMaskFile.nameWithoutExtension}.json") else null
+                            if (oldMetaFile != null && oldMetaFile.exists()) {
+                                val oldMeta = JSONObject(oldMetaFile.readText())
+                                val oldDisc = oldMeta.optJSONArray("discoveredLocations")
+                                if (oldDisc != null) {
+                                    for (i in 0 until oldDisc.length()) {
+                                        val item = oldDisc.optJSONObject(i)
+                                        if (item != null) discArr.put(item)
+                                    }
+                                }
+                            }
+                        } catch (_: Exception) {}
+                    }
+                    activeRoiZones.forEach { z ->
+                        val zx = z.centerX()
+                        val zy = z.centerY()
+                        var alreadyHas = false
+                        for (i in 0 until discArr.length()) {
+                            val item = discArr.optJSONObject(i)
+                            if (item != null && abs(item.optInt("x") - zx) < 24 && abs(item.optInt("y") - zy) < 24) {
+                                alreadyHas = true
+                                break
+                            }
+                        }
+                        if (!alreadyHas) {
+                            if (discArr.length() >= 8) discArr.remove(0)
+                            discArr.put(JSONObject().apply {
+                                put("x", zx)
+                                put("y", zy)
+                            })
+                        }
+                    }
+                    if (discArr.length() > 0) {
+                        put("discoveredLocations", discArr)
+                    }
                     if (activeRoiZones.isNotEmpty()) {
                         val rArr = org.json.JSONArray()
                         activeRoiZones.forEach { z ->
@@ -2170,6 +2223,9 @@ private val targetStepId: Int? = null,
                 com.example.autotap.infrastructure.vision.TemplateMatchingEngine.clearTemplateCache()
                 val history = com.example.autotap.infrastructure.vision.TemplateMatchingEngine.historicalSearchAnchors.getOrPut(tPath) { java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap()) }
                 history.add(Pair(finalCalibX, finalCalibY))
+                activeRoiZones.forEach { z ->
+                    com.example.autotap.infrastructure.vision.TemplateMatchingEngine.registerDiscoveredLocation(tPath, z.centerX(), z.centerY())
+                }
 
                 val best = currentCandidates.firstOrNull()
                 val targetX = if (existingAction != null && existingAction.posX > 10f && best == null) existingAction.posX
@@ -2179,6 +2235,13 @@ private val targetStepId: Int? = null,
 
                 val firstRoi = activeRoiZones.firstOrNull()
                 val updatedRoiAnchors: List<Point2D> = activeRoiZones.map { zone -> Point2D(zone.centerX().toFloat(), zone.centerY().toFloat()) }
+                val combinedAnchors = (existingAction?.primaryAnchorPoints ?: emptyList()).toMutableList()
+                for (pt in updatedRoiAnchors) {
+                    if (combinedAnchors.none { abs(it.x - pt.x) < 24f && abs(it.y - pt.y) < 24f }) {
+                        if (combinedAnchors.size >= 8) combinedAnchors.removeAt(0)
+                        combinedAnchors.add(pt)
+                    }
+                }
                 val existingMulti = existingAction?.multiTemplatePaths?.toMutableList() ?: mutableListOf()
                 if (existingMulti.isNotEmpty()) {
                     val oldPath = existingTemplatePath
@@ -2214,7 +2277,7 @@ private val targetStepId: Int? = null,
                     roiTop = firstRoi?.top,
                     roiRight = firstRoi?.right,
                     roiBottom = firstRoi?.bottom,
-                    primaryAnchorPoints = if (updatedRoiAnchors.isNotEmpty()) updatedRoiAnchors else (existingAction?.primaryAnchorPoints ?: emptyList())
+                    primaryAnchorPoints = combinedAnchors
                 )
                 onFinished(action, tPath)
                 dismiss()

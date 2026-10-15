@@ -83,7 +83,8 @@ class TemplateFeatures(
         val shapeLabB: FloatArray = FloatArray(0),
         val l1LabL: FloatArray = FloatArray(0),
         val l1LabA: FloatArray = FloatArray(0),
-        val l1LabB: FloatArray = FloatArray(0)
+        val l1LabB: FloatArray = FloatArray(0),
+        val metaAnchorLocations: List<com.example.autotap.domain.model.Point2D> = emptyList()
     )
 
     val historicalSearchAnchors = ConcurrentHashMap<String, MutableSet<Pair<Int, Int>>>()
@@ -102,6 +103,28 @@ class TemplateFeatures(
             }
         }
     }
+
+    private fun recordFoundLocation(tPath: String, clickX: Int, clickY: Int) {
+        if (tPath.isEmpty()) return
+        val history = historicalSearchAnchors.getOrPut(tPath) { java.util.Collections.newSetFromMap(ConcurrentHashMap()) }
+        if (history.none { abs(it.first - clickX) < 20 && abs(it.second - clickY) < 20 }) {
+            if (history.size >= 8) {
+                val oldest = history.firstOrNull()
+                if (oldest != null) history.remove(oldest)
+            }
+            history.add(Pair(clickX, clickY))
+        }
+
+        val locs = additionalSearchLocations.getOrPut(tPath) { java.util.Collections.newSetFromMap(ConcurrentHashMap()) }
+        if (locs.none { abs(it.first - clickX) < 20 && abs(it.second - clickY) < 20 }) {
+            if (locs.size >= 8) {
+                val oldest = locs.firstOrNull()
+                if (oldest != null) locs.remove(oldest)
+            }
+            locs.add(Pair(clickX, clickY))
+        }
+    }
+
     fun clearTemplateCache() {
         historicalSearchAnchors.clear()
         additionalSearchLocations.clear()
@@ -161,6 +184,7 @@ class TemplateFeatures(
         var metaCalibY: Int? = null
         var metaGridStep = 0
         var metaDownscaleFactor = 1
+        val metaAnchors = mutableListOf<com.example.autotap.domain.model.Point2D>()
 
         if (tPath.isNotEmpty()) {
             try {
@@ -182,6 +206,27 @@ class TemplateFeatures(
                     if (meta.has("calibratedY")) metaCalibY = meta.getInt("calibratedY")
                     else if (meta.has("cropTop")) metaCalibY = meta.getInt("cropTop") + th / 2
                     else if (meta.has("originalY")) metaCalibY = meta.getInt("originalY")
+
+                    if (meta.has("discoveredLocations")) {
+                        val arr = meta.getJSONArray("discoveredLocations")
+                        for (i in 0 until arr.length()) {
+                            val o = arr.optJSONObject(i)
+                            if (o != null && o.has("x") && o.has("y")) {
+                                metaAnchors.add(com.example.autotap.domain.model.Point2D(o.getInt("x").toFloat(), o.getInt("y").toFloat()))
+                            }
+                        }
+                    }
+                    if (meta.has("roiZones")) {
+                        val arr = meta.getJSONArray("roiZones")
+                        for (i in 0 until arr.length()) {
+                            val o = arr.optJSONObject(i)
+                            if (o != null && o.has("left") && o.has("right") && o.has("top") && o.has("bottom")) {
+                                val cx = (o.getInt("left") + o.getInt("right")) / 2f
+                                val cy = (o.getInt("top") + o.getInt("bottom")) / 2f
+                                metaAnchors.add(com.example.autotap.domain.model.Point2D(cx, cy))
+                            }
+                        }
+                    }
 
                     if (meta.has("optimalGridStep")) metaGridStep = meta.getInt("optimalGridStep")
                     if (meta.has("optimalDownscaleFactor")) {
@@ -461,7 +506,8 @@ class TemplateFeatures(
             shapeLabB = shapeLabB,
             l1LabL = l1LabL,
             l1LabA = l1LabA,
-            l1LabB = l1LabB
+            l1LabB = l1LabB,
+            metaAnchorLocations = metaAnchors
         )
         templateFeatureCache[dynamicKey] = features
         return features
@@ -490,6 +536,17 @@ class TemplateFeatures(
         }
         return result
     }
+
+    private class PreparedTemplateContext(
+        val tPath: String,
+        val tBmp: Bitmap,
+        val features: TemplateFeatures,
+        val templateThreshold: Float,
+        val isShapeDriven: Boolean,
+        val scanLimitX: Int,
+        val scanLimitY: Int,
+        val anchorProbes: List<com.example.autotap.domain.model.Point2D>
+    )
 
     fun findMultiTemplatesFastCascade(
         sPixels: IntArray, sw: Int, sh: Int, templates: List<Pair<String, Bitmap>>,
@@ -535,10 +592,12 @@ class TemplateFeatures(
         val selectedAnchors = override?.primaryAnchorPoints ?: emptyList()
         val lastUsedDownscale = override?.downscaleFactor?.takeIf { it in 1..4 } ?: 1
 
+        val preparedContexts = mutableListOf<PreparedTemplateContext>()
+
         for ((tPath, tBmp) in templates) {
             if (isCancelled() || tBmp.isRecycled) continue
 
-// [V12.2] Полная изоляция: в рантайме каждый шаблон использует свои метаданные из JSON, а в режиме калибровки (findAllMatches) — живой ползунок
+            // [V12.2] Полная изоляция: в рантайме каждый шаблон использует свои метаданные из JSON, а в режиме калибровки (findAllMatches) — живой ползунок
             val features = extractFeatures(tBmp, tPath, tPath, defaultSim) ?: continue
             val rawThreshold = if (findAllMatches) (defaultSim / 100f) else features.individualThreshold
             val templateThreshold = rawThreshold.coerceIn(0.60f, 0.98f)
@@ -547,7 +606,6 @@ class TemplateFeatures(
             val scanLimitX = (roiMaxX - features.tw).coerceAtLeast(roiMinX)
             val scanLimitY = (roiMaxY - features.th).coerceAtLeast(roiMinY)
 
-            var tier0Found = false
             val anchorProbes = mutableListOf<com.example.autotap.domain.model.Point2D>()
 
             // 1. МЕТАДАННЫЕ КАЛИБРОВКИ И ВЫРЕЗА: всегда используем calibratedX / calibratedY из JSON метаданных шаблона
@@ -562,7 +620,23 @@ class TemplateFeatures(
                 }
             }
 
-            // 2. Дополнительные динамические позиции (накопительный L0 Cache)
+            // 3. Опорные точки ROI шага / добавленные вручную (primaryAnchorPoints)
+            if (actionOverride != null && actionOverride.primaryAnchorPoints.isNotEmpty()) {
+                actionOverride.primaryAnchorPoints.forEach { pt ->
+                    if (anchorProbes.none { p -> abs(p.x - pt.x) < 16f && abs(p.y - pt.y) < 16f }) {
+                        anchorProbes.add(pt)
+                    }
+                }
+            }
+
+            // 4. Опорные точки и ROI зоны, сохраненные в meta.json конкретного шаблона/маски
+            features.metaAnchorLocations.forEach { pt ->
+                if (anchorProbes.none { p -> abs(p.x - pt.x) < 16f && abs(p.y - pt.y) < 16f }) {
+                    anchorProbes.add(pt)
+                }
+            }
+
+            // 5. Дополнительные динамические позиции (накопительный L0 Cache)
             if (enableL0Cache && tPath.isNotEmpty()) {
                 historicalSearchAnchors[tPath]?.forEach { loc ->
                     val pt = com.example.autotap.domain.model.Point2D(loc.first.toFloat(), loc.second.toFloat())
@@ -578,10 +652,40 @@ class TemplateFeatures(
                 }
             }
 
-            val confidentThreshold = templateThreshold
+            preparedContexts.add(
+                PreparedTemplateContext(
+                    tPath = tPath,
+                    tBmp = tBmp,
+                    features = features,
+                    templateThreshold = templateThreshold,
+                    isShapeDriven = isShapeDriven,
+                    scanLimitX = scanLimitX,
+                    scanLimitY = scanLimitY,
+                    anchorProbes = anchorProbes
+                )
+            )
+        }
+
+        val matchedTemplates = mutableSetOf<String>()
+
+        // =========================================================================
+        // ЭТАП 1: Умная сверхбыстрая проверка ВСЕХ масок по первичным опорным точкам
+        // (TIER 0: +-12 px, затем TIER 1: +-48 px). Занимает 1-2 мс для всех 8 масок!
+        // =========================================================================
+        for (ctx in preparedContexts) {
+            if (isCancelled()) break
+            if (!findAllMatches && allCandidates.isNotEmpty()) break
+
+            val tPath = ctx.tPath
+            val features = ctx.features
+            val confidentThreshold = ctx.templateThreshold
+            val isShapeDriven = ctx.isShapeDriven
+            val scanLimitX = ctx.scanLimitX
+            val scanLimitY = ctx.scanLimitY
 
             // TIER 0: Точечная проверка в окрестности опорной точки (+-12 px, < 1 мс)
-            for (probe in anchorProbes) {
+            var tier0Found = false
+            for (probe in ctx.anchorProbes) {
                 val expLeft = (probe.x - features.centroidX).toInt().coerceIn(roiMinX, scanLimitX)
                 val expTop = (probe.y - features.centroidY).toInt().coerceIn(roiMinY, scanLimitY)
 
@@ -612,24 +716,10 @@ class TemplateFeatures(
                         isShapeDriven
                     )
                     allCandidates.add(candidate)
-                    if (tPath.isNotEmpty()) {
-                        val history = historicalSearchAnchors.getOrPut(tPath) { java.util.Collections.newSetFromMap(ConcurrentHashMap()) }
-                        if (history.none { abs(it.first - candidate.clickX) < 20 && abs(it.second - candidate.clickY) < 20 }) {
-                            if (history.size >= 8) {
-                                val oldest = history.first()
-                                history.remove(oldest)
-                            }
-                            history.add(Pair(candidate.clickX, candidate.clickY))
-                        }
-                        
-                        val locs = additionalSearchLocations.getOrPut(tPath) { java.util.Collections.newSetFromMap(ConcurrentHashMap()) }
-                        if (locs.none { abs(it.first - candidate.clickX) < 20 && abs(it.second - candidate.clickY) < 20 }) {
-                            if (locs.size >= 8) locs.clear()
-                            locs.add(Pair(candidate.clickX, candidate.clickY))
-                        }
-                    }
-                                        tier0Found = true
+                    recordFoundLocation(tPath, candidate.clickX, candidate.clickY)
+                    tier0Found = true
                     statL0Hits++
+                    matchedTemplates.add(tPath)
                     if (!findAllMatches && templates.size == 1 && candidate.score >= 0.95f) {
                         return listOf(candidate)
                     }
@@ -638,9 +728,9 @@ class TemplateFeatures(
             }
             if (tier0Found && !findAllMatches) continue
 
-            // TIER 1: Окрестность UI (+-48 px вокруг опорной точки, 3-5 мс)
+            // TIER 1: Окрестность UI (+-48 px вокруг опорной точки, 2-3 мс)
             var tier1Found = false
-            for (probe in anchorProbes) {
+            for (probe in ctx.anchorProbes) {
                 val expLeft = (probe.x - features.centroidX).toInt().coerceIn(roiMinX, scanLimitX)
                 val expTop = (probe.y - features.centroidY).toInt().coerceIn(roiMinY, scanLimitY)
 
@@ -687,29 +777,38 @@ class TemplateFeatures(
                         isShapeDriven
                     )
                     allCandidates.add(candidate)
-                    if (tPath.isNotEmpty()) {
-                        val history = historicalSearchAnchors.getOrPut(tPath) { java.util.Collections.newSetFromMap(ConcurrentHashMap()) }
-                        if (history.none { abs(it.first - candidate.clickX) < 20 && abs(it.second - candidate.clickY) < 20 }) {
-                            if (history.size >= 8) {
-                                val oldest = history.first()
-                                history.remove(oldest)
-                            }
-                            history.add(Pair(candidate.clickX, candidate.clickY))
-                        }
-                        
-                        val locs = additionalSearchLocations.getOrPut(tPath) { java.util.Collections.newSetFromMap(ConcurrentHashMap()) }
-                        if (locs.none { abs(it.first - candidate.clickX) < 20 && abs(it.second - candidate.clickY) < 20 }) {
-                            if (locs.size >= 8) locs.clear()
-                            locs.add(Pair(candidate.clickX, candidate.clickY))
-                        }
-                    }
+                    recordFoundLocation(tPath, candidate.clickX, candidate.clickY)
                     tier1Found = true
+                    matchedTemplates.add(tPath)
                     if (!findAllMatches) break
                 }
             }
             if (tier1Found && !findAllMatches) continue
+        }
 
-                    // TIER 2: Адаптивное регулярное сеточное сканирование (Grid Scan) с ранним выходом
+        // =========================================================================
+        // ЭТАП 2: Адаптивное регулярное сеточное сканирование (TIER 2 Grid Scan)
+        // Запускается ТОЛЬКО для масок, не найденных на опорных точках!
+        // =========================================================================
+        val contextsForGridScan = if (findAllMatches) {
+            preparedContexts.filter { !matchedTemplates.contains(it.tPath) }
+        } else if (allCandidates.isEmpty()) {
+            preparedContexts
+        } else {
+            emptyList()
+        }
+
+        for (ctx in contextsForGridScan) {
+            if (isCancelled()) break
+            if (!findAllMatches && allCandidates.isNotEmpty()) break
+
+            val tPath = ctx.tPath
+            val features = ctx.features
+            val templateThreshold = ctx.templateThreshold
+            val isShapeDriven = ctx.isShapeDriven
+            val scanLimitX = ctx.scanLimitX
+            val scanLimitY = ctx.scanLimitY
+
             val isSmall = features.isMicroIcon || features.isThinLine
             val safeCoarseThreshold = if (isSmall) {
                 (templateThreshold * 0.20f).coerceIn(0.12f, 0.26f)
@@ -800,15 +899,14 @@ class TemplateFeatures(
                         }
                     }
 
-
                     if (features.l1HasGrad[i]) {
-                    gradSampleCount++
-                    var isHit = false
-                    for (d in 0..4) {
-                    val nx = px + NEIGHBOR_DX[d]
-                    val ny = py + NEIGHBOR_DY[d]
-                    if (nx in 1 until sw - 1 && ny in 1 until sh - 1) {
-                    val nIdx = ny * sw + nx
+                        gradSampleCount++
+                        var isHit = false
+                        for (d in 0..4) {
+                            val nx = px + NEIGHBOR_DX[d]
+                            val ny = py + NEIGHBOR_DY[d]
+                            if (nx in 1 until sw - 1 && ny in 1 until sh - 1) {
+                                val nIdx = ny * sw + nx
                                 val pL = sPixels[nIdx - 1]
                                 val pR = sPixels[nIdx + 1]
                                 val pT = sPixels[nIdx - sw]
@@ -858,20 +956,13 @@ class TemplateFeatures(
                                 isShapeDriven
                             )
                             allCandidates.add(candidate)
-                            if (tPath.isNotEmpty()) {
-                                val history = historicalSearchAnchors.getOrPut(tPath) { java.util.Collections.newSetFromMap(ConcurrentHashMap()) }
-                                if (history.none { abs(it.first - candidate.clickX) < 20 && abs(it.second - candidate.clickY) < 20 }) {
-                                    if (history.size >= 8) history.remove(history.first())
-                                    history.add(Pair(candidate.clickX, candidate.clickY))
-                                }
-                            }
+                            recordFoundLocation(tPath, candidate.clickX, candidate.clickY)
                             earlyExitFound = true
                             break
                         }
                     }
                 }
             }
-
 
             if (!findAllMatches && earlyExitFound) continue
 
@@ -928,13 +1019,7 @@ class TemplateFeatures(
                         isShapeDriven
                     )
                     allCandidates.add(candidate)
-                    if (tPath.isNotEmpty()) {
-                        val history = historicalSearchAnchors.getOrPut(tPath) { java.util.Collections.newSetFromMap(ConcurrentHashMap()) }
-                        if (history.none { abs(it.first - candidate.clickX) < 20 && abs(it.second - candidate.clickY) < 20 }) {
-                            if (history.size >= 8) history.remove(history.first())
-                            history.add(Pair(candidate.clickX, candidate.clickY))
-                        }
-                    }
+                    recordFoundLocation(tPath, candidate.clickX, candidate.clickY)
                     if (!findAllMatches && bestScore >= maxOf(0.92f, templateThreshold)) {
                         break
                     }
