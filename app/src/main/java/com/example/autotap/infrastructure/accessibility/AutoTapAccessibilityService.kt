@@ -78,6 +78,21 @@ class AutoTapAccessibilityService : AccessibilityService() {
         override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) {}
     }
 
+    private val powerShutdownReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context?, intent: Intent?) {
+            val act = intent?.action
+            if (act == Intent.ACTION_SHUTDOWN || act == Intent.ACTION_SCREEN_OFF) {
+                try {
+                    val orchestrator = AutoTapOrchestrator.getInstance(this@AutoTapAccessibilityService)
+                    orchestrator.macroEngine.stop()
+                    orchestrator.screenLockOverlay.dismiss()
+                    orchestrator.hideOverlays()
+                    AppLogger.log(this@AutoTapAccessibilityService, "EMERGENCY_POWER", "АВАРИЙНАЯ ОСТАНОВКА ПО СИСТЕМНОМУ СИГНАЛУ ($act)")
+                } catch (_: Throwable) {}
+            }
+        }
+    }
+
     // Системные лаунчеры, клавиатуры и UI, не являющиеся целевыми играми
     private val ignoredSystemPackages = setOf(
         "com.android.systemui", "android", "com.google.android.inputmethod.latin",
@@ -144,6 +159,18 @@ class AutoTapAccessibilityService : AccessibilityService() {
                 }
             } catch (_: Exception) {}
 
+            try {
+                val powerFilter = android.content.IntentFilter().apply {
+                    addAction(Intent.ACTION_SHUTDOWN)
+                    addAction(Intent.ACTION_SCREEN_OFF)
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    registerReceiver(powerShutdownReceiver, powerFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
+                } else {
+                    registerReceiver(powerShutdownReceiver, powerFilter)
+                }
+            } catch (_: Exception) {}
+
             AppLogger.log(this, "ACCESSIBILITY", "Служба кликера успешно подключена и активна")
         } catch (e: Throwable) {
             AppLogger.logError(this, "ACCESSIBILITY", e)
@@ -192,6 +219,9 @@ class AutoTapAccessibilityService : AccessibilityService() {
         serviceRef = null
         AppLogger.log(this, "ACCESSIBILITY", "Служба кликера уничтожена (onDestroy - система выгрузила службу или завершен процесс)")
         try {
+            unregisterReceiver(powerShutdownReceiver)
+        } catch (_: Exception) {}
+        try {
             bgScreenshotExecutor.shutdownNow()
             val orchestrator = AutoTapOrchestrator.getInstance(this)
             orchestrator.hideOverlays()
@@ -204,6 +234,24 @@ class AutoTapAccessibilityService : AccessibilityService() {
         try {
             if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
                 val pkg = event.packageName?.toString() ?: return
+
+                // Экстренная остановка при вызове меню выключения/перезагрузки (GlobalActions)
+                val className = event.className?.toString() ?: ""
+                val isPowerMenu = className.contains("GlobalActions", ignoreCase = true) ||
+                        className.contains("PowerDialog", ignoreCase = true) ||
+                        className.contains("Shutdown", ignoreCase = true) ||
+                        className.contains("PowerOff", ignoreCase = true) ||
+                        className.contains("Reboot", ignoreCase = true)
+
+                if (isPowerMenu) {
+                    val orchestrator = AutoTapOrchestrator.getInstance(this)
+                    orchestrator.macroEngine.stop()
+                    orchestrator.screenLockOverlay.dismiss()
+                    orchestrator.hideOverlays()
+                    AppLogger.log(this, "EMERGENCY_POWER", "АВАРИЙНАЯ ОСТАНОВКА: Обнаружено меню выключения ($className)")
+                    return
+                }
+
                 // Игнорируем AutoTap, клавиатуры, шторку и лаунчеры рабочего стола для сохранения игры
                 if (pkg != packageName && !ignoredSystemPackages.contains(pkg) && !pkg.startsWith("com.example.autotap")) {
                     if (pkg != lastForegroundPackage) {
