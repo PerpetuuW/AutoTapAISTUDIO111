@@ -51,6 +51,33 @@ class AutoTapAccessibilityService : AccessibilityService() {
     private val isScreenshotInProgress = AtomicBoolean(false)
     private var lastScreenshotCallTime = 0L
 
+    private var sensorManager: android.hardware.SensorManager? = null
+    private var lastShakeTime = 0L
+
+    private val shakeListener = object : android.hardware.SensorEventListener {
+        override fun onSensorChanged(event: android.hardware.SensorEvent?) {
+            if (event == null || event.sensor.type != android.hardware.Sensor.TYPE_ACCELEROMETER) return
+            val x = event.values[0]
+            val y = event.values[1]
+            val z = event.values[2]
+            val gAccel = kotlin.math.sqrt((x * x + y * y + z * z).toDouble()).toFloat() - android.hardware.SensorManager.GRAVITY_EARTH
+            if (gAccel > 13f) {
+                val now = System.currentTimeMillis()
+                if (now - lastShakeTime > 1500L) {
+                    lastShakeTime = now
+                    try {
+                        val orchestrator = AutoTapOrchestrator.getInstance(this@AutoTapAccessibilityService)
+                        orchestrator.macroEngine.stop()
+                        orchestrator.screenLockOverlay.dismiss()
+                        gestureDispatcher.vibrateFeedback(100L)
+                        AppLogger.log(this@AutoTapAccessibilityService, "EMERGENCY_SHAKE", "АВАРИЙНАЯ ОСТАНОВКА ПО ВСТРЯХИВАНИЮ ТЕЛЕФОНА")
+                    } catch (_: Throwable) {}
+                }
+            }
+        }
+        override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) {}
+    }
+
     // Системные лаунчеры, клавиатуры и UI, не являющиеся целевыми играми
     private val ignoredSystemPackages = setOf(
         "com.android.systemui", "android", "com.google.android.inputmethod.latin",
@@ -108,6 +135,14 @@ class AutoTapAccessibilityService : AccessibilityService() {
             gestureDispatcher.onGesturePassthroughToggle = { enabled, rect ->
                 orchestrator.screenLockOverlay.setPassthroughEnabled(enabled, rect)
             }
+
+            try {
+                sensorManager = getSystemService(android.content.Context.SENSOR_SERVICE) as? android.hardware.SensorManager
+                val accel = sensorManager?.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER)
+                if (accel != null) {
+                    sensorManager?.registerListener(shakeListener, accel, android.hardware.SensorManager.SENSOR_DELAY_UI)
+                }
+            } catch (_: Exception) {}
 
             AppLogger.log(this, "ACCESSIBILITY", "Служба кликера успешно подключена и активна")
         } catch (e: Throwable) {
