@@ -91,7 +91,12 @@ class GraphEditorOverlay(
         val canvas = GraphCanvasView(context).apply {
             setGraphScenario(graph)
             onNodeSelected = { showNodeInspector(it) }
-            onScenarioModified = { this.scenario?.let { currentScenario = it } }
+            onScenarioModified = {
+                this.scenario?.let {
+                    currentScenario = it
+                    scenarioRepository.saveGraphScenario(it)
+                }
+            }
             onTemplateThumbnailClicked = { node, trigIdx ->
                 showCustomTemplatePickerDialog(node, trigIdx)
             }
@@ -580,7 +585,7 @@ class GraphEditorOverlay(
             }
             scrollContent.addView(tvParamHeader)
 
-            val currentRepeats = loopAction?.repeatCount ?: 3
+            var currentRepeats = loopAction?.repeatCount ?: 3
             val stepperRow = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -621,10 +626,11 @@ class GraphEditorOverlay(
                         canvasView?.setGraphScenario(newSc)
                         scenarioRepository.saveGraphScenario(newSc)
                     }
+                    currentRepeats = next
                     tvRepeatsLabel.text = "Итераций: $next"
-                }
-            }
-            val btnPlus = Button(context).apply {
+                    }
+                    }
+                    val btnPlus = Button(context).apply {
                 text = "+"
                 textSize = 12f
                 typeface = Typeface.DEFAULT_BOLD
@@ -651,10 +657,11 @@ class GraphEditorOverlay(
                         canvasView?.setGraphScenario(newSc)
                         scenarioRepository.saveGraphScenario(newSc)
                     }
+                    currentRepeats = next
                     tvRepeatsLabel.text = "Итераций: $next"
-                }
-            }
-            stepperRow.addView(tvRepeatsLabel)
+                    }
+                    }
+                    stepperRow.addView(tvRepeatsLabel)
             stepperRow.addView(btnMinus)
             stepperRow.addView(btnPlus)
             scrollContent.addView(stepperRow)
@@ -758,6 +765,7 @@ class GraphEditorOverlay(
                     val updated = curSc.copy(nodes = nodes, edges = edges, entryNodeId = newEntry)
                     currentScenario = updated
                     canvasView?.setGraphScenario(updated)
+                    scenarioRepository.saveGraphScenario(updated)
                     overlayContainerView?.removeView(card)
                 }
             }
@@ -870,9 +878,11 @@ class GraphEditorOverlay(
                 setOnClickListener {
                     val edges = sc.edges.filterNot { it.fromNodeId == fromNodeId && it.fromPortId == fromPortId }.toMutableList()
                     edges.add(ScenarioEdge("edge_${UUID.randomUUID().toString().take(6)}", fromNodeId, fromPortId, target.id, "in_entry"))
-                    val updated = sc.copy(edges = edges)
+                    val newEntryId = if (fromNodeId == "node_start") target.id else sc.entryNodeId
+                    val updated = sc.copy(edges = edges, entryNodeId = newEntryId)
                     currentScenario = updated
                     canvasView?.setGraphScenario(updated)
+                    scenarioRepository.saveGraphScenario(updated)
                     overlayContainerView?.removeView(card)
                     nodeSelectCard = null
                     sc.nodes[fromNodeId]?.let { showNodeInspector(it) }
@@ -1169,32 +1179,63 @@ class GraphEditorOverlay(
             }
 
             val newNode = if (type == ActionType.TRIGGER || type == ActionType.COLOR_CHECK) {
-            val trig = com.example.autotap.domain.model.graph.NodeTriggerSpec(
-                id = "trig_${newId}_1",
-                name = "$name #$nextNum",
-                type = type,
-                behavior = behavior ?: com.example.autotap.domain.model.graph.TriggerBehavior.WAIT_APPEAR,
-                similarityThreshold = 85,
-                targetPortId = "out_match",
-                targetQueryOrColor = if (type == ActionType.COLOR_CHECK) "#38BDF8" else ""
-            )
-            ScenarioNode(
-                id = newId,
-                title = "$name #$nextNum",
-                canvasX = targetX,
-                canvasY = targetY,
-                triggers = listOf(trig),
-                standardPorts = listOf("timeout")
-            )
+                val trigId = "trig_${newId}_1"
+                val trig = com.example.autotap.domain.model.graph.NodeTriggerSpec(
+                    id = trigId,
+                    name = "$name #$nextNum",
+                    type = type,
+                    behavior = behavior ?: com.example.autotap.domain.model.graph.TriggerBehavior.WAIT_APPEAR,
+                    similarityThreshold = 85,
+                    targetPortId = "out_match_$trigId",
+                    targetQueryOrColor = if (type == ActionType.COLOR_CHECK) "#38BDF8" else ""
+                )
+                ScenarioNode(
+                    id = newId,
+                    title = "$name #$nextNum",
+                    canvasX = targetX,
+                    canvasY = targetY,
+                    triggers = listOf(trig),
+                    standardPorts = listOf("out_timeout")
+                )
+            } else if (name == "Цикл") {
+                ScenarioNode(
+                    id = newId,
+                    title = "Счетчик цикла (x3) #$nextNum",
+                    canvasX = targetX,
+                    canvasY = targetY,
+                    entryActions = listOf(com.example.autotap.domain.model.graph.NodeActionSpec(id = "act_$newId", type = ActionType.CLICK, x = 0f, y = 0f, repeatCount = 3)),
+                    standardPorts = listOf("out_loop_body", "out_loop_done")
+                )
+            } else if (name == "2x Клик") {
+                ScenarioNode(
+                    id = newId,
+                    title = "2x Клик #$nextNum",
+                    canvasX = targetX,
+                    canvasY = targetY,
+                    entryActions = listOf(
+                        com.example.autotap.domain.model.graph.NodeActionSpec("act_1_$newId", ActionType.CLICK, 540f, 1200f, holdDurationMs = 50L, delayAfterMs = 90L),
+                        com.example.autotap.domain.model.graph.NodeActionSpec("act_2_$newId", ActionType.CLICK, 540f, 1200f, holdDurationMs = 50L, delayAfterMs = 150L)
+                    ),
+                    standardPorts = listOf("out_default")
+                )
+            } else if (name == "Рандом пауза") {
+                ScenarioNode(
+                    id = newId,
+                    title = "Рандом пауза 1..3с #$nextNum",
+                    canvasX = targetX,
+                    canvasY = targetY,
+                    entryActions = listOf(com.example.autotap.domain.model.graph.NodeActionSpec(id = "act_$newId", type = ActionType.DELAY, x = 0f, y = 0f, delayAfterMs = 1000L, holdDurationMs = 3000L)),
+                    standardPorts = listOf("out_default")
+                )
             } else {
-            ScenarioNode(
-                id = newId,
-                title = "$name #$nextNum",
-                canvasX = targetX,
-                canvasY = targetY,
-                entryActions = listOf(com.example.autotap.domain.model.graph.NodeActionSpec(id = "act_$newId", type = type, x = 540f, y = 1200f)),
-                standardPorts = listOf("out_default")
-            )
+                ScenarioNode(
+                    id = newId,
+                    title = "$name #$nextNum",
+                    canvasX = targetX,
+                    canvasY = targetY,
+                    entryActions = listOf(com.example.autotap.domain.model.graph.NodeActionSpec(id = "act_$newId", type = type, x = 540f, y = 1200f, endX = if (type == ActionType.SWIPE) 540f else null, endY = if (type == ActionType.SWIPE) 600f else null)),
+                    standardPorts = listOf("out_default")
+                )
             }
 
             val newEdge = ScenarioEdge(

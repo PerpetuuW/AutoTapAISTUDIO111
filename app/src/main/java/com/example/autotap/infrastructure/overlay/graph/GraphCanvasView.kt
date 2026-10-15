@@ -321,6 +321,7 @@ class GraphCanvasView(context: Context) : View(context) {
     private val cachedNodeRect = RectF()
     private val cachedHeadRect = RectF()
     private val cachedTargetFitRect = RectF()
+    private val thumbnailCache = HashMap<String, android.graphics.Bitmap>()
 
     private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
         override fun onScale(detector: ScaleGestureDetector): Boolean {
@@ -492,10 +493,11 @@ class GraphCanvasView(context: Context) : View(context) {
                         var drawnBitmap = false
                         if (trig.templatePath.isNotEmpty()) {
                             try {
-                                val bmp = android.graphics.BitmapFactory.decodeFile(trig.templatePath)
-                                if (bmp != null) {
-                                    val bw = bmp.width.toFloat()
-                                    val bh = bmp.height.toFloat()
+                                val cachedBmp = thumbnailCache[trig.templatePath]?.takeIf { !it.isRecycled }
+                                    ?: android.graphics.BitmapFactory.decodeFile(trig.templatePath)?.also { thumbnailCache[trig.templatePath] = it }
+                                if (cachedBmp != null) {
+                                    val bw = cachedBmp.width.toFloat()
+                                    val bh = cachedBmp.height.toFloat()
                                     val scale = minOf(thumbSize / bw, thumbSize / bh)
                                     val rw = bw * scale
                                     val rh = bh * scale
@@ -503,8 +505,7 @@ class GraphCanvasView(context: Context) : View(context) {
                                     val ry = previewRect.centerY() - rh / 2f
                                     val targetFitRect = cachedTargetFitRect
                                     targetFitRect.set(rx, ry, rx + rw, ry + rh)
-                                    canvas.drawBitmap(bmp, null, targetFitRect, previewPaint)
-                                    bmp.recycle()
+                                    canvas.drawBitmap(cachedBmp, null, targetFitRect, previewPaint)
                                     drawnBitmap = true
                                 }
                             } catch (_: Exception) {}
@@ -744,7 +745,8 @@ class GraphCanvasView(context: Context) : View(context) {
                                 val mutableEdges = sc.edges.toMutableList()
                                 mutableEdges.removeAll { it.fromNodeId == candidate.id && it.fromPortId == matchedPort }
                                 mutableEdges.add(newEdge)
-                                scenario = sc.copy(edges = mutableEdges)
+                                val updatedEntryId = if (candidate.id == "node_start") toNode else sc.entryNodeId
+                                scenario = sc.copy(edges = mutableEdges, entryNodeId = updatedEntryId)
                                 onScenarioModified?.invoke()
                                 }
                                 }
@@ -756,7 +758,7 @@ class GraphCanvasView(context: Context) : View(context) {
                                 if (fromNode != null && fromPort != null) {
                                 val targetNode = sc.nodes.values.firstOrNull { node ->
                                 if (node.id == fromNode) return@firstOrNull false
-                                val distToPort = hypot((cx - node.canvasX).toDouble(), (cy - (node.canvasY + headerHeight)).toDouble())
+                                val distToPort = hypot((cx - node.canvasX).toDouble(), (cy - (node.canvasY + headerHeight / 2f)).toDouble())
                                 val inHeaderZone = cx in (node.canvasX - dpF(24f))..(node.canvasX + nodeWidth * 0.45f) &&
                                                    cy in (node.canvasY - dpF(12f))..(node.canvasY + headerHeight + dpF(16f))
                                 distToPort <= dpF(48f) || inHeaderZone
@@ -773,7 +775,8 @@ class GraphCanvasView(context: Context) : View(context) {
                                 val mutableEdges = sc.edges.toMutableList()
                                 mutableEdges.removeAll { it.fromNodeId == fromNode && it.fromPortId == fromPort }
                                 mutableEdges.add(newEdge)
-                                scenario = sc.copy(edges = mutableEdges)
+                                val updatedEntryId = if (fromNode == "node_start") targetNode.id else sc.entryNodeId
+                                scenario = sc.copy(edges = mutableEdges, entryNodeId = updatedEntryId)
                                 onScenarioModified?.invoke()
                                 } else {
                                 onWireToEmptySpace?.invoke(fromNode, fromPort, cx, cy)

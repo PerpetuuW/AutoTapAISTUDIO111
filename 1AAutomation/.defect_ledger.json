@@ -1076,7 +1076,7 @@
         },
         {
             "id": "DEFECT_BRANCH_1GEMINI_AUDIT_SUITE",
-            "description": "Комплексное исправление 4 провалов 1AInspector, операторов !! (G-02), стриминга MediaProjection 60 FPS, обрезки текста .take() и кнопок ControlPanelComposeOverlay",
+            "description": "Комплексное исправление поиска, калибровки, эргономики и графов ветки 1Gemini (включая 4 провала 1AInspector и G-02 !!)",
             "target_file": "MacroExecutionEngine.kt",
             "checker_module": "check_branch_1gemini_full_audit_integrity.py",
             "checker_file": "check_branch_1gemini_full_audit_integrity.py",

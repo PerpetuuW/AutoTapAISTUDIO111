@@ -481,6 +481,16 @@ private val targetStepId: Int? = null,
                                         currentCandidates.add(0, selected)
                                         activeAnchorX = selected.rectLeft
                                         activeAnchorY = selected.rectTop
+                                        val pct = (selected.score * 100f).toInt().coerceIn(0, 100)
+                                        tvLiveScoreBadge?.text = "$pct%"
+                                        try {
+                                            val sx = selected.rectLeft.coerceIn(0, (screenshot.width - 1).coerceAtLeast(0))
+                                            val sy = selected.rectTop.coerceIn(0, (screenshot.height - 1).coerceAtLeast(0))
+                                            val sw = (selected.rectRight - selected.rectLeft).coerceIn(1, (screenshot.width - sx).coerceAtLeast(1))
+                                            val sh = (selected.rectBottom - selected.rectTop).coerceIn(1, (screenshot.height - sy).coerceAtLeast(1))
+                                            val liveCrop = Bitmap.createBitmap(screenshot, sx, sy, sw, sh)
+                                            previewLiveView?.bind(liveCrop, isMask = false, isCircle = isCircleShape)
+                                        } catch (_: Exception) {}
                                         vibrate(25L)
                                         invalidate()
                                         return true
@@ -1097,6 +1107,7 @@ private val targetStepId: Int? = null,
 
         headerRow.addView(btnAuto, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(26)))
         card.addView(headerRow)
+        card.addView(calibrationContentLayout, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
 
         // [V22.0] Выделенная аккуратная панель управления зонами поиска (ROI)
         val roiBar = LinearLayout(context).apply {
@@ -1130,17 +1141,20 @@ private val targetStepId: Int? = null,
                 val sw = screenshot.width; val sh = screenshot.height
                 val rw = (rawTemplateBitmap.width * 2.2f).toInt().coerceIn(dp(60), sw / 2)
                 val rh = (rawTemplateBitmap.height * 2.2f).toInt().coerceIn(dp(60), sh / 2)
-                val cx = anchorCropX.coerceIn(rw / 2, sw - rw / 2)
-                val cy = anchorCropY.coerceIn(rh / 2, sh - rh / 2)
+                val bestC = currentCandidates.firstOrNull()
+                val rawCx = bestC?.clickX?.toInt() ?: (if (anchorCropX > 0) anchorCropX + rawTemplateBitmap.width / 2 else sw / 2)
+                val rawCy = bestC?.clickY?.toInt() ?: (if (anchorCropY > 0) anchorCropY + rawTemplateBitmap.height / 2 else sh / 2)
+                val cx = rawCx.coerceIn(rw / 2, sw - rw / 2)
+                val cy = rawCy.coerceIn(rh / 2, sh - rh / 2)
                 activeRoiZones.add(Rect(cx - rw / 2, cy - rh / 2, cx + rw / 2, cy + rh / 2))
                 vibrate(20L)
                 candidatesCanvasView?.invalidate()
                 reevaluateMatching()
             }
-        }
-        roiBar.addView(btnRoiAdd, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(24)).apply { marginEnd = dp(4) })
+            }
+            roiBar.addView(btnRoiAdd, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(24)).apply { marginEnd = dp(4) })
 
-        val btnRoiClear = Button(context).apply {
+            val btnRoiClear = Button(context).apply {
             text = "СБРОС"
             textSize = 7.5f
             typeface = Typeface.DEFAULT_BOLD
@@ -1159,16 +1173,16 @@ private val targetStepId: Int? = null,
                 candidatesCanvasView?.invalidate()
                 reevaluateMatching()
             }
-        }
-        roiBar.addView(btnRoiClear, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(24)))
-        card.addView(roiBar)
+            }
+            roiBar.addView(btnRoiClear, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(24)))
+            calibrationContentLayout.addView(roiBar)
 
-        val pBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
+            val pBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
             isIndeterminate = true
             visibility = View.INVISIBLE
-        }
-        pBarReevaluate = pBar
-        card.addView(pBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(4)).apply {
+            }
+            pBarReevaluate = pBar
+            calibrationContentLayout.addView(pBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(4)).apply {
             topMargin = dp(2)
             bottomMargin = dp(2)
         })
@@ -1268,7 +1282,7 @@ private val targetStepId: Int? = null,
         liveContainer.addView(previewLiveView)
         previewRow.addView(liveContainer, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 
-        card.addView(previewRow)
+        calibrationContentLayout.addView(previewRow)
 
         // [V32.0] Просторная 2x2 матрица режимов: полное исключение обрезания текста
         val modesContainer = LinearLayout(context).apply {
@@ -1484,7 +1498,7 @@ private val targetStepId: Int? = null,
         modesRow3.addView(btnSmartColorToggle, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(30)))
         modesContainer.addView(modesRow3)
         modesContainer.tag = "MODES"
-        card.addView(modesContainer)
+        calibrationContentLayout.addView(modesContainer)
 
         fun createSliderRow(label: String, initialVal: String, sliderTag: String = ""): Pair<TextView, SeekBar> {
             val row = LinearLayout(context).apply {
@@ -1517,7 +1531,7 @@ private val targetStepId: Int? = null,
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             }
             row.addView(sb)
-            card.addView(row)
+            calibrationContentLayout.addView(row)
             return Pair(tvVal, sb)
         }
 
@@ -1623,7 +1637,7 @@ private val targetStepId: Int? = null,
             visibility = View.GONE
         }
         simRow.addView(btnSimPlus, LinearLayout.LayoutParams(dp(36), dp(24)))
-        card.addView(simRow)
+        calibrationContentLayout.addView(simRow)
 
         val cropControlBox = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -1795,7 +1809,7 @@ private val targetStepId: Int? = null,
         rowCropSize.addView(btnResetCrop, LinearLayout.LayoutParams(dp(36), dp(22)))
 
         cropControlBox.addView(rowCropSize)
-        card.addView(cropControlBox)
+        calibrationContentLayout.addView(cropControlBox)
 
         val clickControlRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -1829,7 +1843,7 @@ private val targetStepId: Int? = null,
         }
         updateClickOffsetButtonText()
         clickControlRow.addView(btnClickOffsetToggle, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(32)))
-        card.addView(clickControlRow)
+        calibrationContentLayout.addView(clickControlRow)
 
         // [V23.2] Панель составных проверочных шаблонов для гарантированного клика в офсет
         val coVerifRow = LinearLayout(context).apply {
@@ -1897,7 +1911,7 @@ private val targetStepId: Int? = null,
             }
         }
         coVerifRow.addView(btnClearCoVerif, LinearLayout.LayoutParams(dp(54), dp(28)))
-        card.addView(coVerifRow)
+        calibrationContentLayout.addView(coVerifRow)
 
         val nameRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -1949,7 +1963,7 @@ private val targetStepId: Int? = null,
             }
         }
         nameRow.addView(etTemplateName)
-        card.addView(nameRow)
+        calibrationContentLayout.addView(nameRow)
 
         val folderRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -2051,7 +2065,7 @@ private val targetStepId: Int? = null,
             }
         }
 
-        card.addView(folderRow)
+        calibrationContentLayout.addView(folderRow)
 
         val actionRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -2095,6 +2109,7 @@ private val targetStepId: Int? = null,
                     put("isCircleShape", isCircleShape)
                     put("colorDeltaEMode", isSmartColorMode)
                     put("isSmartColorMode", isSmartColorMode)
+                    put("isNeuralEngine", isNeuralEngineMode)
                     put("optimalDownscaleFactor", finalDownscale)
                     put("downscaleFactor", finalDownscale)
                     put("useCustomClickOffset", useCustomClickOffset)
@@ -2104,8 +2119,8 @@ private val targetStepId: Int? = null,
                     put("calibratedX", finalCalibX)
                     put("calibratedY", finalCalibY)
                     put("optimalGridStep", calculatedGridStep)
-                    put("cropLeft", anchorCropX)
-                    put("cropTop", anchorCropY)
+                    put("cropLeft", anchorCropX + currentCropOffsetX)
+                    put("cropTop", anchorCropY + currentCropOffsetY)
                     put("cropWidth", finalMask.width)
                     put("cropHeight", finalMask.height)
                     put("updatedAt", System.currentTimeMillis())
@@ -2126,12 +2141,14 @@ private val targetStepId: Int? = null,
                     }
                 }
 
-                // [V12.1] Синхронный кроп сырого кадра для 100% совпадения габаритов с маской
+                // [V12.1] Синхронный кроп сырого кадра точно по смещению маски для 100% совпадения пикселей с маской
                 val finalRawCropped = try {
                     val safeCropW = finalMask.width.coerceIn(1, currentWorkingRaw.width)
                     val safeCropH = finalMask.height.coerceIn(1, currentWorkingRaw.height)
-                    val safeCropX = 0.coerceIn(0, currentWorkingRaw.width - safeCropW)
-                    val safeCropY = 0.coerceIn(0, currentWorkingRaw.height - safeCropH)
+                    val localCropX = if (customEditedMask != null) 0 else (currentCropOffsetX - currentCropShiftX).coerceAtLeast(0)
+                    val localCropY = if (customEditedMask != null) 0 else (currentCropOffsetY - currentCropShiftY).coerceAtLeast(0)
+                    val safeCropX = localCropX.coerceIn(0, currentWorkingRaw.width - safeCropW)
+                    val safeCropY = localCropY.coerceIn(0, currentWorkingRaw.height - safeCropH)
                     Bitmap.createBitmap(currentWorkingRaw, safeCropX, safeCropY, safeCropW, safeCropH)
                 } catch (_: Exception) {
                     currentWorkingRaw

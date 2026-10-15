@@ -335,10 +335,10 @@ object LinearToGraphMigrator {
                     )
 
                     val templateName = if (action.templatePath.isNotEmpty()) {
-                        java.io.File(action.templatePath).nameWithoutExtension.removePrefix("mask_").take(12)
+                        java.io.File(action.templatePath).nameWithoutExtension.removePrefix("mask_")
                     } else if (isOcr) {
-                        action.targetScriptOrQuery.take(12).ifEmpty { "Текст" }
-                    } else "Цель"
+                        action.targetScriptOrQuery.ifEmpty { "Текст" }
+                    } else "Цель" 
 
                     val node = ScenarioNode(
                         id = nodeId,
@@ -520,6 +520,7 @@ object LinearToGraphMigrator {
         for ((idx, path) in validPaths.withIndex()) {
             val templateName = File(path).nameWithoutExtension.removePrefix("mask_").ifEmpty { "цель_${idx + 1}" }
             val triggerId = "trig_${targetAction.id}_${idx + 1}"
+
 
             val matchPortId = "out_match_$triggerId"
 

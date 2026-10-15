@@ -98,6 +98,7 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                     put("isMultiScaleMode", action.isMultiScaleMode)
                     put("colorDeltaEMode", action.colorDeltaEMode)
                     put("isShapeOnlyMode", action.isShapeOnlyMode)
+                    put("isNeuralEngine", action.isNeuralEngine)
                     put("shapeExpansion", action.shapeExpansion)
                     put("paddingOffsetPx", action.paddingOffsetPx)
                     put("isCircleShape", action.isCircleShape)
@@ -292,6 +293,7 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                         isMultiScaleMode = obj.optBoolean("isMultiScaleMode", false),
                         colorDeltaEMode = obj.optBoolean("colorDeltaEMode", false),
                         isShapeOnlyMode = obj.optBoolean("isShapeOnlyMode", false),
+                        isNeuralEngine = obj.optBoolean("isNeuralEngine", false),
                         shapeExpansion = obj.optInt("shapeExpansion", 45),
                         paddingOffsetPx = obj.optInt("paddingOffsetPx", 2),
                         isCircleShape = obj.optBoolean("isCircleShape", false),
@@ -377,6 +379,8 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                             put("id", trig.id)
                             put("name", trig.name)
                             put("type", trig.type.name)
+                            put("behavior", trig.behavior.name)
+                            put("targetOccurrenceIndex", trig.targetOccurrenceIndex)
                             put("templatePath", trig.templatePath)
                             val multiPathsArr = JSONArray()
                             trig.multiTemplatePaths.forEach { multiPathsArr.put(it) }
@@ -566,6 +570,7 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
             for (k in 0 until trigArr.length()) {
                 val tObj = trigArr.getJSONObject(k)
                 val tType = try { ActionType.valueOf(tObj.optString("type", "TRIGGER")) } catch (_: Exception) { ActionType.TRIGGER }
+                val tBehavior = try { com.example.autotap.domain.model.graph.TriggerBehavior.valueOf(tObj.optString("behavior", "WAIT_APPEAR")) } catch (_: Exception) { com.example.autotap.domain.model.graph.TriggerBehavior.WAIT_APPEAR }
                 val multiPaths = mutableListOf<String>()
                 val mpArr = tObj.optJSONArray("multiTemplatePaths")
                 if (mpArr != null) {
@@ -574,6 +579,7 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
 
                 triggersList.add(
                     NodeTriggerSpec(
+                        behavior = tBehavior,
                         id = tObj.getString("id"),
                         name = tObj.optString("name", "Триггер"),
                         type = tType,
@@ -594,6 +600,7 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                         roiRight = if (tObj.has("roiRight")) tObj.getInt("roiRight") else null,
                         roiBottom = if (tObj.has("roiBottom")) tObj.getInt("roiBottom") else null,
                         autoClickTarget = tObj.optBoolean("autoClickTarget", true),
+                        targetOccurrenceIndex = tObj.optInt("targetOccurrenceIndex", 0),
                         useCustomClick = tObj.optBoolean("useCustomClick", false),
                         clickOffset = Point2D(tObj.optDouble("clickOffsetX", 0.0).toFloat(), tObj.optDouble("clickOffsetY", 0.0).toFloat()),
                         targetPortId = tObj.optString("targetPortId", "out_match_${tObj.getString("id")}")

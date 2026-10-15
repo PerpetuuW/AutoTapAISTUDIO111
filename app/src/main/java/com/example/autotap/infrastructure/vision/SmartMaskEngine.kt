@@ -418,15 +418,17 @@ object SmartMaskEngine {
                 isRawMode = false
             )
 
-            val originX = res.cropOffsetX.coerceIn(0, (sw - res.bitmap.width).coerceAtLeast(0))
-            val originY = res.cropOffsetY.coerceIn(0, (sh - res.bitmap.height).coerceAtLeast(0))
+            val baseAnchorX = if (sw > rawTemplate.width || sh > rawTemplate.height) anchorX else 0
+            val baseAnchorY = if (sw > rawTemplate.width || sh > rawTemplate.height) anchorY else 0
+            val originX = (baseAnchorX + res.cropOffsetX).coerceIn(0, (sw - res.bitmap.width).coerceAtLeast(0))
+            val originY = (baseAnchorY + res.cropOffsetY).coerceIn(0, (sh - res.bitmap.height).coerceAtLeast(0))
 
             val tw = res.bitmap.width
             val th = res.bitmap.height
             val tPixels = IntArray(tw * th)
             res.bitmap.getPixels(tPixels, 0, tw, 0, 0, tw, th)
 
-            val features = TemplateMatchingEngine.extractFeatures(tPixels, tw, th, "opt_${exp}", 80, "", false)
+            val features = TemplateMatchingEngine.extractFeatures(tPixels, tw, th, "opt_${exp}_${tPixels.contentHashCode()}", 80, "", false)
             val score = if (features != null) {
                 TemplateMatchingEngine.evaluateCandidateScore(screenshotPixels, sw, sh, originX, originY, features, isShapeOnly)
             } else 0f

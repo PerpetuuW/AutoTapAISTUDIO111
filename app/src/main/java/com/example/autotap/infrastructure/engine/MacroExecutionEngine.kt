@@ -445,8 +445,8 @@ class MacroExecutionEngine(
                                         }
                                         try {
                                             val meta = templateRepository.getTemplateMetadata(bestMatchCand.templatePath)?.toMutableMap() ?: mutableMapOf()
-                                            meta["calibratedX"] = bestMatchCand.rectLeft
-                                            meta["calibratedY"] = bestMatchCand.rectTop
+                                            meta["calibratedX"] = bestMatchCand.clickX
+                                            meta["calibratedY"] = bestMatchCand.clickY
                                             val orgMeta = org.json.JSONObject()
                                             meta.forEach { (k, v) -> orgMeta.put(k, v) }
                                             val bmp = templateRepository.getTemplate(bestMatchCand.templatePath)
@@ -1204,23 +1204,43 @@ class MacroExecutionEngine(
                         roiRight = rRight,
                         roiBottom = rBottom
                     )
+                    val stepTemplatesList = stepTemplates.map { Pair(it.key, it.value) }
                     return if (sPixels != null) {
-                        TemplateMatchingEngine.findTemplateFastCascade(
-                            sPixels = sPixels, sw = sw, sh = sh,
-                            template = tBmp,
-                            minSimilarityPercent = trig.similarityThreshold,
-                            templatePath = trig.templatePath,
-                            actionOverride = roiAction,
-                            enableL0Cache = true
-                        )
+                        if (stepTemplatesList.size > 1) {
+                            TemplateMatchingEngine.findMultiTemplatesFastCascade(
+                                sPixels = sPixels, sw = sw, sh = sh,
+                                templates = stepTemplatesList,
+                                minSimilarityPercent = trig.similarityThreshold,
+                                actionOverride = roiAction,
+                                enableL0Cache = true
+                            )
+                        } else {
+                            TemplateMatchingEngine.findTemplateFastCascade(
+                                sPixels = sPixels, sw = sw, sh = sh,
+                                template = tBmp,
+                                minSimilarityPercent = trig.similarityThreshold,
+                                templatePath = trig.templatePath,
+                                actionOverride = roiAction,
+                                enableL0Cache = true
+                            )
+                        }
                     } else if (screenshot != null) {
                         if (screenshot.isRecycled) emptyList()
-                        else visionGateway.findTemplateMatches(
-                            screenshot = screenshot,
-                            template = tBmp,
-                            minSimilarityPercent = trig.similarityThreshold,
-                            actionOverride = roiAction
-                        )
+                        else if (stepTemplatesList.size > 1) {
+                            visionGateway.findMultiTemplateMatches(
+                                screenshot = screenshot,
+                                templates = stepTemplatesList,
+                                minSimilarityPercent = trig.similarityThreshold,
+                                actionOverride = roiAction
+                            )
+                        } else {
+                            visionGateway.findTemplateMatches(
+                                screenshot = screenshot,
+                                template = tBmp,
+                                minSimilarityPercent = trig.similarityThreshold,
+                                actionOverride = roiAction
+                            )
+                        }
                     } else emptyList()
                 }
 
@@ -1294,8 +1314,10 @@ class MacroExecutionEngine(
                     )
 
                     if (trig.autoClickTarget) {
-                        val clickX = best.clickX + trig.clickOffset.x
-                        val clickY = best.clickY + trig.clickOffset.y
+                        val offX = if (trig.useCustomClick) trig.clickOffset.x else best.clickOffsetX
+                        val offY = if (trig.useCustomClick) trig.clickOffset.y else best.clickOffsetY
+                        val clickX = best.clickX + offX
+                        val clickY = best.clickY + offY
 
                         // Режим обучения ИИ в графе
                         if (isStepByStepDebug) {

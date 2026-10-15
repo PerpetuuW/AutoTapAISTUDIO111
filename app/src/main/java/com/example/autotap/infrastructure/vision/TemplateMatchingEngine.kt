@@ -538,10 +538,11 @@ class TemplateFeatures(
         for ((tPath, tBmp) in templates) {
             if (isCancelled() || tBmp.isRecycled) continue
 
-// [V12.2] Полная изоляция: каждый шаблон использует строго свои метаданные из JSON
+// [V12.2] Полная изоляция: в рантайме каждый шаблон использует свои метаданные из JSON, а в режиме калибровки (findAllMatches) — живой ползунок
             val features = extractFeatures(tBmp, tPath, tPath, defaultSim) ?: continue
-            val templateThreshold = features.individualThreshold.coerceIn(0.60f, 0.98f)
-            val isShapeDriven = (actionOverride?.isShapeOnlyMode == true) || features.isShapeOnlyFromMeta
+            val rawThreshold = if (findAllMatches) (defaultSim / 100f) else features.individualThreshold
+            val templateThreshold = rawThreshold.coerceIn(0.60f, 0.98f)
+            val isShapeDriven = if (findAllMatches && actionOverride != null) actionOverride.isShapeOnlyMode else ((actionOverride?.isShapeOnlyMode == true) || features.isShapeOnlyFromMeta)
 
             val scanLimitX = (roiMaxX - features.tw).coerceAtLeast(roiMinX)
             val scanLimitY = (roiMaxY - features.th).coerceAtLeast(roiMinY)
@@ -756,8 +757,8 @@ class TemplateFeatures(
                 }
             }
             val coarseStep = maxOf(gridStepX, gridStepY)
-
-            val sampleStride = 1
+            val effectiveDownscale = override?.downscaleFactor?.takeIf { it in 1..4 } ?: features.optimalDownscaleFactorFromMeta
+            val sampleStride = if (isSmall) 1 else (effectiveDownscale / 2).coerceIn(1, 2)
 
             for (pt in scanPoints) {
                 if (isCancelled()) break
