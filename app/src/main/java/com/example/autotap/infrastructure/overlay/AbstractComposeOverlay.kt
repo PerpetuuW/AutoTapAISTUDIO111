@@ -6,15 +6,12 @@ import android.view.Gravity
 import android.view.WindowManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Recomposer
-import androidx.compose.ui.platform.AndroidUiDispatcher
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.compositionContext
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 
 /**
  * Базовый класс для всех оверлеев, переписанных на Jetpack Compose.
@@ -34,6 +31,7 @@ abstract class AbstractComposeOverlay(
      */
     protected fun createComposeView(content: @Composable () -> Unit): ComposeView {
         val view = ComposeView(context).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
             setContent(content)
         }
 
@@ -43,14 +41,6 @@ abstract class AbstractComposeOverlay(
         view.setViewTreeLifecycleOwner(owner)
         view.setViewTreeViewModelStoreOwner(owner)
         view.setViewTreeSavedStateRegistryOwner(owner)
-
-        val coroutineContext = AndroidUiDispatcher.CurrentThread
-        val recomposer = Recomposer(coroutineContext)
-        view.compositionContext = recomposer
-
-        CoroutineScope(coroutineContext).launch {
-            recomposer.runRecomposeAndApplyChanges()
-        }
 
         owner.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         owner.handleLifecycleEvent(Lifecycle.Event.ON_START)

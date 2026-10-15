@@ -1,22 +1,22 @@
-# Root-Cause Fix for Running Badge Drag & Stop Button, plus Inspector Module
+# Fix Control Panel Overflow (Visible Top-Right Close Button) & Compose Performance Optimization
 
-## Root-Cause Analysis
-1. **Stop & Lock Button Click Bug**: In `RunningBadgeComposeOverlay.kt`, the Stop (`onStopClick`) and Lock (`onLockClick`) buttons were bound using `pointerInput` -> `detectDragGestures(onDragEnd = ...)` instead of `.clickable { ... }`. Simple taps/clicks did not trigger `onDragEnd`, causing the Stop button to fail.
-2. **Overlay Drag Reset Bug**: `getLayoutParams()` in `RunningBadgeComposeOverlay.kt` was hardcoding default coordinates on every call instead of maintaining `posX` and `posY` state variables. Any drag attempt immediately snapped back to the hardcoded default coordinates.
-3. **Inspector Test Module**: A new python inspector script (`1AInspector/check_running_badge_compose_and_stop_button.py`) will be created to enforce these invariants automatically.
+## Problem
+1. **Close Button Off-Screen Overflow**: Main row buttons in `ControlPanelComposeOverlay.kt` were set to `42.dp` size with `8.dp` spacing across 8 buttons, resulting in a total width of `392.dp`. This exceeded the screen width of portrait devices (~360.dp), causing the 8th button (`CLOSE` / `X`) to be pushed off-screen to the right, leaving the Eye button at the visible edge.
+2. **Compose Performance Stutters (Lag)**:
+   - `AbstractComposeOverlay.kt` was running a manual `Recomposer` loop on `AndroidUiDispatcher.CurrentThread` instead of using `ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool`.
+   - `VectorIconButton` was allocating new `RectF` objects inside `Canvas { ... }` on every draw frame, causing GC stutters.
 
 ## Proposed Changes
 
-### RunningBadgeComposeOverlay.kt
-- [MODIFY] [RunningBadgeComposeOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/badge/RunningBadgeComposeOverlay.kt)
-  - Maintain `posX` and `posY` state variables and update them in `getLayoutParams()`.
-  - Fix window drag listener in `BadgeCard` to update `posX` and `posY` and invoke `overlayWindowManager.updateViewSafe`.
-  - Replace `pointerInput(Unit) { detectDragGestures }` on Lock and Stop buttons with `.clip(CircleShape).clickable { onLockClick() }` and `.clip(CircleShape).clickable { onStopClick() }`.
+### ControlPanelComposeOverlay.kt
+- [MODIFY] [ControlPanelComposeOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt)
+  - Reduce main row button size from `42.dp` to `34.dp` with `4.dp` spacing. Total width becomes `300.dp`, ensuring all 8 buttons fit on the screen and the `CLOSE` (`X`) button is **100% visible at the top-right corner**.
+  - Update `getTutorialRect` column mappings for `34.dp` size.
+  - Optimize `VectorIconButton` to use `remember { RectF() }`, eliminating allocation during rendering.
 
-### 1AInspector/check_running_badge_compose_and_stop_button.py
-- [NEW] Create `1AInspector/check_running_badge_compose_and_stop_button.py` to test and verify that:
-  - `RunningBadgeComposeOverlay.kt` exists and uses `posX` / `posY`.
-  - Lock and Stop buttons use `.clickable`.
+### AbstractComposeOverlay.kt
+- [MODIFY] [AbstractComposeOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/AbstractComposeOverlay.kt)
+  - Configure `setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)` on `ComposeView` and remove manual `Recomposer` loop for native, zero-lag composition.
 
 ## Verification Plan
 
@@ -25,6 +25,5 @@
 - Run all 175 1AInspector scripts.
 
 ### Manual Verification
-- Open Running Badge overlay during execution:
-  - Tap Stop button: verify macro stops immediately.
-  - Drag the Running Badge card across the screen: verify smooth dragging without snapping back.
+- Open Control Panel: verify all 8 buttons fit on a single row and the red CLOSE (`X`) button is clearly visible at the top-right.
+- Drag the panel and interact with buttons: verify zero lag and smooth 60 FPS performance.

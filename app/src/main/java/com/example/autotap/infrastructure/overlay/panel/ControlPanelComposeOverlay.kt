@@ -72,10 +72,10 @@ class ControlPanelComposeOverlay(
     }
 
     fun getTutorialRect(tagKey: String): android.graphics.Rect? {
-        val btnW = dp(42)
-        val btnH = dp(42)
+        val btnW = dp(34)
+        val btnH = dp(34)
         val pad = dp(8)
-        val margin = dp(8)
+        val margin = dp(4)
 
         val colIndex = when (tagKey) {
             "BTN_PLAY_VIEW" -> 0
@@ -109,7 +109,7 @@ class ControlPanelComposeOverlay(
             return android.graphics.Rect(left, top, left + btnW, top + btnH)
         }
 
-        return android.graphics.Rect(posX, posY, posX + dp(380), posY + dp(90))
+        return android.graphics.Rect(posX, posY, posX + dp(310), posY + dp(85))
     }
 
     fun updateVisibilityMode(mode: OverlayVisibilityMode) {
@@ -564,6 +564,7 @@ class ControlPanelComposeOverlay(
         onLongClick: (() -> Unit)? = null,
         onClick: () -> Unit
     ) {
+        val bounds = remember(size) { RectF() }
         Box(
             modifier = Modifier
                 .size(size)
@@ -583,7 +584,7 @@ class ControlPanelComposeOverlay(
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val padding = size.toPx() * 0.25f
-                val bounds = RectF(padding, padding, size.toPx() - padding, size.toPx() - padding)
+                bounds.set(padding, padding, size.toPx() - padding, size.toPx() - padding)
                 drawIntoCanvas { canvas ->
                     VectorIconDrawer.drawIcon(
                         canvas.nativeCanvas,
