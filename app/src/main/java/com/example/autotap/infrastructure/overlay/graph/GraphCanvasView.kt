@@ -322,8 +322,6 @@ class GraphCanvasView(context: Context) : View(context) {
     private val cachedHeadRect = RectF()
     private val cachedTargetFitRect = RectF()
     private val thumbnailCache = HashMap<String, android.graphics.Bitmap>()
-    private val thumbnailCache = HashMap<String, android.graphics.Bitmap>()
-    private val thumbnailCache = HashMap<String, android.graphics.Bitmap>()
 
     private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
         override fun onScale(detector: ScaleGestureDetector): Boolean {

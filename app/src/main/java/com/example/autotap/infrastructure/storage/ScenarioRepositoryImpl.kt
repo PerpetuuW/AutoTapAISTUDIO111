@@ -296,8 +296,6 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                         colorDeltaEMode = obj.optBoolean("colorDeltaEMode", false),
                         isShapeOnlyMode = obj.optBoolean("isShapeOnlyMode", false),
                         isNeuralEngine = obj.optBoolean("isNeuralEngine", false),
-                        isNeuralEngine = obj.optBoolean("isNeuralEngine", false),
-                        isNeuralEngine = obj.optBoolean("isNeuralEngine", false),
                         shapeExpansion = obj.optInt("shapeExpansion", 45),
                         paddingOffsetPx = obj.optInt("paddingOffsetPx", 2),
                         isCircleShape = obj.optBoolean("isCircleShape", false),
