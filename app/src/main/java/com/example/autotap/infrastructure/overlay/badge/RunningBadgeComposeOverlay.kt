@@ -37,6 +37,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import com.example.autotap.infrastructure.overlay.ui.VectorIconDrawer
@@ -167,18 +171,24 @@ class RunningBadgeComposeOverlay(
 
     @Composable
     private fun BadgeCard(state: BadgeState) {
+        var lastDragTime by remember { mutableLongStateOf(0L) }
+
         Box(
             modifier = Modifier
                 .padding(6.dp)
                 .pointerInput(Unit) {
                     detectDragGestures { change, dragAmount ->
                         change.consume()
-                        val maxX = (dm.widthPixels - dp(90)).coerceAtLeast(dp(6))
-                        posX = (posX + dragAmount.x.toInt()).coerceIn(dp(6), maxX)
-                        posY = (posY + dragAmount.y.toInt()).coerceIn(dp(20), dm.heightPixels - dp(80))
+                        val now = System.currentTimeMillis()
+                        if (now - lastDragTime >= 16L) {
+                            lastDragTime = now
+                            val maxX = (dm.widthPixels - dp(90)).coerceAtLeast(dp(6))
+                            posX = (posX + dragAmount.x.toInt()).coerceIn(dp(6), maxX)
+                            posY = (posY + dragAmount.y.toInt()).coerceIn(dp(20), dm.heightPixels - dp(80))
 
-                        val params = getLayoutParams()
-                        composeView?.let { overlayWindowManager.updateViewSafe(it, params) }
+                            val params = getLayoutParams()
+                            composeView?.let { overlayWindowManager.updateViewSafe(it, params) }
+                        }
                     }
                 }
                 .background(

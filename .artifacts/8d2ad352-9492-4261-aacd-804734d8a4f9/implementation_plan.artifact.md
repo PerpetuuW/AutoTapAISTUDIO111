@@ -1,22 +1,34 @@
-# Fix Control Panel Overflow (Visible Top-Right Close Button) & Compose Performance Optimization
+# Detailed Root Cause Analysis & Optimization Plan for Overlay Lag and Missing Close Button
 
-## Problem
-1. **Close Button Off-Screen Overflow**: Main row buttons in `ControlPanelComposeOverlay.kt` were set to `42.dp` size with `8.dp` spacing across 8 buttons, resulting in a total width of `392.dp`. This exceeded the screen width of portrait devices (~360.dp), causing the 8th button (`CLOSE` / `X`) to be pushed off-screen to the right, leaving the Eye button at the visible edge.
-2. **Compose Performance Stutters (Lag)**:
-   - `AbstractComposeOverlay.kt` was running a manual `Recomposer` loop on `AndroidUiDispatcher.CurrentThread` instead of using `ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool`.
-   - `VectorIconButton` was allocating new `RectF` objects inside `Canvas { ... }` on every draw frame, causing GC stutters.
+## 🔍 Root Cause Analysis
 
-## Proposed Changes
+### 1. Why the Close Button (`X`) Was Missing
+- In `ControlPanelComposeOverlay.kt`, the main row buttons were set to `42.dp` width with `8.dp` spacing across 8 buttons: `8 * 42dp + 7 * 8dp = 392dp` total width.
+- Standard Android phone screens in portrait mode have a width of `360dp` to `380dp`.
+- Because `392dp > 360dp`, the 8th button at the far right (**`CLOSE` / `X`**) was physically pushed outside the visible screen bounds beyond the right edge of the display, leaving the 6th/7th buttons (`Eye` / `Settings`) at the visible right edge.
 
-### ControlPanelComposeOverlay.kt
-- [MODIFY] [ControlPanelComposeOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt)
-  - Reduce main row button size from `42.dp` to `34.dp` with `4.dp` spacing. Total width becomes `300.dp`, ensuring all 8 buttons fit on the screen and the `CLOSE` (`X`) button is **100% visible at the top-right corner**.
-  - Update `getTutorialRect` column mappings for `34.dp` size.
-  - Optimize `VectorIconButton` to use `remember { RectF() }`, eliminating allocation during rendering.
+### 2. Why the Lag / Frame Stutters Occurred
+- **IPC WindowManager Throttling**: During overlay dragging, `detectDragGestures` invoked `overlayWindowManager.updateViewSafe(it, params)` on **every single touch pixel event** (120-240 times/sec). This flooded Android's system `WindowManagerService` via binder IPC calls, freezing the UI thread.
+- **Continuous 40ms Recomposition Loop**: `RunningBadgeComposeOverlay.kt` had a `while(true) { delay(40L); currentProgress = ... }` loop running on the main UI thread 25 times/sec, triggering continuous recomposition of the entire badge overlay.
+- **Unthrottled Recomposition Animations**: 5 simultaneous `animateColorAsState` / `animateFloatAsState` transitions in `ControlPanelComposeOverlay.kt` triggered full-tree recompositions during visibility and state changes.
 
-### AbstractComposeOverlay.kt
-- [MODIFY] [AbstractComposeOverlay.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/AbstractComposeOverlay.kt)
-  - Configure `setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)` on `ComposeView` and remove manual `Recomposer` loop for native, zero-lag composition.
+---
+
+## 🛠️ Proposed Solutions & Architectural Changes
+
+### 1. Fix Button Width & Layout in `ControlPanelComposeOverlay.kt`
+- Reduce main row button size from `42.dp` to `32.dp` and spacing from `8.dp` to `4.dp`. Total row width becomes `8 * 32dp + 7 * 4dp = 284dp`.
+- `284dp` fits comfortably on ALL phone displays (360dp+), ensuring the red **`CLOSE` (`X`) button is 100% visible at the top-right corner**.
+- Update `getTutorialRect` column index mapping for `32.dp` size.
+
+### 2. Drag Throttling & WindowManager Performance Fix
+- Throttle `updateViewSafe` calls during drag so window updates occur at most once every 16ms (60 FPS max), completely eliminating Binder IPC spam.
+- In `RunningBadgeComposeOverlay.kt`, update progress bar only when elapsed time changes meaningfully instead of spinning an unconditional 40ms main-thread delay loop.
+
+### 3. Memoized Vector Canvas Rendering
+- In `VectorIconButton`, memoize `RectF()` using `remember(size) { RectF() }` and pre-calculate color ARGB integers to eliminate object creation inside `Canvas` drawing scopes.
+
+---
 
 ## Verification Plan
 
@@ -25,5 +37,5 @@
 - Run all 175 1AInspector scripts.
 
 ### Manual Verification
-- Open Control Panel: verify all 8 buttons fit on a single row and the red CLOSE (`X`) button is clearly visible at the top-right.
-- Drag the panel and interact with buttons: verify zero lag and smooth 60 FPS performance.
+- Verify `CLOSE` (`X`) button is 100% visible on the main panel top-right corner.
+- Drag the control panel and running badge overlay: verify smooth 60 FPS movement without frame drops or lag.

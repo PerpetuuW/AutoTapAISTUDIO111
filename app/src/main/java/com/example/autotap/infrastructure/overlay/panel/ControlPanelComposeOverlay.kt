@@ -72,8 +72,8 @@ class ControlPanelComposeOverlay(
     }
 
     fun getTutorialRect(tagKey: String): android.graphics.Rect? {
-        val btnW = dp(34)
-        val btnH = dp(34)
+        val btnW = dp(32)
+        val btnH = dp(32)
         val pad = dp(8)
         val margin = dp(4)
 
@@ -109,7 +109,7 @@ class ControlPanelComposeOverlay(
             return android.graphics.Rect(left, top, left + btnW, top + btnH)
         }
 
-        return android.graphics.Rect(posX, posY, posX + dp(310), posY + dp(85))
+        return android.graphics.Rect(posX, posY, posX + dp(290), posY + dp(80))
     }
 
     fun updateVisibilityMode(mode: OverlayVisibilityMode) {
@@ -152,6 +152,7 @@ class ControlPanelComposeOverlay(
 
         var dragOffsetX by remember { mutableFloatStateOf(0f) }
         var dragOffsetY by remember { mutableFloatStateOf(0f) }
+        var lastDragUpdateTime by remember { mutableLongStateOf(0L) }
 
         val dragModifier = Modifier.pointerInput(Unit) {
             detectDragGestures(
@@ -161,21 +162,26 @@ class ControlPanelComposeOverlay(
                     dragOffsetX += dragAmount.x
                     dragOffsetY += dragAmount.y
 
-                    val params = getLayoutParams()
-                    params.x += dragOffsetX.toInt()
-                    params.y += dragOffsetY.toInt()
+                    val now = System.currentTimeMillis()
+                    if (now - lastDragUpdateTime >= 16L) {
+                        lastDragUpdateTime = now
 
-                    val maxX = (dm.widthPixels - dp(50)).coerceAtLeast(0)
-                    params.x = params.x.coerceIn(0, maxX)
-                    params.y = params.y.coerceIn(dp(20), dm.heightPixels - dp(80))
+                        val params = getLayoutParams()
+                        params.x += dragOffsetX.toInt()
+                        params.y += dragOffsetY.toInt()
 
-                    posX = params.x
-                    posY = params.y
+                        val maxX = (dm.widthPixels - dp(50)).coerceAtLeast(0)
+                        params.x = params.x.coerceIn(0, maxX)
+                        params.y = params.y.coerceIn(dp(20), dm.heightPixels - dp(80))
 
-                    panelView?.let { overlayWindowManager.updateViewSafe(it, params) }
-                    
-                    dragOffsetX = 0f
-                    dragOffsetY = 0f
+                        posX = params.x
+                        posY = params.y
+
+                        panelView?.let { overlayWindowManager.updateViewSafe(it, params) }
+
+                        dragOffsetX = 0f
+                        dragOffsetY = 0f
+                    }
                 }
             )
         }
