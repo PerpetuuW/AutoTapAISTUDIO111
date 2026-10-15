@@ -76,6 +76,12 @@ class MacroExecutionEngine(
 
     override val isDebugRunning: Boolean get() = isStepByStepDebug
 
+    private fun isScreenInteractive(): Boolean {
+        val ctx = accessibilityServiceProvider()?.applicationContext ?: return true
+        val pm = ctx.getSystemService(android.content.Context.POWER_SERVICE) as? android.os.PowerManager
+        return pm?.isInteractive ?: true
+    }
+
     @Volatile
     private var isPaused = false
 
@@ -102,6 +108,11 @@ class MacroExecutionEngine(
 
             try {
                 while (isActive) {
+                    if (!isScreenInteractive()) {
+                        AppLogger.log(null, "MACRO_ENGINE", "Экран выключен — остановка сценария")
+                        stop()
+                        break
+                    }
                     if (currentIndex >= activeActionsList.size || currentIndex < 0) {
                         currentIndex = 0
                     }
@@ -254,6 +265,10 @@ class MacroExecutionEngine(
                                                         )
 
                                                         while (isActive && (isInfinite || (System.currentTimeMillis() - pollStartTime < timeoutMs))) {
+                                                            if (!isScreenInteractive()) {
+                                                                stop()
+                                                                break
+                                                            }
                                                             val elapsed = System.currentTimeMillis() - pollStartTime
                                                             val progressRatio = if (isInfinite) 0f else (elapsed.toFloat() / timeoutMs.toFloat()).coerceIn(0f, 1f)
 
@@ -894,6 +909,11 @@ class MacroExecutionEngine(
 
             try {
                 while (isActive) {
+                    if (!isScreenInteractive()) {
+                        AppLogger.log(null, "GRAPH_ENGINE", "Экран выключен — остановка выполнения графа")
+                        stop()
+                        break
+                    }
                     val currentNode = scenario.nodes[activeNodeId] ?: break
 
                     if (isStepByStepDebug) {
@@ -1204,8 +1224,6 @@ class MacroExecutionEngine(
                         roiRight = rRight,
                         roiBottom = rBottom
                     )
-                    val stepTemplatesList = stepTemplates.map { Pair(it.key, it.value) }
-                    val stepTemplatesList = stepTemplates.map { Pair(it.key, it.value) }
                     val stepTemplatesList = stepTemplates.map { Pair(it.key, it.value) }
                     return if (sPixels != null) {
                         if (stepTemplatesList.size > 1) {

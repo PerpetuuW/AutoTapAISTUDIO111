@@ -133,6 +133,15 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         MacroExecutionEngine(fallbackGestureGateway, visionGateway, safetyGovernor, scenarioRepository, templateRepository) { AutoTapAccessibilityService.instance }
     }
 
+    val screenOffMonitor by lazy {
+        ScreenOffStopMonitor(appContext) {
+            if (macroEngine.executionState.value is ExecutionState.Running) {
+                AppLogger.log(appContext, "ORCHESTRATOR", "Экран выключен (ACTION_SCREEN_OFF) — отмена воспроизведения макроса")
+                macroEngine.stop()
+            }
+        }
+    }
+
     private var activeEditDialog: EditActionDialog? = null
 
     init {
@@ -1488,6 +1497,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
 
                 is ExecutionState.Running -> {
                     wasExecutingBeforeStop = true
+                    screenOffMonitor.startMonitoring()
                     controlPanelOverlay.hide(); targetManager.setTargetsTouchable(false); targetManager.setOverlaysVisible(false)
 
                     if (state.isDebugPaused) {
@@ -1505,6 +1515,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 is ExecutionState.Completed -> {
                     val wasRunning = wasExecutingBeforeStop
                     wasExecutingBeforeStop = false
+                    screenOffMonitor.stopMonitoring()
                     runningBadgeOverlay.dismiss(); debuggerToolbarOverlay.dismiss(); screenLockOverlay.dismiss()
                     controlPanelOverlay.show(); controlPanelOverlay.setPlayState(false); targetManager.setOverlaysVisible(true); targetManager.setTargetsTouchable(true)
                     val currentActions = targetManager.getActions()
@@ -1517,11 +1528,13 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 ExecutionState.Idle, is ExecutionState.Error -> {
                     val wasRunning = wasExecutingBeforeStop
                     wasExecutingBeforeStop = false
+                    screenOffMonitor.stopMonitoring()
                     runningBadgeOverlay.dismiss(); debuggerToolbarOverlay.dismiss(); screenLockOverlay.dismiss()
                     controlPanelOverlay.show(); controlPanelOverlay.setPlayState(false); targetManager.setOverlaysVisible(true); targetManager.setTargetsTouchable(true)
                 }
 
                 is ExecutionState.Paused -> {
+                    screenOffMonitor.stopMonitoring()
                     controlPanelOverlay.show(); controlPanelOverlay.setPlayState(false); targetManager.setOverlaysVisible(true); targetManager.setTargetsTouchable(true)
                 }
             }

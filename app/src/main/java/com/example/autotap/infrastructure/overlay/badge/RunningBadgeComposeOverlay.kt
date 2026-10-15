@@ -77,7 +77,8 @@ class RunningBadgeComposeOverlay(
 
     private val dm = context.resources.displayMetrics
     private fun dp(v: Int): Int = (v * dm.density).toInt()
-    
+    private val legacyBadge by lazy { RunningBadgeOverlay(context, overlayWindowManager) }
+
     // MVI StateFlow
     private val overlayState = MutableStateFlow(BadgeState())
 
@@ -103,15 +104,28 @@ class RunningBadgeComposeOverlay(
         return params
     }
 
+    override fun show() {
+        legacyBadge.show(onLockClick, onStopClick)
+    }
+
+    override fun dismiss() {
+        legacyBadge.dismiss()
+        super.dismiss()
+    }
+
     fun setTemporarilyTransparent(transparent: Boolean) {
+        legacyBadge.setTemporarilyTransparent(transparent)
         overlayState.update { it.copy(isTransparent = transparent) }
     }
 
     fun forceVisible() {
+        legacyBadge.forceVisible()
         overlayState.update { it.copy(isVisible = true, isTransparent = false) }
     }
 
     fun updateState(state: ExecutionState.Running) {
+        legacyBadge.updateState(state)
+        if (true) return
         val repeatStr = if (state.totalRepeats > 1) " (${state.currentRepeat}/${state.totalRepeats})" else ""
         val header = "ШАГ ${state.currentStepIndex}/${state.totalSteps}$repeatStr"
 

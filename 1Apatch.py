@@ -1,32 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-1Apatch.py — Комплексный транзакционный патч ветки 1Gemini (AutoTap v34.9)
-Устраняет:
-1. Все провалы 1AInspector (4 шт.) и блокировки CI Pre-Flight Gate (G-02 !!).
-2. Фризы, подтормаживания и краши после перехода на Jetpack Compose (AbstractComposeOverlay, ControlPanelComposeOverlay, RunningBadgeComposeOverlay):
-   - Защита от краша IllegalStateException (handleLifecycleEvent must be called on the main thread) и корректный порядок привязки ViewTreeLifecycleOwner ДО setContent в AbstractComposeOverlay;
-   - Устранение 80 мс холодного перезапуска Recomposer при каждом hide()/show() пульта (перевод hide() на мгновенное скрытие View.GONE без разрушения ComposeView);
-   - Устранение шторма из 600 IPC-вызовов WindowManager.updateViewLayout и декодирования PNG с диска на главном потоке в секунду во время ExecutionState.Running (AutoTapOrchestrator, TargetOverlayManager);
-   - Отключение бесконечного 25 FPS цикла перекомпозиции и 300 мс задержки fadeOut() в RunningBadgeComposeOverlay, удаление 7 лишних корутин animateColorAsState в ControlPanelComposeOverlay.
-3. Ошибки калибровки и поиска:
-   - Сдвиг координат (baseAnchorX/baseAnchorY) и коллизию кэша в SmartMaskEngine.autoOptimizeGlyphSegmentationFast;
-   - Пространственный рассинхрон кропа raw_*.png и mask_*.png при сохранении шаблона в CalibrationOverlay;
-   - Перезапись центральных координат calibratedX/Y левым верхним углом rectLeft/rectTop в MacroExecutionEngine;
-   - Блокировку интерактивного ползунка порога и режима формы старыми JSON-метаданными при перекалибровке в TemplateMatchingEngine;
-   - Подключение каскадного шага sampleStride от optimalDownscaleFactor в TemplateMatchingEngine.
-4. Ошибки эргономики и UI:
-   - Неработающую кнопку сворачивания карточки (calibrationContentLayout) в CalibrationOverlay;
-   - Центрирование новой зоны "+ ROI ЗОНА" и обновление превью "ЭКРАН 1:1" при выборе альтернативного кандидата в CalibrationOverlay;
-   - Коллизию повторного addView(inputLayout) и жесткую обрезку .take() в EditActionDialog;
-   - Пропущенные кнопки ГРАФ, ОТЛАДКА, ЛОГИ в нижнем ряду ControlPanelComposeOverlay и плавность перетаскивания RunningBadgeComposeOverlay;
-   - Возврат видимости оверлеев и освобождение памяти cropped Bitmap в AutoTapOrchestrator.startScreenTextOcrSelection.
-5. Ошибки архитектуры и выполнения графов:
-   - Несовпадение ID портов ("timeout" вместо "out_timeout", "out_match" вместо "out_match_trig_...") и шаблонов узлов в Wire-to-Empty (GraphEditorOverlay);
-   - Смещение хитбокса входного порта (headerHeight вместо headerHeight / 2f), декодирование PNG с диска в onDraw (60 FPS) и синхронизацию entryNodeId при перепривязке узла СТАРТ в GraphCanvasView;
-   - Залипание степпера итераций цикла (+/-) и отсутствие сохранения при удалении узла/перемещении связей в GraphEditorOverlay;
-   - Потерю TriggerBehavior (WAIT_DISAPPEAR и др.), targetOccurrenceIndex и isNeuralEngine при сериализации в ScenarioRepositoryImpl;
-   - Игнорирование multiTemplatePaths (мультишаблонов) и флага useCustomClick внутри триггеров графа в MacroExecutionEngine.evaluateSingleGraphTrigger.
+1Apatch.py — Комплексный транзакционный патч ветки 1Gemini (AutoTap v34.9).
+Единый UI-движок оверлеев: KOTLIN VIEW TURBO (классический нативный движок View + Canvas:
+ControlPanelOverlay + RunningBadgeOverlay — максимальная легкость, нулевой оверхед и мгновенный отклик).
 """
 
 import os
@@ -45,14 +22,12 @@ from patch_engine import (
 from git_sync import execute_auto_git_sync
 
 print("=" * 80)
-print("[MODE: 1APATCH — FULL 1GEMINI BRANCH AUDIT FIX & COMPOSE TURBO OPTIMIZATION]")
+print("[MODE: 1APATCH — KOTLIN VIEW TURBO ONLY + FULL 1GEMINI AUDIT FIX]")
 print("=" * 80)
 
 diffs = [
     # 1. AbstractComposeOverlay.kt:
-    # - Гарантированное выполнение LifecycleRegistry и ComposeView строго на Main Thread (устранение крашей IllegalStateException)
-    # - Привязка ViewTreeLifecycleOwner/SavedStateRegistryOwner ДО вызова setContent
-    # - Мгновенный режим hide()/show() через View.GONE / View.VISIBLE без пересоздания Recomposer и окна WindowManager
+    # - Защита жизненного цикла и главного потока на случай вызова базовых методов
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/AbstractComposeOverlay.kt"),
         r"""    protected var composeView: ComposeView? = null
@@ -1449,9 +1424,7 @@ diffs = [
     ),
 
     # 17. RunningBadgeComposeOverlay.kt:
-    # - Мгновенное скрытие без 300 мс fadeOut() (исключение попадания бейджа на скриншоты и лишних анимаций)
-    # - Остановка бесконечного 25 FPS цикла while(true) когда поиск не активен или прогресс завершен
-    # - Плавное перетаскивание и предвыделение RectF вне onDraw
+    # - Прямое делегирование всех операций нативному Kotlin View (RunningBadgeOverlay)
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/badge/RunningBadgeComposeOverlay.kt"),
         r"""import com.example.autotap.infrastructure.overlay.ui.VectorIconDrawer
@@ -1465,49 +1438,51 @@ import androidx.compose.ui.Alignment"""
     ),
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/badge/RunningBadgeComposeOverlay.kt"),
-        r"""        AnimatedVisibility(
-            visible = state.isVisible && effectiveAlpha > 0f,
-            enter = fadeIn(),
-            exit = fadeOut()
-        ) {
-            BadgeCard(state)
-        }""",
-        r"""        if (state.isVisible && effectiveAlpha > 0f) {
-            BadgeCard(state)
-        }"""
+        r"""    private val dm = context.resources.displayMetrics
+    private fun dp(v: Int): Int = (v * dm.density).toInt()
+    
+    // MVI StateFlow
+    private val overlayState = MutableStateFlow(BadgeState())""",
+        r"""    private val dm = context.resources.displayMetrics
+    private fun dp(v: Int): Int = (v * dm.density).toInt()
+    private val legacyBadge by lazy { RunningBadgeOverlay(context, overlayWindowManager) }
+
+    // MVI StateFlow
+    private val overlayState = MutableStateFlow(BadgeState())"""
     ),
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/badge/RunningBadgeComposeOverlay.kt"),
-        r"""                .pointerInput(Unit) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        val now = System.currentTimeMillis()
-                        if (now - lastDragTime >= 16L) {
-                            lastDragTime = now
-                            val maxX = (dm.widthPixels - dp(90)).coerceAtLeast(dp(6))
-                            posX = (posX + dragAmount.x.toInt()).coerceIn(dp(6), maxX)
-                            posY = (posY + dragAmount.y.toInt()).coerceIn(dp(20), dm.heightPixels - dp(80))
+        r"""    fun setTemporarilyTransparent(transparent: Boolean) {
+        overlayState.update { it.copy(isTransparent = transparent) }
+    }
 
-                            val params = getLayoutParams()
-                            composeView?.let { overlayWindowManager.updateViewSafe(it, params) }
-                        }
-                    }
-                }""",
-        r"""                .pointerInput(Unit) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        val maxX = (dm.widthPixels - dp(90)).coerceAtLeast(dp(6))
-                        posX = (posX + dragAmount.x.toInt()).coerceIn(dp(6), maxX)
-                        posY = (posY + dragAmount.y.toInt()).coerceIn(dp(20), dm.heightPixels - dp(80))
+    fun forceVisible() {
+        overlayState.update { it.copy(isVisible = true, isTransparent = false) }
+    }
 
-                        val now = System.currentTimeMillis()
-                        if (now - lastDragTime >= 16L) {
-                            lastDragTime = now
-                            val params = getLayoutParams()
-                            composeView?.let { overlayWindowManager.updateViewSafe(it, params) }
-                        }
-                    }
-                }"""
+    fun updateState(state: ExecutionState.Running) {""",
+        r"""    override fun show() {
+        legacyBadge.show(onLockClick, onStopClick)
+    }
+
+    override fun dismiss() {
+        legacyBadge.dismiss()
+        super.dismiss()
+    }
+
+    fun setTemporarilyTransparent(transparent: Boolean) {
+        legacyBadge.setTemporarilyTransparent(transparent)
+        overlayState.update { it.copy(isTransparent = transparent) }
+    }
+
+    fun forceVisible() {
+        legacyBadge.forceVisible()
+        overlayState.update { it.copy(isVisible = true, isTransparent = false) }
+    }
+
+    fun updateState(state: ExecutionState.Running) {
+        legacyBadge.updateState(state)
+        if (true) return"""
     ),
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/badge/RunningBadgeComposeOverlay.kt"),
@@ -1524,7 +1499,7 @@ import androidx.compose.ui.Alignment"""
                         delay(40L)
                     }
                 }""",
-        r"""                // Progress Bar (без холостого 25 FPS цикла при завершении или бесконечном поиске)
+        r"""                // Progress Bar
                 var currentProgress by remember { mutableIntStateOf(0) }
                 LaunchedEffect(state.searchStartTime, state.searchTimeoutMs, state.isSearchingMode, state.isInfiniteMode) {
                     if (state.isSearchingMode && state.isInfiniteMode) {
@@ -1542,9 +1517,33 @@ import androidx.compose.ui.Alignment"""
     ),
 
     # 18. ControlPanelComposeOverlay.kt:
-    # - Мгновенный hide() через super.hide() (View.GONE без уничтожения ComposeView)
-    # - Удаление 7 избыточных корутин animateColorAsState и animateFloatAsState
-    # - Восстановление кнопок ГРАФ, ОТЛАДКА, ЛОГИ в нижнем ряду и точных координат getTutorialRect
+    # - Прямое делегирование всех операций нативному Kotlin View (ControlPanelOverlay)
+    (
+        os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt"),
+        r"""    private val dm = context.resources.displayMetrics
+    private fun dp(v: Int): Int = (v * dm.density).toInt()
+
+    private val overlayState = MutableStateFlow(ControlPanelState())""",
+        r"""    private val dm = context.resources.displayMetrics
+    private fun dp(v: Int): Int = (v * dm.density).toInt()
+    @Suppress("DEPRECATION")
+    private val legacyOverlay by lazy { ControlPanelOverlay(context, overlayWindowManager, listener) }
+
+    private val overlayState = MutableStateFlow(ControlPanelState())"""
+    ),
+    (
+        os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt"),
+        r"""    fun getTutorialRect(tagKey: String): android.graphics.Rect? {
+        val btnW = dp(30)""",
+        r"""    fun getTutorialRect(tagKey: String): android.graphics.Rect? {
+        val v = legacyOverlay.containerView?.findViewWithTag<android.view.View>(tagKey)
+        if (v != null && v.isShown && v.width > 0 && v.height > 0) {
+            val loc = IntArray(2)
+            v.getLocationOnScreen(loc)
+            return android.graphics.Rect(loc[0], loc[1], loc[0] + v.width, loc[1] + v.height)
+        }
+        val btnW = dp(30)"""
+    ),
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt"),
         r"""        val subRowIndex = when (tagKey) {
@@ -1567,66 +1566,66 @@ import androidx.compose.ui.Alignment"""
     ),
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt"),
-        r"""    fun hide() {
+        r"""    fun updateVisibilityMode(mode: OverlayVisibilityMode) {
+        overlayState.update { it.copy(
+            visibilityMode = mode,
+            isNumbersHidden = (mode == OverlayVisibilityMode.HIDDEN)
+        ) }
+    }
+
+    fun updateNumbersHiddenState(isHidden: Boolean) {
+        updateVisibilityMode(if (isHidden) OverlayVisibilityMode.HIDDEN else OverlayVisibilityMode.FULL)
+    }
+
+    fun setPlayState(isPlaying: Boolean) {
+        overlayState.update { it.copy(isPlaying = isPlaying) }
+    }
+
+    fun applyDisplayMode(mode: PanelDisplayMode) {
+        overlayState.update { it.copy(mode = mode) }
+    }
+
+    fun hide() {
         dismiss()
-    }""",
-        r"""    override fun hide() {
-        super.hide()
-    }"""
-    ),
-    (
-        os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt"),
-        r"""        val globalAlpha by animateFloatAsState(
-            targetValue = if (state.visibilityMode == OverlayVisibilityMode.TRANSPARENT) 0.40f else 1.0f,
-            animationSpec = tween(200),
-            label = "alpha"
-        )""",
-        r"""        val globalAlpha = if (state.visibilityMode == OverlayVisibilityMode.TRANSPARENT) 0.40f else 1.0f"""
-    ),
-    (
-        os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt"),
-        r"""                // 6. Eye Toggle
-                val eyeBgStart = animateColorAsState(when(state.visibilityMode) {
-                    OverlayVisibilityMode.FULL -> Color(0xFF162032)
-                    OverlayVisibilityMode.TRANSPARENT -> Color(0xFF2E123D)
-                    OverlayVisibilityMode.HIDDEN -> Color(0xFF3B2606)
-                }, label = "eyeBgS").value
-                val eyeBgEnd = animateColorAsState(when(state.visibilityMode) {
-                    OverlayVisibilityMode.FULL -> Color(0xFF0F172A)
-                    OverlayVisibilityMode.TRANSPARENT -> Color(0xFF170924)
-                    OverlayVisibilityMode.HIDDEN -> Color(0xFFFBBF24)
-                }, label = "eyeBgE").value
-                val eyeStroke = animateColorAsState(when(state.visibilityMode) {
-                    OverlayVisibilityMode.FULL -> Color(0xFF38BDF8)
-                    OverlayVisibilityMode.TRANSPARENT -> Color(0xFFA78BFA)
-                    OverlayVisibilityMode.HIDDEN -> Color(0xFFF59E0B)
-                }, label = "eyeStr").value
-                val eyeIconColor = animateColorAsState(when(state.visibilityMode) {
-                    OverlayVisibilityMode.FULL -> Color(0xFF38BDF8)
-                    OverlayVisibilityMode.TRANSPARENT -> Color(0xFFA78BFA)
-                    OverlayVisibilityMode.HIDDEN -> Color(0xFFFBBF24)
-                }, label = "eyeIc").value""",
-        r"""                // 6. Eye Toggle (Zero-Allocation Direct Color Mapping)
-                val eyeBgStart = when (state.visibilityMode) {
-                    OverlayVisibilityMode.FULL -> Color(0xFF162032)
-                    OverlayVisibilityMode.TRANSPARENT -> Color(0xFF2E123D)
-                    OverlayVisibilityMode.HIDDEN -> Color(0xFF3B2606)
-                }
-                val eyeBgEnd = when (state.visibilityMode) {
-                    OverlayVisibilityMode.FULL -> Color(0xFF0F172A)
-                    OverlayVisibilityMode.TRANSPARENT -> Color(0xFF170924)
-                    OverlayVisibilityMode.HIDDEN -> Color(0xFF1F1403)
-                }
-                val eyeStroke = when (state.visibilityMode) {
-                    OverlayVisibilityMode.FULL -> Color(0xFF38BDF8)
-                    OverlayVisibilityMode.TRANSPARENT -> Color(0xFFA78BFA)
-                    OverlayVisibilityMode.HIDDEN -> Color(0xFFF59E0B)
-                }
-                val eyeIconColor = when (state.visibilityMode) {
-                    OverlayVisibilityMode.FULL -> Color(0xFF38BDF8)
-                    OverlayVisibilityMode.TRANSPARENT -> Color(0xFFA78BFA)
-                    OverlayVisibilityMode.HIDDEN -> Color(0xFFFBBF24)
-                }"""
+    }
+
+    val containerView: android.view.View? get() = super.composeView""",
+        r"""    override fun show() {
+        legacyOverlay.show()
+    }
+
+    override fun hide() {
+        legacyOverlay.hide()
+    }
+
+    override fun dismiss() {
+        legacyOverlay.hide()
+        super.dismiss()
+    }
+
+    fun updateVisibilityMode(mode: OverlayVisibilityMode) {
+        legacyOverlay.updateVisibilityMode(mode)
+        overlayState.update { it.copy(
+            visibilityMode = mode,
+            isNumbersHidden = (mode == OverlayVisibilityMode.HIDDEN)
+        ) }
+    }
+
+    fun updateNumbersHiddenState(isHidden: Boolean) {
+        updateVisibilityMode(if (isHidden) OverlayVisibilityMode.HIDDEN else OverlayVisibilityMode.FULL)
+    }
+
+    fun setPlayState(isPlaying: Boolean) {
+        legacyOverlay.setPlayState(isPlaying)
+        overlayState.update { it.copy(isPlaying = isPlaying) }
+    }
+
+    fun applyDisplayMode(mode: PanelDisplayMode) {
+        legacyOverlay.applyDisplayMode(mode)
+        overlayState.update { it.copy(mode = mode) }
+    }
+
+    val containerView: android.view.View? get() = legacyOverlay.containerView"""
     ),
     (
         os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt"),
@@ -1694,7 +1693,6 @@ import androidx.compose.ui.Alignment"""
                     modifier = Modifier.padding(top = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 1. GRAPH EDITOR
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.GRAPH_TREE,
                         size = 30.dp,
@@ -1706,8 +1704,6 @@ import androidx.compose.ui.Alignment"""
                         listener.onGraphClicked()
                     }
                     Spacer(modifier = Modifier.width(4.dp))
-
-                    // 2. STEP DEBUGGER
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.PLAY,
                         size = 30.dp,
@@ -1719,8 +1715,6 @@ import androidx.compose.ui.Alignment"""
                         listener.onPlayLongClicked()
                     }
                     Spacer(modifier = Modifier.width(4.dp))
-
-                    // 3. SCRIPTS MANAGER
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.SCRIPTS,
                         size = 30.dp,
@@ -1732,8 +1726,6 @@ import androidx.compose.ui.Alignment"""
                         listener.onScriptsClicked()
                     }
                     Spacer(modifier = Modifier.width(4.dp))
-
-                    // 4. LOCK
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.LOCK,
                         size = 30.dp,
@@ -1745,8 +1737,6 @@ import androidx.compose.ui.Alignment"""
                         listener.onScreenLockClicked()
                     }
                     Spacer(modifier = Modifier.width(4.dp))
-
-                    // 5. CLEAR ALL
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.CLEAR,
                         size = 30.dp,
@@ -1758,8 +1748,6 @@ import androidx.compose.ui.Alignment"""
                         listener.onClearAllClicked()
                     }
                     Spacer(modifier = Modifier.width(4.dp))
-
-                    // 6. LOGS
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.LOGS,
                         size = 30.dp,
@@ -1771,8 +1759,6 @@ import androidx.compose.ui.Alignment"""
                         listener.onLogsClicked()
                     }
                     Spacer(modifier = Modifier.width(4.dp))
-
-                    // 7. HELP / TUTORIAL
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.HELP,
                         size = 30.dp,
@@ -1785,19 +1771,6 @@ import androidx.compose.ui.Alignment"""
                     }
                 }
             }"""
-    ),
-    (
-        os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt"),
-        r"""    @Composable
-    private fun PlayPauseButton(isPlaying: Boolean, size: Dp, onClick: () -> Unit, onLongClick: () -> Unit = {}) {
-        val bgStart = animateColorAsState(if (isPlaying) Color(0xFF3A1016) else Color(0xFF0D2E1E), label = "pbgS").value
-        val bgEnd = animateColorAsState(if (isPlaying) Color(0xFF1C080F) else Color(0xFF061A10), label = "pbgE").value
-        val stroke = animateColorAsState(if (isPlaying) Color(0xFFF43F5E) else Color(0xFF34D399), label = "pStr").value""",
-        r"""    @Composable
-    private fun PlayPauseButton(isPlaying: Boolean, size: Dp, onClick: () -> Unit, onLongClick: () -> Unit = {}) {
-        val bgStart = if (isPlaying) Color(0xFF3A1016) else Color(0xFF0D2E1E)
-        val bgEnd = if (isPlaying) Color(0xFF1C080F) else Color(0xFF061A10)
-        val stroke = if (isPlaying) Color(0xFFF43F5E) else Color(0xFF34D399)"""
     ),
 
     # 19. TargetOverlayManager.kt:
@@ -2141,12 +2114,13 @@ def run_check(root_dir: str) -> tuple[bool, str]:
     mee_p = os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/engine/MacroExecutionEngine.kt")
     mps_p = os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/projection/MediaProjectionService.kt")
     cp_p = os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/panel/ControlPanelComposeOverlay.kt")
+    rb_p = os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/badge/RunningBadgeComposeOverlay.kt")
     cal_p = os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/capture/CalibrationOverlay.kt")
     ge_p = os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/graph/GraphEditorOverlay.kt")
     sr_p = os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/storage/ScenarioRepositoryImpl.kt")
     aco_p = os.path.join(root_dir, "app/src/main/java/com/example/autotap/infrastructure/overlay/AbstractComposeOverlay.kt")
 
-    for p in (mee_p, mps_p, cp_p, cal_p, ge_p, sr_p, aco_p):
+    for p in (mee_p, mps_p, cp_p, rb_p, cal_p, ge_p, sr_p, aco_p):
         if not os.path.exists(p):
             return False, f"[CRITICAL] Файл не найден: {p}"
 
@@ -2166,8 +2140,13 @@ def run_check(root_dir: str) -> tuple[bool, str]:
 
     with open(cp_p, "r", encoding="utf-8") as f:
         cp_src = f.read()
-    if "listener.onGraphClicked()" not in cp_src or "listener.onLogsClicked()" not in cp_src:
-        return False, "[FAIL] В ControlPanelComposeOverlay.kt отсутствуют кнопки вызова Графа или Журнала логов"
+    if "legacyOverlay.show()" not in cp_src or "PREF_NATIVE_VIEW_OVERLAYS" in cp_src:
+        return False, "[FAIL] В ControlPanelComposeOverlay.kt не закреплен чистый режим Kotlin View (ControlPanelOverlay)"
+
+    with open(rb_p, "r", encoding="utf-8") as f:
+        rb_src = f.read()
+    if "legacyBadge.show(" not in rb_src or "PREF_NATIVE_VIEW_OVERLAYS" in rb_src:
+        return False, "[FAIL] В RunningBadgeComposeOverlay.kt не закреплен чистый режим Kotlin View (RunningBadgeOverlay)"
 
     with open(cal_p, "r", encoding="utf-8") as f:
         cal_src = f.read()
@@ -2189,7 +2168,7 @@ def run_check(root_dir: str) -> tuple[bool, str]:
     if "runOnMainSyncOrPost" not in aco_src:
         return False, "[FAIL] В AbstractComposeOverlay.kt отсутствует защита главного потока runOnMainSyncOrPost"
 
-    return True, "[PASS] Все исправления аудита ветки 1Gemini (Compose Turbo, поиск, калибровка, эргономика, графы и Null-Safety) активны."
+    return True, "[PASS] Все исправления аудита ветки 1Gemini и чистый нативный движок KOTLIN VIEW активны."
 
 if __name__ == "__main__":
     passed, msg = run_check(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -2200,18 +2179,17 @@ if __name__ == "__main__":
     record_defect_canonical(
         root_dir,
         "DEFECT_BRANCH_1GEMINI_AUDIT_SUITE",
-        "Комплексное исправление поиска, калибровки, эргономики, графов и оптимизация Compose-оверлеев ветки 1Gemini",
+        "Комплексное исправление поиска, калибровки, эргономики, графов и закрепление нативного движка KOTLIN VIEW в ветке 1Gemini",
         "MacroExecutionEngine.kt",
         "check_branch_1gemini_full_audit_integrity.py"
     )
     append_audit_log(
         root_dir,
         is_feature=False,
-        title="Углубленный аудит и оптимизация Compose-оверлеев, поиска, калибровки, эргономики и графов (1Gemini)",
+        title="Нативный движок оверлеев KOTLIN VIEW и углубленная оптимизация (1Gemini)",
         details=(
-            "- Compose Turbo & Защита от крашей: добавлен runOnMainSyncOrPost и корректный порядок setViewTreeLifecycleOwner до setContent в AbstractComposeOverlay, переведен hide() на мгновенный View.GONE без разрушения Recomposer, устранен 60 FPS спам WindowManager.updateViewLayout и BitmapFactory.decodeFile во время ExecutionState.Running.\n"
-            "- Поиск и калибровка: исправлены координаты baseAnchorX/Y и коллизия кэша в SmartMaskEngine, синхронизирован кроп raw_*.png с mask_*.png, исправлена запись центра calibratedX/Y (clickX/clickY), разблокирован живой ползунок порога при перекалибровке и подключен sampleStride от downscaleFactor.\n"
-            "- Эргономика и Графы: подключено сворачивание карточки calibrationContentLayout, исправлены порты out_timeout/out_match_trig в Wire-to-Empty, хитбокс входного порта (headerHeight/2f), кэширование превью в GraphCanvasView.onDraw, степпер цикла (+/-), сериализация TriggerBehavior и мультишаблоны в evaluateSingleGraphTrigger."
+            "- Чистый Kotlin View UI: оверлеи панели управления и плашки статуса переведены строго на нативный классический движок (ControlPanelOverlay + RunningBadgeOverlay), устранен 60 FPS спам WindowManager.updateViewLayout и BitmapFactory.decodeFile во время ExecutionState.Running.\n"
+            "- Поиск, калибровка и графы: исправлены координаты baseAnchorX/Y и коллизия кэша в SmartMaskEngine, синхронизирован кроп raw_*.png с mask_*.png, исправлена запись центра calibratedX/Y (clickX/clickY), разблокирован живой ползунок порога при перекалибровке, подключено сворачивание карточки calibrationContentLayout, исправлены порты out_timeout/out_match_trig, сериализация TriggerBehavior и мультишаблоны в графах."
         )
     )
 
@@ -2225,7 +2203,7 @@ if __name__ == "__main__":
         subprocess.run([sys.executable, gate_script, "."], cwd=root_dir, check=False)
 
     # Авто-коммит и пуш в ветку 1Gemini + запуск 1Abuild.py при наличии окружения сборки
-    commit_msg = "fix(1Gemini): optimize Compose overlays, search & calibration, UI ergonomics, and graph execution"
+    commit_msg = "fix(1Gemini): enforce pure Kotlin View overlays & apply full audit fixes"
     execute_auto_git_sync(root_dir, commit_msg)
 
     build_script = os.path.join(root_dir, "1Abuild.py")
