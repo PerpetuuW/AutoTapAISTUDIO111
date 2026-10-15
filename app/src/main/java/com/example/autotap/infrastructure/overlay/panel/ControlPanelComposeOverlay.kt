@@ -85,6 +85,7 @@ class ControlPanelComposeOverlay(
             "BTN_TOGGLE_VIEW" -> 4
             "BTN_TUTORIAL", "BTN_HIDE" -> 5
             "BTN_SETTINGS" -> 6
+            "BTN_CLOSE" -> 7
             else -> -1
         }
 
@@ -95,21 +96,20 @@ class ControlPanelComposeOverlay(
         }
 
         val subRowIndex = when (tagKey) {
-            "BTN_CLOSE" -> 0
-            "BTN_LOCK" -> 1
-            "BTN_CLEAR", "BTN_WIPE" -> 2
-            "BTN_SCRIPTS" -> 3
-            "BTN_HELP" -> 4
+            "BTN_LOCK" -> 0
+            "BTN_CLEAR", "BTN_WIPE" -> 1
+            "BTN_SCRIPTS" -> 2
+            "BTN_HELP" -> 3
             else -> -1
         }
 
         if (subRowIndex >= 0) {
-            val left = posX + pad + subRowIndex * (dp(36) + dp(6))
+            val left = posX + pad + subRowIndex * (btnW + margin)
             val top = posY + pad + btnH + margin
-            return android.graphics.Rect(left, top, left + dp(36), top + dp(36))
+            return android.graphics.Rect(left, top, left + btnW, top + btnH)
         }
 
-        return android.graphics.Rect(posX, posY, posX + dp(340), posY + dp(90))
+        return android.graphics.Rect(posX, posY, posX + dp(380), posY + dp(90))
     }
 
     fun updateVisibilityMode(mode: OverlayVisibilityMode) {
@@ -339,6 +339,19 @@ class ControlPanelComposeOverlay(
                 ) {
                     listener.onSettingsClicked()
                 }
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // 8. CLOSE OVERLAY BUTTON (Крестик закрытия оверлея справа сверху)
+                VectorIconButton(
+                    icon = VectorIconDrawer.IconType.CLOSE,
+                    size = 42.dp,
+                    bgStart = Color(0xFF2A0E0C),
+                    bgEnd = Color(0xFF1C0908),
+                    stroke = Color(0xFF7F1D1D),
+                    iconColor = Color(0xFFF04438)
+                ) {
+                    listener.onCloseClicked()
+                }
             }
 
             // ADD ACTION TYPE SELECTION MENU
@@ -367,23 +380,13 @@ class ControlPanelComposeOverlay(
             // SUB ROW
             AnimatedVisibility(visible = state.mode == PanelDisplayMode.EXPANDED) {
                 Row(
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 1. CLOSE OVERLAY BUTTON
-                    VectorIconButton(
-                        icon = VectorIconDrawer.IconType.CLOSE,
-                        size = 36.dp,
-                        bgStart = Color(0xFF2A0E0C),
-                        bgEnd = Color(0xFF1C0908),
-                        stroke = Color(0xFF7F1D1D),
-                        iconColor = Color(0xFFF04438)
-                    ) {
-                        listener.onCloseClicked()
-                    }
-                    Spacer(modifier = Modifier.width(6.dp))
-
-                    // 2. LOCK
+                    // 1. LOCK
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.LOCK,
                         size = 36.dp,
@@ -394,9 +397,8 @@ class ControlPanelComposeOverlay(
                     ) {
                         listener.onScreenLockClicked()
                     }
-                    Spacer(modifier = Modifier.width(6.dp))
 
-                    // 3. CLEAR ALL
+                    // 2. CLEAR ALL
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.CLEAR,
                         size = 36.dp,
@@ -407,9 +409,8 @@ class ControlPanelComposeOverlay(
                     ) {
                         listener.onClearAllClicked()
                     }
-                    Spacer(modifier = Modifier.width(6.dp))
 
-                    // 4. SCRIPTS MANAGER
+                    // 3. SCRIPTS MANAGER
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.SCRIPTS,
                         size = 36.dp,
@@ -420,9 +421,8 @@ class ControlPanelComposeOverlay(
                     ) {
                         listener.onScriptsClicked()
                     }
-                    Spacer(modifier = Modifier.width(6.dp))
 
-                    // 5. HELP / TUTORIAL
+                    // 4. HELP / TUTORIAL
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.HELP,
                         size = 36.dp,
