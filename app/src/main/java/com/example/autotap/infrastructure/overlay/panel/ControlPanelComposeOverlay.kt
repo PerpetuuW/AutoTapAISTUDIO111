@@ -22,7 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -72,8 +71,8 @@ class ControlPanelComposeOverlay(
     }
 
     fun getTutorialRect(tagKey: String): android.graphics.Rect? {
-        val btnW = dp(32)
-        val btnH = dp(32)
+        val btnW = dp(30)
+        val btnH = dp(30)
         val pad = dp(8)
         val margin = dp(4)
 
@@ -109,7 +108,7 @@ class ControlPanelComposeOverlay(
             return android.graphics.Rect(left, top, left + btnW, top + btnH)
         }
 
-        return android.graphics.Rect(posX, posY, posX + dp(290), posY + dp(80))
+        return android.graphics.Rect(posX, posY, posX + dp(280), posY + dp(80))
     }
 
     fun updateVisibilityMode(mode: OverlayVisibilityMode) {
@@ -150,8 +149,6 @@ class ControlPanelComposeOverlay(
             label = "alpha"
         )
 
-        var dragOffsetX by remember { mutableFloatStateOf(0f) }
-        var dragOffsetY by remember { mutableFloatStateOf(0f) }
         var lastDragUpdateTime by remember { mutableLongStateOf(0L) }
 
         val dragModifier = Modifier.pointerInput(Unit) {
@@ -159,28 +156,14 @@ class ControlPanelComposeOverlay(
                 onDragStart = { /* vibrate slightly? */ },
                 onDrag = { change, dragAmount ->
                     change.consume()
-                    dragOffsetX += dragAmount.x
-                    dragOffsetY += dragAmount.y
+                    val maxX = (dm.widthPixels - dp(50)).coerceAtLeast(0)
+                    posX = (posX + dragAmount.x.toInt()).coerceIn(0, maxX)
+                    posY = (posY + dragAmount.y.toInt()).coerceIn(dp(20), dm.heightPixels - dp(80))
 
                     val now = System.currentTimeMillis()
                     if (now - lastDragUpdateTime >= 16L) {
                         lastDragUpdateTime = now
-
-                        val params = getLayoutParams()
-                        params.x += dragOffsetX.toInt()
-                        params.y += dragOffsetY.toInt()
-
-                        val maxX = (dm.widthPixels - dp(50)).coerceAtLeast(0)
-                        params.x = params.x.coerceIn(0, maxX)
-                        params.y = params.y.coerceIn(dp(20), dm.heightPixels - dp(80))
-
-                        posX = params.x
-                        posY = params.y
-
-                        panelView?.let { overlayWindowManager.updateViewSafe(it, params) }
-
-                        dragOffsetX = 0f
-                        dragOffsetY = 0f
+                        panelView?.let { overlayWindowManager.updateViewSafe(it, getLayoutParams()) }
                     }
                 }
             )
@@ -208,14 +191,14 @@ class ControlPanelComposeOverlay(
         ) {
             PlayPauseButton(
                 isPlaying = state.isPlaying,
-                size = 36.dp,
+                size = 30.dp,
                 onClick = { listener.onPlayClicked() },
                 onLongClick = { listener.onPlayLongClicked() }
             )
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(4.dp))
             VectorIconButton(
                 icon = VectorIconDrawer.IconType.PANEL_COLLAPSE,
-                size = 36.dp,
+                size = 30.dp,
                 bgStart = Color(0xFF1F2937),
                 bgEnd = Color(0xFF111827),
                 stroke = Color(0xFF374151),
@@ -235,22 +218,22 @@ class ControlPanelComposeOverlay(
                     shape = RoundedCornerShape(20.dp)
                 )
                 .border(1.dp, Color(0xFF262D3D), RoundedCornerShape(20.dp))
-                .padding(8.dp)
+                .padding(6.dp)
         ) {
             // MAIN ROW
             Row(verticalAlignment = Alignment.CenterVertically) {
                 PlayPauseButton(
                     isPlaying = state.isPlaying,
-                    size = 42.dp,
+                    size = 30.dp,
                     onClick = { listener.onPlayClicked() },
                     onLongClick = { listener.onPlayLongClicked() }
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(4.dp))
 
                 // 2. CAPTURE BUTTON (Сразу за кнопкой Play!)
                 VectorIconButton(
                     icon = VectorIconDrawer.IconType.CAPTURE,
-                    size = 42.dp,
+                    size = 30.dp,
                     bgStart = Color(0xFF162032),
                     bgEnd = Color(0xFF0F172A),
                     stroke = Color(0xFF38BDF8),
@@ -258,12 +241,12 @@ class ControlPanelComposeOverlay(
                 ) {
                     listener.onCaptureClicked()
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(4.dp))
 
                 // 3. PLUS BUTTON (Добавить мишень / меню действий)
                 VectorIconButton(
                     icon = VectorIconDrawer.IconType.PLUS,
-                    size = 42.dp,
+                    size = 30.dp,
                     bgStart = Color(0xFF162032),
                     bgEnd = Color(0xFF0F172A),
                     stroke = Color(0xFF38BDF8),
@@ -271,12 +254,12 @@ class ControlPanelComposeOverlay(
                 ) {
                     overlayState.update { it.copy(showAddActionMenu = !it.showAddActionMenu, showRecordMenu = false) }
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(4.dp))
 
                 // 4. RECORD BUTTON (Запись жестов)
                 VectorIconButton(
                     icon = VectorIconDrawer.IconType.RECORD,
-                    size = 42.dp,
+                    size = 30.dp,
                     bgStart = Color(0xFF3A1016),
                     bgEnd = Color(0xFF1C080F),
                     stroke = Color(0xFFF04438),
@@ -284,13 +267,13 @@ class ControlPanelComposeOverlay(
                 ) {
                     overlayState.update { it.copy(showRecordMenu = !it.showRecordMenu, showAddActionMenu = false) }
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(4.dp))
 
                 // 5. Expand/Collapse Mode Toggle
                 val isExpanded = state.mode == PanelDisplayMode.EXPANDED
                 VectorIconButton(
                     icon = if (isExpanded) VectorIconDrawer.IconType.PANEL_COLLAPSE else VectorIconDrawer.IconType.PANEL_EXPAND,
-                    size = 42.dp,
+                    size = 30.dp,
                     bgStart = Color(0xFF1F2937),
                     bgEnd = Color(0xFF111827),
                     stroke = Color(0xFF374151),
@@ -298,7 +281,7 @@ class ControlPanelComposeOverlay(
                 ) {
                     applyDisplayMode(if (isExpanded) PanelDisplayMode.COMPACT_SINGLE_ROW else PanelDisplayMode.EXPANDED)
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(4.dp))
 
                 // 6. Eye Toggle
                 val eyeBgStart = animateColorAsState(when(state.visibilityMode) {
@@ -309,7 +292,7 @@ class ControlPanelComposeOverlay(
                 val eyeBgEnd = animateColorAsState(when(state.visibilityMode) {
                     OverlayVisibilityMode.FULL -> Color(0xFF0F172A)
                     OverlayVisibilityMode.TRANSPARENT -> Color(0xFF170924)
-                    OverlayVisibilityMode.HIDDEN -> Color(0xFF1F1403)
+                    OverlayVisibilityMode.HIDDEN -> Color(0xFFFBBF24)
                 }, label = "eyeBgE").value
                 val eyeStroke = animateColorAsState(when(state.visibilityMode) {
                     OverlayVisibilityMode.FULL -> Color(0xFF38BDF8)
@@ -324,7 +307,7 @@ class ControlPanelComposeOverlay(
 
                 VectorIconButton(
                     icon = VectorIconDrawer.IconType.VISIBILITY,
-                    size = 42.dp,
+                    size = 30.dp,
                     bgStart = eyeBgStart,
                     bgEnd = eyeBgEnd,
                     stroke = eyeStroke,
@@ -332,12 +315,12 @@ class ControlPanelComposeOverlay(
                 ) {
                     listener.onToggleNumbersClicked()
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(4.dp))
 
                 // 7. SETTINGS
                 VectorIconButton(
                     icon = VectorIconDrawer.IconType.SETTINGS,
-                    size = 42.dp,
+                    size = 30.dp,
                     bgStart = Color(0xFF1F2937),
                     bgEnd = Color(0xFF111827),
                     stroke = Color(0xFF4B5563),
@@ -345,12 +328,12 @@ class ControlPanelComposeOverlay(
                 ) {
                     listener.onSettingsClicked()
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(4.dp))
 
                 // 8. CLOSE OVERLAY BUTTON (Крестик закрытия оверлея справа сверху)
                 VectorIconButton(
                     icon = VectorIconDrawer.IconType.CLOSE,
-                    size = 42.dp,
+                    size = 30.dp,
                     bgStart = Color(0xFF2A0E0C),
                     bgEnd = Color(0xFF1C0908),
                     stroke = Color(0xFF7F1D1D),
@@ -388,14 +371,14 @@ class ControlPanelComposeOverlay(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp),
+                        .padding(top = 6.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // 1. LOCK
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.LOCK,
-                        size = 36.dp,
+                        size = 30.dp,
                         bgStart = Color(0xFF1F2937),
                         bgEnd = Color(0xFF111827),
                         stroke = Color(0xFF374151),
@@ -407,7 +390,7 @@ class ControlPanelComposeOverlay(
                     // 2. CLEAR ALL
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.CLEAR,
-                        size = 36.dp,
+                        size = 30.dp,
                         bgStart = Color(0xFF2A0E0C),
                         bgEnd = Color(0xFF1C0908),
                         stroke = Color(0xFF7F1D1D),
@@ -419,7 +402,7 @@ class ControlPanelComposeOverlay(
                     // 3. SCRIPTS MANAGER
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.SCRIPTS,
-                        size = 36.dp,
+                        size = 30.dp,
                         bgStart = Color(0xFF0D2E3A),
                         bgEnd = Color(0xFF061A24),
                         stroke = Color(0xFF0369A1),
@@ -431,7 +414,7 @@ class ControlPanelComposeOverlay(
                     // 4. HELP / TUTORIAL
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.HELP,
-                        size = 36.dp,
+                        size = 30.dp,
                         bgStart = Color(0xFF1F2937),
                         bgEnd = Color(0xFF111827),
                         stroke = Color(0xFF4B5563),
@@ -448,13 +431,13 @@ class ControlPanelComposeOverlay(
     private fun ActionTypeSelectionMenu(onSelect: (ActionType) -> Unit, onDismiss: () -> Unit) {
         Column(
             modifier = Modifier
-                .padding(top = 8.dp)
+                .padding(top = 6.dp)
                 .background(Color(0xFF161B22), RoundedCornerShape(12.dp))
                 .border(1.dp, Color(0xFF38BDF8), RoundedCornerShape(12.dp))
-                .padding(8.dp)
+                .padding(6.dp)
         ) {
             Text("ВЫБОР ТИПА ДЕЙСТВИЯ:", color = Color(0xFF38BDF8), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             val types = listOf(
                 ActionType.CLICK to "КЛИК",
@@ -498,13 +481,13 @@ class ControlPanelComposeOverlay(
     private fun RecordModeSelectionMenu(onSmartRecord: () -> Unit, onNormalRecord: () -> Unit, onDismiss: () -> Unit) {
         Column(
             modifier = Modifier
-                .padding(top = 8.dp)
+                .padding(top = 6.dp)
                 .background(Color(0xFF161B22), RoundedCornerShape(12.dp))
                 .border(1.dp, Color(0xFFF43F5E), RoundedCornerShape(12.dp))
-                .padding(8.dp)
+                .padding(6.dp)
         ) {
             Text("ВЫБОР РЕЖИМА ЗАПИСИ:", color = Color(0xFFF43F5E), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             Box(
                 modifier = Modifier

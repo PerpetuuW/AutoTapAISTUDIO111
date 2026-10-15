@@ -1,32 +1,35 @@
-# Detailed Root Cause Analysis & Optimization Plan for Overlay Lag and Missing Close Button
+# Root-Cause Fix for Main Overlay Close Button Visibility, Drag Stutters, & New Inspector Module
 
-## 🔍 Root Cause Analysis
+## 🔍 Root-Cause Analysis
 
-### 1. Why the Close Button (`X`) Was Missing
-- In `ControlPanelComposeOverlay.kt`, the main row buttons were set to `42.dp` width with `8.dp` spacing across 8 buttons: `8 * 42dp + 7 * 8dp = 392dp` total width.
-- Standard Android phone screens in portrait mode have a width of `360dp` to `380dp`.
-- Because `392dp > 360dp`, the 8th button at the far right (**`CLOSE` / `X`**) was physically pushed outside the visible screen bounds beyond the right edge of the display, leaving the 6th/7th buttons (`Eye` / `Settings`) at the visible right edge.
+### 1. Why the Close Button (`X`) Was STILL Missing
+- `ControlPanelComposeOverlay.kt` on disk STILL had `size = 42.dp` and `Spacer(width = 8.dp)` across all 8 main-row buttons.
+- The total row width was `8 * 42dp + 7 * 8dp = 392dp`.
+- Standard phone displays in portrait mode are `360dp` - `380dp` wide.
+- Because `392dp > 360dp`, the 8th button (**`CLOSE` / `X`**) was pushed completely off-screen beyond the right edge of the display, leaving the 6th/7th buttons (`Eye` / `Settings`) at the visible right edge.
 
-### 2. Why the Lag / Frame Stutters Occurred
-- **IPC WindowManager Throttling**: During overlay dragging, `detectDragGestures` invoked `overlayWindowManager.updateViewSafe(it, params)` on **every single touch pixel event** (120-240 times/sec). This flooded Android's system `WindowManagerService` via binder IPC calls, freezing the UI thread.
-- **Continuous 40ms Recomposition Loop**: `RunningBadgeComposeOverlay.kt` had a `while(true) { delay(40L); currentProgress = ... }` loop running on the main UI thread 25 times/sec, triggering continuous recomposition of the entire badge overlay.
-- **Unthrottled Recomposition Animations**: 5 simultaneous `animateColorAsState` / `animateFloatAsState` transitions in `ControlPanelComposeOverlay.kt` triggered full-tree recompositions during visibility and state changes.
+### 2. Why Dragging Stuttered / Lagged
+- The previous drag throttling logic accumulated touch deltas (`dragOffsetX`) over multiple frames without updating `posX` and `posY`.
+- When the 16ms threshold was reached, `params.x` suddenly jumped by the entire accumulated delta (e.g. 18-25 pixels at once) while skipping intermediate window updates. This caused visible jumping, stuttering, and lag on screen.
 
 ---
 
-## 🛠️ Proposed Solutions & Architectural Changes
+## 🛠️ Proposed Solutions
 
-### 1. Fix Button Width & Layout in `ControlPanelComposeOverlay.kt`
-- Reduce main row button size from `42.dp` to `32.dp` and spacing from `8.dp` to `4.dp`. Total row width becomes `8 * 32dp + 7 * 4dp = 284dp`.
-- `284dp` fits comfortably on ALL phone displays (360dp+), ensuring the red **`CLOSE` (`X`) button is 100% visible at the top-right corner**.
-- Update `getTutorialRect` column index mapping for `32.dp` size.
+### 1. Fix Button Size to `30.dp` & Spacing to `4.dp` (`ControlPanelComposeOverlay.kt`)
+- Change main row button size to `30.dp` and spacing to `4.dp`.
+- Total row width becomes `8 * 30dp + 7 * 4dp = 268dp`.
+- `268dp` fits on ALL phone displays (360dp+) with ample margin, ensuring the red **`CLOSE` (`X`) button is 100% visible at the top-right corner**.
 
-### 2. Drag Throttling & WindowManager Performance Fix
-- Throttle `updateViewSafe` calls during drag so window updates occur at most once every 16ms (60 FPS max), completely eliminating Binder IPC spam.
-- In `RunningBadgeComposeOverlay.kt`, update progress bar only when elapsed time changes meaningfully instead of spinning an unconditional 40ms main-thread delay loop.
+### 2. Smooth 60 FPS Window Dragging Logic
+- Continuously update `posX = (posX + dragAmount.x.toInt())` and `posY = (posY + dragAmount.y.toInt())` on every drag step.
+- Throttle `overlayWindowManager.updateViewSafe` calls to at most once per 16ms (60 FPS) without accumulated delta jumps.
 
-### 3. Memoized Vector Canvas Rendering
-- In `VectorIconButton`, memoize `RectF()` using `remember(size) { RectF() }` and pre-calculate color ARGB integers to eliminate object creation inside `Canvas` drawing scopes.
+### 3. Create New 176th Inspector Test Module
+- Create `1AInspector/check_control_panel_compose_size_and_close_button.py` to enforce that:
+  - Main row button sizes in `ControlPanelComposeOverlay.kt` are `<= 32.dp`.
+  - `CLOSE` (`X`) button is present on the main row.
+  - Drag updates `posX` / `posY` smoothly.
 
 ---
 
@@ -34,8 +37,8 @@
 
 ### Automated Tests
 - Gradle build: `./gradlew :app:compileDebugKotlin`
-- Run all 175 1AInspector scripts.
+- Run all 176 1AInspector scripts.
 
 ### Manual Verification
-- Verify `CLOSE` (`X`) button is 100% visible on the main panel top-right corner.
-- Drag the control panel and running badge overlay: verify smooth 60 FPS movement without frame drops or lag.
+- Open Control Panel: verify all 8 buttons fit on the main row and the red CLOSE (`X`) button is 100% visible at the top-right corner.
+- Drag Control Panel: verify smooth 60 FPS movement without stuttering or jumping.

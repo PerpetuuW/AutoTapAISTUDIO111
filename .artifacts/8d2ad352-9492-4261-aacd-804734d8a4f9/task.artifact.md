@@ -1,8 +1,7 @@
 # Task List
 
-- `[x]` Reduce main row button size in `ControlPanelComposeOverlay.kt` to `32.dp` and spacing to `4.dp` (total `284.dp`) so `CLOSE` (`X`) button is 100% visible
-- `[x]` Throttle drag `updateViewSafe` calls in `ControlPanelComposeOverlay.kt` and `RunningBadgeComposeOverlay.kt` to max 60 FPS
-- `[x]` Fix progress bar recomposition loop in `RunningBadgeComposeOverlay.kt`
-- `[x]` Update `getTutorialRect` column mappings for `32.dp` button sizes
+- `[x]` Reduce main row button size in `ControlPanelComposeOverlay.kt` to `30.dp` and spacing to `4.dp` (total `268.dp`) so `CLOSE` (`X`) button is 100% visible
+- `[x]` Fix drag math in `ControlPanelComposeOverlay.kt` for smooth 60 FPS movement without frame jumping
+- `[x]` Create `1AInspector/check_control_panel_compose_size_and_close_button.py` (176th inspector script)
 - `[x]` Build and verify compilation
-- `[x]` Run all 175 1AInspector scripts and create walkthrough
+- `[x]` Run all 176 1AInspector scripts and create walkthrough
