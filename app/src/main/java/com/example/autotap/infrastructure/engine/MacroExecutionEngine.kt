@@ -279,19 +279,84 @@ class MacroExecutionEngine(
 
                                                             ensureCleanScreenBeforeCapture()
 
+                                                            var streamedMatched = false
+                                                            if (MediaProjectionService.isStreaming && activeTemplates.isNotEmpty() && ocrQueries.isEmpty()) {
+                                                                val sW = MediaProjectionService.currentFrameWidth.takeIf { it > 0 } ?: currentSw
+                                                                val sH = MediaProjectionService.currentFrameHeight.takeIf { it > 0 } ?: currentSh
+                                                                val sPixels = PixelBufferPool.obtain(sW * sH)
+                                                                try {
+                                                                    if (MediaProjectionService.copyLatestFrame(sPixels, sW, sH)) {
+                                                                        val streamCandidates = mutableListOf<MatchCandidate>()
+                                                                        if (action.isNeuralEngine) {
+                                                                            for (tpl in activeTemplates) {
+                                                                                if (!tpl.second.isRecycled) {
+                                                                                    val nm = com.example.autotap.infrastructure.vision.NeuralVisualMatcher.findMatches(
+                                                                                        sPixels, sW, sH, tpl.second, baseSimilarity, action.copy(templatePath = tpl.first)
+                                                                                    )
+                                                                                    streamCandidates.addAll(nm)
+                                                                                }
+                                                                            }
+                                                                        } else {
+                                                                            streamCandidates.addAll(
+                                                                                TemplateMatchingEngine.findMultiTemplatesFastCascade(
+                                                                                    sPixels = sPixels,
+                                                                                    sw = sW,
+                                                                                    sh = sH,
+                                                                                    templates = activeTemplates,
+                                                                                    minSimilarityPercent = baseSimilarity,
+                                                                                    actionOverride = action,
+                                                                                    isCancelled = { !isActive }
+                                                                                )
+                                                                            )
+                                                                        }
+                                                                        if (streamCandidates.isNotEmpty()) {
+                                                                            streamCandidates.sortByDescending { it.score }
+                                                                            bestMatchCand = streamCandidates.first()
+                                                                            isMatched = true
+                                                                            streamedMatched = true
+                                                                        }
+                                                                    }
+                                                                } finally {
+                                                                    PixelBufferPool.release(sPixels)
+                                                                }
+                                                            }
+                                                            if (streamedMatched) break
+
                                                             val screenshot = service?.captureScreenshotSync(1500L)
                                                             if (screenshot != null) {
                                                                 try {
                                                                     val candidateList = mutableListOf<MatchCandidate>()
 
                                                                     if (activeTemplates.isNotEmpty()) {
-                                                                        val imageMatches = visionGateway.findMultiTemplateMatches(
-                                                                            screenshot = screenshot,
-                                                                            templates = activeTemplates,
-                                                                            minSimilarityPercent = baseSimilarity,
-                                                                            actionOverride = action,
-                                                                            isCancelled = { !isActive }
-                                                                        )
+                                                                        val imageMatches = if (action.isNeuralEngine) {
+                                                                            val aiMatches = mutableListOf<MatchCandidate>()
+                                                                            for (tpl in activeTemplates) {
+                                                                                if (!tpl.second.isRecycled) {
+                                                                                    aiMatches.addAll(
+                                                                                        com.example.autotap.infrastructure.vision.NeuralVisualMatcher.findMatches(
+                                                                                            screenshot, tpl.second, baseSimilarity, action.copy(templatePath = tpl.first)
+                                                                                        )
+                                                                                    )
+                                                                                }
+                                                                            }
+                                                                            aiMatches.ifEmpty {
+                                                                                visionGateway.findMultiTemplateMatches(
+                                                                                    screenshot = screenshot,
+                                                                                    templates = activeTemplates,
+                                                                                    minSimilarityPercent = baseSimilarity,
+                                                                                    actionOverride = action,
+                                                                                    isCancelled = { !isActive }
+                                                                                )
+                                                                            }
+                                                                        } else {
+                                                                            visionGateway.findMultiTemplateMatches(
+                                                                                screenshot = screenshot,
+                                                                                templates = activeTemplates,
+                                                                                minSimilarityPercent = baseSimilarity,
+                                                                                actionOverride = action,
+                                                                                isCancelled = { !isActive }
+                                                                            )
+                                                                        }
                                                                         candidateList.addAll(imageMatches)
                                                                     }
 
@@ -431,8 +496,12 @@ class MacroExecutionEngine(
                                         if (ctx != null) {
                                             if (isStepByStepDebug) {
                                                 val diag = TemplateMatchingEngine.lastDiagnostics
-                                                val curRoi = if (action.roiLeft != null && action.roiTop != null && action.roiRight != null && action.roiBottom != null) {
-                                                    android.graphics.Rect(action.roiLeft!!, action.roiTop!!, action.roiRight!!, action.roiBottom!!)
+                                                val rL = action.roiLeft
+                                                val rT = action.roiTop
+                                                val rR = action.roiRight
+                                                val rB = action.roiBottom
+                                                val curRoi = if (rL != null && rT != null && rR != null && rB != null) {
+                                                    android.graphics.Rect(rL, rT, rR, rB)
                                                 } else null
                                                 com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showSearchDebugVisualization(
                                                     context = ctx,
@@ -495,8 +564,12 @@ class MacroExecutionEngine(
                                             val ctx = accessibilityServiceProvider()?.applicationContext
                                             if (ctx != null) {
                                                 val diag = TemplateMatchingEngine.lastDiagnostics
-                                                val curRoi = if (action.roiLeft != null && action.roiTop != null && action.roiRight != null && action.roiBottom != null) {
-                                                    android.graphics.Rect(action.roiLeft!!, action.roiTop!!, action.roiRight!!, action.roiBottom!!)
+                                                val rL = action.roiLeft
+                                                val rT = action.roiTop
+                                                val rR = action.roiRight
+                                                val rB = action.roiBottom
+                                                val curRoi = if (rL != null && rT != null && rR != null && rB != null) {
+                                                    android.graphics.Rect(rL, rT, rR, rB)
                                                 } else null
                                                 com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showSearchDebugVisualization(
                                                     context = ctx,
@@ -566,7 +639,7 @@ class MacroExecutionEngine(
                                         isDebugPaused = false,
                                         isSearching = true,
                                         searchProgress = progressRatio,
-                                        searchTitle = "Поиск текста: '${query.take(10)}'",
+                                        searchTitle = "Поиск текста: '$query'",
                                         searchStartTime = pollStartTime,
                                         searchTimeoutMs = timeoutMs,
                                         isInfiniteSearch = isInfinite,
@@ -989,28 +1062,33 @@ class MacroExecutionEngine(
 
                             ensureCleanScreenBeforeCapture()
 
+                            var frameProcessedViaStream = false
                             if (MediaProjectionService.isStreaming) {
-                                val sPixels = PixelBufferPool.obtain(currentSw * currentSh)
+                                val streamW = MediaProjectionService.currentFrameWidth.takeIf { it > 0 } ?: currentSw
+                                val streamH = MediaProjectionService.currentFrameHeight.takeIf { it > 0 } ?: currentSh
+                                val sPixels = PixelBufferPool.obtain(streamW * streamH)
                                 try {
-                                    if (MediaProjectionService.copyLatestFrame(sPixels, currentSw, currentSh)) {
+                                    if (MediaProjectionService.copyLatestFrame(sPixels, streamW, streamH)) {
+                                        frameProcessedViaStream = true
                                         for (trig in currentNode.triggers) {
-                                                val isDetected = evaluateSingleGraphTrigger(sPixels, currentSw, currentSh, null, trig, templates)
-                                                val isConditionSatisfied = when (trig.behavior) {
-                                                    com.example.autotap.domain.model.graph.TriggerBehavior.WAIT_DISAPPEAR -> !isDetected
-                                                    com.example.autotap.domain.model.graph.TriggerBehavior.WAIT_APPEAR,
-                                                    com.example.autotap.domain.model.graph.TriggerBehavior.CHECK_ONCE,
-                                                    com.example.autotap.domain.model.graph.TriggerBehavior.LOOP_WHILE -> isDetected
-                                                }
-                                                if (isConditionSatisfied) {
-                                                    matchedTrigger = trig
-                                                    break
-                                                }
+                                            val isDetected = evaluateSingleGraphTrigger(sPixels, streamW, streamH, null, trig, templates)
+                                            val isConditionSatisfied = when (trig.behavior) {
+                                                com.example.autotap.domain.model.graph.TriggerBehavior.WAIT_DISAPPEAR -> !isDetected
+                                                com.example.autotap.domain.model.graph.TriggerBehavior.WAIT_APPEAR,
+                                                com.example.autotap.domain.model.graph.TriggerBehavior.CHECK_ONCE,
+                                                com.example.autotap.domain.model.graph.TriggerBehavior.LOOP_WHILE -> isDetected
                                             }
+                                            if (isConditionSatisfied) {
+                                                matchedTrigger = trig
+                                                break
+                                            }
+                                        }
                                     }
                                 } finally {
                                     PixelBufferPool.release(sPixels)
                                 }
-                            } else {
+                            }
+                            if (!frameProcessedViaStream) {
                                 val screenshot = service?.captureScreenshotSync(1500L)
                                 if (screenshot != null) {
                                     try {
@@ -1323,8 +1401,8 @@ class MacroExecutionEngine(
         }
         }
 
-        if (action.templatePath.isNotBlank() && result.none { it.first == action.templatePath }) {
-        val directFile = File(action.templatePath)
+        if (action.templatePath.isNotBlank() && !action.templatePath.startsWith("ocr:") && result.none { it.first == action.templatePath }) {
+            val directFile = File(action.templatePath)
             val matched = allFromDisk.firstOrNull { File(it.first).name == directFile.name }
             val realPath = matched?.first ?: action.templatePath
             val bmp = matched?.second ?: cachedTemplates[action.templatePath] ?: templateRepository.getTemplate(realPath)
@@ -1333,7 +1411,8 @@ class MacroExecutionEngine(
             }
         }
 
-        return result.ifEmpty { allFromDisk.take(1) }
+        val hasOnlyOcrTargets = action.multiTemplatePaths.isNotEmpty() && action.multiTemplatePaths.all { it.startsWith("ocr:") }
+        return if (hasOnlyOcrTargets) result else result.ifEmpty { allFromDisk.take(1) }
     }
 
     override fun stop() {

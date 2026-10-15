@@ -1061,7 +1061,7 @@ class GraphEditorOverlay(
                 val metaMap = tplRepo.getTemplateMetadata(primaryPath)
                 val metaSim = (metaMap?.get("similarityPercent") as? Number)?.toInt() ?: 85
                 val isShape = (metaMap?.get("isShapeOnlyMode") as? Boolean) ?: false
-                val baseName = File(primaryPath).nameWithoutExtension.removePrefix("mask_").take(12)
+                val baseName = File(primaryPath).nameWithoutExtension.removePrefix("mask_")
                 val compositeName = if (pathsList.size > 1) "$baseName (+${pathsList.size - 1})" else baseName
 
                 val updatedTriggers = if (node.triggers.isEmpty()) {

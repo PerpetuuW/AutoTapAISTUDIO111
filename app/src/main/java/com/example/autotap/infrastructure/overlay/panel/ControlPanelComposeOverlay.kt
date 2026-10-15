@@ -95,10 +95,13 @@ class ControlPanelComposeOverlay(
         }
 
         val subRowIndex = when (tagKey) {
-            "BTN_LOCK" -> 0
-            "BTN_CLEAR", "BTN_WIPE" -> 1
+            "BTN_GRAPH" -> 0
+            "BTN_DEBUG" -> 1
             "BTN_SCRIPTS" -> 2
-            "BTN_HELP" -> 3
+            "BTN_LOCK" -> 3
+            "BTN_CLEAR", "BTN_WIPE" -> 4
+            "BTN_LOGS" -> 5
+            "BTN_HELP" -> 6
             else -> -1
         }
 
@@ -369,35 +372,34 @@ class ControlPanelComposeOverlay(
             // SUB ROW
             AnimatedVisibility(visible = state.mode == PanelDisplayMode.EXPANDED) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    modifier = Modifier.padding(top = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 1. LOCK
+                    // 1. GRAPH EDITOR
                     VectorIconButton(
-                        icon = VectorIconDrawer.IconType.LOCK,
+                        icon = VectorIconDrawer.IconType.GRAPH_TREE,
                         size = 30.dp,
-                        bgStart = Color(0xFF1F2937),
-                        bgEnd = Color(0xFF111827),
-                        stroke = Color(0xFF374151),
-                        iconColor = Color(0xFF94A3B8)
+                        bgStart = Color(0xFF162032),
+                        bgEnd = Color(0xFF0F172A),
+                        stroke = Color(0xFF38BDF8),
+                        iconColor = Color(0xFF38BDF8)
                     ) {
-                        listener.onScreenLockClicked()
+                        listener.onGraphClicked()
                     }
+                    Spacer(modifier = Modifier.width(4.dp))
 
-                    // 2. CLEAR ALL
+                    // 2. STEP DEBUGGER
                     VectorIconButton(
-                        icon = VectorIconDrawer.IconType.CLEAR,
+                        icon = VectorIconDrawer.IconType.PLAY,
                         size = 30.dp,
-                        bgStart = Color(0xFF2A0E0C),
-                        bgEnd = Color(0xFF1C0908),
-                        stroke = Color(0xFF7F1D1D),
-                        iconColor = Color(0xFFF04438)
+                        bgStart = Color(0xFF1E1B4B),
+                        bgEnd = Color(0xFF0F172A),
+                        stroke = Color(0xFF818CF8),
+                        iconColor = Color(0xFFA78BFA)
                     ) {
-                        listener.onClearAllClicked()
+                        listener.onPlayLongClicked()
                     }
+                    Spacer(modifier = Modifier.width(4.dp))
 
                     // 3. SCRIPTS MANAGER
                     VectorIconButton(
@@ -410,8 +412,48 @@ class ControlPanelComposeOverlay(
                     ) {
                         listener.onScriptsClicked()
                     }
+                    Spacer(modifier = Modifier.width(4.dp))
 
-                    // 4. HELP / TUTORIAL
+                    // 4. LOCK
+                    VectorIconButton(
+                        icon = VectorIconDrawer.IconType.LOCK,
+                        size = 30.dp,
+                        bgStart = Color(0xFF1F2937),
+                        bgEnd = Color(0xFF111827),
+                        stroke = Color(0xFF374151),
+                        iconColor = Color(0xFF94A3B8)
+                    ) {
+                        listener.onScreenLockClicked()
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    // 5. CLEAR ALL
+                    VectorIconButton(
+                        icon = VectorIconDrawer.IconType.CLEAR,
+                        size = 30.dp,
+                        bgStart = Color(0xFF2A0E0C),
+                        bgEnd = Color(0xFF1C0908),
+                        stroke = Color(0xFF7F1D1D),
+                        iconColor = Color(0xFFF04438)
+                    ) {
+                        listener.onClearAllClicked()
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    // 6. LOGS
+                    VectorIconButton(
+                        icon = VectorIconDrawer.IconType.LOGS,
+                        size = 30.dp,
+                        bgStart = Color(0xFF1F2937),
+                        bgEnd = Color(0xFF111827),
+                        stroke = Color(0xFF4B5563),
+                        iconColor = Color(0xFF38BDF8)
+                    ) {
+                        listener.onLogsClicked()
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    // 7. HELP / TUTORIAL
                     VectorIconButton(
                         icon = VectorIconDrawer.IconType.HELP,
                         size = 30.dp,

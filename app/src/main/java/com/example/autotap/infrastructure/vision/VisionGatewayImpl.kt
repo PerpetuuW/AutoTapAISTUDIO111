@@ -60,12 +60,21 @@ class VisionGatewayImpl(private val context: Context? = null) : IVisionGateway {
     ): List<MatchCandidate> {
     if (screenshot.isRecycled || templates.isEmpty()) return emptyList()
     if (actionOverride?.isNeuralEngine == true) {
-    for (t in templates) {
-    if (!t.second.isRecycled) {
-    val nMatches = NeuralVisualMatcher.findMatches(screenshot, t.second, minSimilarityPercent, actionOverride)
-    if (nMatches.isNotEmpty()) return nMatches
-    }
-    }
+        val allNeuralMatches = mutableListOf<MatchCandidate>()
+        for (t in templates) {
+            if (!t.second.isRecycled) {
+                val nMatches = NeuralVisualMatcher.findMatches(
+                    screenshot,
+                    t.second,
+                    minSimilarityPercent,
+                    actionOverride.copy(templatePath = t.first)
+                )
+                allNeuralMatches.addAll(nMatches)
+            }
+        }
+        if (allNeuralMatches.isNotEmpty()) {
+            return allNeuralMatches.sortedByDescending { it.score }
+        }
     }
 
     val sw = screenshot.width

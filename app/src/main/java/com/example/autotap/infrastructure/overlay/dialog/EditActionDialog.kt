@@ -927,7 +927,7 @@ class EditActionDialog(
             }
 
             // Инлайн-диалог перемещения с защитой от Window Token Exception
-            val inputLayout = LinearLayout(context).apply {
+            val folderInputBox = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 background = GradientDrawable().apply {
@@ -989,22 +989,22 @@ class EditActionDialog(
                             boundTemplatePath = allTemplates.firstOrNull()?.first ?: ""
                             refreshActiveTemplateCard()
                             renderCarouselItems()
-                            layoutTriggerCard.removeView(inputLayout)
+                            layoutTriggerCard.removeView(folderInputBox)
                             Toast.makeText(context, "Перемещено ${targets.size} шаблонов в '$fName'", Toast.LENGTH_SHORT).show()
                             }
                             }
                             val btnCancelMove = createTextActionButton("X", "#2A1420", "#F43F5E") {
-                layoutTriggerCard.removeView(inputLayout)
-            }
-            inputLayout.addView(etFolderName)
-            inputLayout.addView(btnConfirmMove, LinearLayout.LayoutParams(dp(36), dp(26)).apply { marginEnd = dp(2) })
-            inputLayout.addView(btnCancelMove, LinearLayout.LayoutParams(dp(26), dp(26)))
+                            layoutTriggerCard.removeView(folderInputBox)
+                            }
+                            folderInputBox.addView(etFolderName)
+                            folderInputBox.addView(btnConfirmMove, LinearLayout.LayoutParams(dp(36), dp(26)).apply { marginEnd = dp(2) })
+                            folderInputBox.addView(btnCancelMove, LinearLayout.LayoutParams(dp(26), dp(26)))
 
-            val idx = layoutTriggerCard.indexOfChild(multiControlRow)
-            layoutTriggerCard.addView(inputLayout, idx + 1, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                topMargin = dp(3)
-                bottomMargin = dp(3)
-            })
+                            val idx = layoutTriggerCard.indexOfChild(multiControlRow)
+                            layoutTriggerCard.addView(folderInputBox, idx + 1, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                            topMargin = dp(3)
+                            bottomMargin = dp(3)
+                            })
             etFolderName.requestFocus()
         }
         multiControlRow.addView(btnMoveToFolder, LinearLayout.LayoutParams(0, dp(24), 1.1f).apply { marginEnd = dp(2) })
@@ -1081,8 +1081,10 @@ class EditActionDialog(
                             setStroke(dp(1), "#F59E0B".toColorInt())
                         }
                         val tvFolder = android.widget.TextView(context).apply {
-                            text = folderName.take(8)
+                            text = folderName
                             textSize = 7.5f
+                            maxLines = 1
+                            ellipsize = android.text.TextUtils.TruncateAt.END
                             typeface = android.graphics.Typeface.DEFAULT_BOLD
                             setTextColor("#FBBF24".toColorInt())
                             gravity = android.view.Gravity.CENTER
@@ -1328,8 +1330,10 @@ class EditActionDialog(
                 contentLinear.addView(iv)
 
                 val tvName = TextView(context).apply {
-                    text = File(path).nameWithoutExtension.removePrefix("mask_").take(8)
+                    text = File(path).nameWithoutExtension.removePrefix("mask_")
                     textSize = 6f
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.END
                     typeface = Typeface.DEFAULT_BOLD
                     setTextColor(if (isSelected) "#818CF8".toColorInt() else "#E2E8F0".toColorInt())
                     gravity = Gravity.CENTER

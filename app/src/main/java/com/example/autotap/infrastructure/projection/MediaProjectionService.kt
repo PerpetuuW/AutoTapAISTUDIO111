@@ -46,6 +46,9 @@ class MediaProjectionService : Service() {
         private var frameWidth = 0
         private var frameHeight = 0
 
+        val currentFrameWidth: Int get() = frameWidth
+        val currentFrameHeight: Int get() = frameHeight
+
         fun copyLatestFrame(outPixels: IntArray, width: Int, height: Int): Boolean {
             if (!isStreaming) return false
             frameLock.withLock {

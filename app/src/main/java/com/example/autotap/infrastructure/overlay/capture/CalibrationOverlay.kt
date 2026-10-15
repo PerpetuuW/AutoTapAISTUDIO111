@@ -975,7 +975,9 @@ private val targetStepId: Int? = null,
 
         val analysis = TemplateMorphologyClassifier.analyze(rawTemplateBitmap)
         val tvTitle = TextView(context).apply {
-            text = "РЕДАКТОР [${analysis.archetype.name.take(8)}]"
+            text = "РЕДАКТОР [${analysis.archetype.name}]"
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
             setTextColor("#C084FC".toColorInt())
             textSize = 9.5f
             typeface = Typeface.DEFAULT_BOLD

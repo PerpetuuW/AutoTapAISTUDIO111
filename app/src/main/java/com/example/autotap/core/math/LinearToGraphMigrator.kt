@@ -157,8 +157,9 @@ object LinearToGraphMigrator {
                         }
 
                         val templateFile = File(path)
-                        val templateName = templateFile.nameWithoutExtension.removePrefix("mask_").take(14).ifEmpty { "цель_${idx + 1}" }
+                        val templateName = templateFile.nameWithoutExtension.removePrefix("mask_").ifEmpty { "цель_${idx + 1}" }
                         val trigId = "trig_${action.id}_${idx + 1}"
+
                         val matchPortId = "out_match_$trigId"
 
                         var tplCalibX: Float? = null
@@ -517,8 +518,9 @@ object LinearToGraphMigrator {
         }
 
         for ((idx, path) in validPaths.withIndex()) {
-            val templateName = File(path).nameWithoutExtension.removePrefix("mask_").take(14).ifEmpty { "цель_${idx + 1}" }
+            val templateName = File(path).nameWithoutExtension.removePrefix("mask_").ifEmpty { "цель_${idx + 1}" }
             val triggerId = "trig_${targetAction.id}_${idx + 1}"
+
             val matchPortId = "out_match_$triggerId"
 
             val trig = NodeTriggerSpec(

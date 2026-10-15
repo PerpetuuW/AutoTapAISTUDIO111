@@ -58,7 +58,9 @@ def build() -> int:
     execute_auto_git_pull(root_dir, branch="1Gemini")
 
     # 1. Валидация инспекторами
-    insp_exec = os.path.join(root_dir, "1AInspector.py")
+    insp_exec = os.path.join(root_dir, "1Ainspector.py")
+    if not os.path.exists(insp_exec):
+        insp_exec = os.path.join(root_dir, "1AInspector.py")
     if os.path.exists(insp_exec):
         res = subprocess.run([sys.executable, insp_exec], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", cwd=root_dir)
         sys.stdout.write(res.stdout)

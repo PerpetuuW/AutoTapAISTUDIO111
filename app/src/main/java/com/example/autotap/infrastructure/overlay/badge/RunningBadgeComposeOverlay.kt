@@ -44,10 +44,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import com.example.autotap.infrastructure.overlay.ui.VectorIconDrawer
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -179,13 +175,13 @@ class RunningBadgeComposeOverlay(
                 .pointerInput(Unit) {
                     detectDragGestures { change, dragAmount ->
                         change.consume()
+                        val maxX = (dm.widthPixels - dp(90)).coerceAtLeast(dp(6))
+                        posX = (posX + dragAmount.x.toInt()).coerceIn(dp(6), maxX)
+                        posY = (posY + dragAmount.y.toInt()).coerceIn(dp(20), dm.heightPixels - dp(80))
+
                         val now = System.currentTimeMillis()
                         if (now - lastDragTime >= 16L) {
                             lastDragTime = now
-                            val maxX = (dm.widthPixels - dp(90)).coerceAtLeast(dp(6))
-                            posX = (posX + dragAmount.x.toInt()).coerceIn(dp(6), maxX)
-                            posY = (posY + dragAmount.y.toInt()).coerceIn(dp(20), dm.heightPixels - dp(80))
-
                             val params = getLayoutParams()
                             composeView?.let { overlayWindowManager.updateViewSafe(it, params) }
                         }

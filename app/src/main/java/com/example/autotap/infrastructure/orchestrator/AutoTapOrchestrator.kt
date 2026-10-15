@@ -206,7 +206,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                             context = appContext,
                             overlayWindowManager = overlayWindowManager,
                             mode = InteractiveTutorialOverlay.TutorialMode.CONTROL_PANEL,
-                            hostViewProvider = { controlPanelOverlay.containerView }
+                            hostViewProvider = { controlPanelOverlay }
                         ).show()
                     }
                 }, 400L)
@@ -1436,10 +1436,15 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     val safeW = cropW.coerceIn(4, (screenshot.width - safeX).coerceAtLeast(4))
                     val safeH = cropH.coerceIn(4, (screenshot.height - safeY).coerceAtLeast(4))
                     val cropped = Bitmap.createBitmap(screenshot, safeX, safeY, safeW, safeH)
-
-                    val ocrResults = com.example.autotap.infrastructure.ocr.OcrEngine.findTextOnScreen(cropped, "", 2000L, null, mutableMapOf())
+                    val ocrResults = try {
+                        com.example.autotap.infrastructure.ocr.OcrEngine.findTextOnScreen(cropped, "", 2000L, null, mutableMapOf())
+                    } finally {
+                        if (!cropped.isRecycled) cropped.recycle()
+                    }
                     val recognizedText = ocrResults.firstOrNull()?.matchedText?.trim() ?: ""
 
+                    controlPanelOverlay.show()
+                    targetManager.setOverlaysVisible(true)
                     if (recognizedText.isNotBlank()) {
                         val existingMulti = action.multiTemplatePaths.filter { it.isNotBlank() }.toMutableList()
                         val ocrEntry = "ocr:$recognizedText"
@@ -1454,13 +1459,15 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                         Toast.makeText(appContext, "Текст на выделенном фрагменте не распознан", Toast.LENGTH_SHORT).show()
                         mainHandler.postDelayed({ showEditDialog(action) }, 150L)
                     }
-                } catch (e: Throwable) {
+                    } catch (e: Throwable) {
                     AppLogger.logError(appContext, "OCR_SELECTION_CRASH", e)
+                    controlPanelOverlay.show()
+                    targetManager.setOverlaysVisible(true)
                     Toast.makeText(appContext, "Ошибка считывания текста: ${e.message}", Toast.LENGTH_SHORT).show()
                     mainHandler.postDelayed({ showEditDialog(action) }, 150L)
-                } finally {
+                    } finally {
                     screenshot.recycle()
-                }
+                    }
             },
             onCancelled = {
                 screenshot.recycle()

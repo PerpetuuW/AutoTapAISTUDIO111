@@ -15,11 +15,15 @@ def main():
     target = sys.argv[1] if len(sys.argv) > 1 else "build"
 
     if target in ("build", "all", "1"):
-        b_path = os.path.join(ROOT_DIR, "1ABuild.py")
+        b_path = os.path.join(ROOT_DIR, "1Abuild.py")
+        if not os.path.exists(b_path):
+            b_path = os.path.join(ROOT_DIR, "1ABuild.py")
         res = subprocess.run([sys.executable, b_path], cwd=ROOT_DIR)
         sys.exit(res.returncode)
     elif target in ("inspect", "check", "2"):
-        i_path = os.path.join(ROOT_DIR, "1AInspector.py")
+        i_path = os.path.join(ROOT_DIR, "1Ainspector.py")
+        if not os.path.exists(i_path):
+            i_path = os.path.join(ROOT_DIR, "1AInspector.py")
         res = subprocess.run([sys.executable, i_path], cwd=ROOT_DIR)
         sys.exit(res.returncode)
     elif target in ("deploy", "adb", "3"):

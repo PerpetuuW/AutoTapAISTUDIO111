@@ -292,7 +292,8 @@ class TemplateNoiseStressCalibrationTestSuite {
         }.maxOrNull()
 
         assertNotNull("Должен существовать хотя бы один порог с 0 False Positives и 100% Recall", optimalThreshold)
-        assertTrue("Оптимальный рабочий порог калибровки AutoTap лежит в диапазоне [0.55..0.85], найден: $optimalThreshold", optimalThreshold!! in 0.55f..0.85f)
+        val verifiedOptimal = optimalThreshold ?: 0f
+        assertTrue("Оптимальный рабочий порог калибровки AutoTap лежит в диапазоне [0.55..0.85], найден: $verifiedOptimal", verifiedOptimal in 0.55f..0.85f)
     }
 
     /**
