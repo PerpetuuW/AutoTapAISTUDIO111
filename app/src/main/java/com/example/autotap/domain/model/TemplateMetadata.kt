@@ -1,9 +1,14 @@
+@file:OptIn(
+    kotlinx.serialization.InternalSerializationApi::class,
+    kotlinx.serialization.ExperimentalSerializationApi::class
+)
+
 package com.example.autotap.domain.model
 
 import androidx.annotation.Keep
-import kotlin.OptIn
-import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 @Keep
@@ -48,18 +53,16 @@ data class TemplateMetadata(
     val isMultiScaleMode: Boolean = false,
     val isNeuralEngine: Boolean = false
 ) {
-    @OptIn(InternalSerializationApi::class)
     fun toJsonString(): String {
         val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
-        return json.encodeToString(serializer(), this)
+        return json.encodeToString(this)
     }
 
     companion object {
-        @OptIn(InternalSerializationApi::class)
         fun fromJsonString(jsonStr: String): TemplateMetadata? {
             return try {
                 val json = Json { ignoreUnknownKeys = true }
-                json.decodeFromString(serializer(), jsonStr)
+                json.decodeFromString<TemplateMetadata>(jsonStr)
             } catch (_: Exception) {
                 null
             }
