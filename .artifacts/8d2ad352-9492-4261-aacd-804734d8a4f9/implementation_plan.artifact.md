@@ -1,48 +1,37 @@
-# Architectural Plan: Transition Floating Overlays to Pure Native 120 FPS Kotlin Canvas Views
+# Unified Material 3 Cyber-Glassmorphism Button Design System & Removal of Restricted Settings Button
 
-## Problem & Architectural Goal
-The user requested: *"нужно перевести весь тяжелый Компос на рисование в котлин, либо использовать библиотеку, которая специализируется на оверлеях"*
-
-Jetpack Compose inside Android `WindowManager` system overlays creates continuous runtime overhead (Recomposer loops, `ViewTreeLifecycleOwner` events, compose context re-evaluations).
-
-To achieve **zero-lag, instant 120 FPS response, zero GC pressure, and 100% reliable layout bounds**, we will migrate the floating overlays from Jetpack Compose back to our ultra-lightweight, native **Kotlin Canvas View architecture** (`CanvasIconButton`, `VectorIconDrawer`, `FrameLayout`, `LinearLayout`).
+## Goal
+1. **Remove Unnecessary Button**: Completely remove the "РАЗРЕШИТЬ ОГРАНИЧЕННЫЕ НАСТРОЙКИ (ANDROID 13+)" button from `GlobalSettingsDialog.kt`.
+2. **Unified Button Design System**: Standardize all button styles, colors, gradients, strokes, corner radiuses, and typography across `GlobalSettingsDialog.kt`, `ScriptsDialog.kt`, `LogViewerDialog.kt`, and `EditActionDialog.kt` into a single, cohesive **Material 3 Cyber-Glassmorphism** design system.
 
 ---
 
-## Proposed Changes & Component Architecture
+## Unified Button Design Tokens
 
-### 1. Control Panel Overlay (`ControlPanelOverlay.kt`)
-- Un-deprecate `ControlPanelOverlay.kt`.
-- Build the main row using native Kotlin `LinearLayout` and `CanvasIconButton`:
-  1. `BTN_PLAY_VIEW` (Play/Pause)
-  2. `BTN_CAPTURE` (Capture ИИ-вырезка шаблона — ngay за Play)
-  3. `BTN_ADD` (`+` Добавить мишень)
-  4. `BTN_RECORD` (Запись жестов)
-  5. `BTN_TOGGLE_VIEW` (Шторка)
-  6. `BTN_HIDE` (Глаз / Прозрачность)
-  7. `BTN_SETTINGS` (Настройки)
-  8. `BTN_CLOSE` (Крестик закрытия оверлея **СПРАВА СВЕРХУ**)
-- Sub Row (2nd row):
-  1. `BTN_LOCK` (AFK Замок)
-  2. `BTN_CLEAR` (Очистить все)
-  3. `BTN_SCRIPTS` (Сценарии)
-  4. `BTN_HELP` (Справка)
-- Compact button sizing (`30dp` button, `4dp` padding): Total main row width is `268dp`, fitting comfortably on all phone screens (360dp+).
-- The red `BTN_CLOSE` (`X`) is **100% visible at the top-right corner**.
-- Smooth touch drag listener with `posX` and `posY` state updating via `updateViewLayout`.
-
-### 2. Execution Badge Overlay (`RunningBadgeOverlay.kt`)
-- Convert running execution badge to pure native Kotlin View (`RunningBadgeOverlay.kt`).
-- Progress bar rendered via pure `Canvas` on-draw.
-- Lock and Stop buttons rendered via `CanvasIconButton` with `onClickListener` for instant response and zero lag.
-
-### 3. Orchestrator Binding (`AutoTapOrchestrator.kt`)
-- Route `controlPanelOverlay` and `runningBadgeOverlay` to native Kotlin Canvas overlays (`ControlPanelOverlay` & `RunningBadgeOverlay`).
-
-### 4. Inspector Test Suite (`1AInspector`)
-- Update `1AInspector/check_control_panel_compose_size_and_close_button.py` and all 177 inspector modules to verify pure Kotlin Canvas overlay contracts.
+| Button Type | Background Gradient | Stroke Border | Text Color & Font | Corner Radius |
+| :--- | :--- | :--- | :--- | :---: |
+| **Primary Action** (Сохранить, Применить) | `#162032` -> `#0F172A` | `#38BDF8` (Cyan) | `#38BDF8`, BOLD, 10.5sp | `8dp` |
+| **Secondary Utility** (Отмена, Закрыть, Назад) | `#1F2937` -> `#111827` | `#374151` (Slate) | `#9CA3AF`, BOLD, 9.5sp | `8dp` |
+| **Danger / Destructive** (Удалить, Очистить) | `#2A0E0C` -> `#1C0908` | `#7F1D1D` (Crimson) | `#F04438`, BOLD, 9.5sp | `8dp` |
+| **Toggle Active** (Включено, Активно) | `#0D2E1E` -> `#061A10` | `#34D399` (Emerald) | `#86EFAC`, BOLD, 9sp | `6dp` |
+| **Toggle Inactive** (Выключено) | `#21262D` -> `#161B22` | `#30363D` (Charcoal) | `#8B949E`, BOLD, 9sp | `6dp` |
 
 ---
+
+## Proposed Changes
+
+### 1. GlobalSettingsDialog.kt
+- [MODIFY] [GlobalSettingsDialog.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/GlobalSettingsDialog.kt)
+  - Remove "РАЗРЕШИТЬ ОГРАНИЧЕННЫЕ НАСТРОЙКИ (ANDROID 13+)" button.
+  - Apply Unified Primary style to "СОХРАНИТЬ", Secondary to "ОТМЕНА", Danger to "СБРОСИТЬ", and Toggle style to "ВКЛЮЧЕНО / ВЫКЛЮЧЕНО".
+
+### 2. ScriptsDialog.kt
+- [MODIFY] [ScriptsDialog.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/ScriptsDialog.kt)
+  - Apply Unified Primary style to "СОХРАНИТЬ СЦЕНАРИЙ", "ЭКСПОРТ ZIP", and Secondary style to "ГРАФ-РЕДАКТОР", "ЗАКРЫТЬ".
+
+### 3. LogViewerDialog.kt
+- [MODIFY] [LogViewerDialog.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/LogViewerDialog.kt)
+  - Apply Unified Primary style to active tag chips, Secondary style to inactive tag chips, and Danger style to "ОЧИСТИТЬ".
 
 ## Verification Plan
 
@@ -51,5 +40,5 @@ To achieve **zero-lag, instant 120 FPS response, zero GC pressure, and 100% reli
 - Run all 177 1AInspector scripts.
 
 ### Manual Verification
-- Open Control Panel: verify instant 120 FPS responsiveness, zero lag, smooth dragging, and red `CLOSE` (`X`) button 100% visible at top-right.
-- Run macro: verify Running Badge displays progress and Stop button halts execution instantly.
+- Open `GlobalSettingsDialog`: verify "Ограниченные настройки" button is gone and all buttons have unified Cyber-Glassmorphism styling.
+- Open `ScriptsDialog` and `LogViewerDialog`: verify matching unified button styles.

@@ -475,14 +475,14 @@ class GlobalSettingsDialog(
             setPadding(0, dp(8), 0, 0)
         }
 
-        val btnCancel = createActionIconBtn(VectorIconDrawer.IconType.CLOSE, "#1B1430", "#FDA4AF") {
+        val btnCancel = createActionIconBtn(VectorIconDrawer.IconType.CLOSE, "#1F2937", "#9CA3AF") {
             dismiss()
         }.apply {
             tag = "CANCEL"
         }
         btnRow.addView(btnCancel, LinearLayout.LayoutParams(0, dp(38), 1f).apply { marginEnd = dp(4) })
 
-        val btnSave = createActionIconBtn(VectorIconDrawer.IconType.CHECK, "#6D28D9", "#A78BFA").apply {
+        val btnSave = createActionIconBtn(VectorIconDrawer.IconType.CHECK, "#162032", "#38BDF8").apply {
             tag = "SAVE"
         }
         btnSave.setOnClickListener {
@@ -497,36 +497,6 @@ class GlobalSettingsDialog(
         }
         btnRow.addView(btnSave, LinearLayout.LayoutParams(0, dp(38), 1.5f))
         rootCard.addView(btnRow)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val btnRestricted = Button(context).apply {
-                text = "РАЗРЕШИТЬ ОГРАНИЧЕННЫЕ НАСТРОЙКИ (ANDROID 13+)"
-                textSize = 8f
-                typeface = Typeface.DEFAULT_BOLD
-                includeFontPadding = false
-                minHeight = 0
-                minimumHeight = 0
-                gravity = Gravity.CENTER
-                setTextColor(Color.WHITE)
-                background = GradientDrawable().apply {
-                    setColor("#D97706".toColorInt())
-                    cornerRadius = dpF(6f)
-                }
-                setPadding(dp(6), dp(4), dp(6), dp(4))
-                setOnClickListener {
-                    Toast.makeText(context, "Нажмите ⋮ (три точки) вверху справа -> Разрешить ограниченные настройки", Toast.LENGTH_LONG).show()
-                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.fromParts("package", context.packageName, null)
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    context.startActivity(intent)
-                    dismiss()
-                }
-            }
-            rootCard.addView(btnRestricted, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(32)).apply {
-                topMargin = dp(6)
-            })
-        }
 
         val params = overlayWindowManager.createDialogLayoutParams(
             width = cardW,

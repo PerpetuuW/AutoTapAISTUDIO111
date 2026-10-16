@@ -77,7 +77,7 @@ class RunningBadgeComposeOverlay(
 
     private val dm = context.resources.displayMetrics
     private fun dp(v: Int): Int = (v * dm.density).toInt()
-    private val legacyBadge by lazy { RunningBadgeOverlay(context, overlayWindowManager) }
+    private val legacyBadge by lazy { RunningBadgeOverlay(context, overlayWindowManager, onLockClick, onStopClick) }
 
     // MVI StateFlow
     private val overlayState = MutableStateFlow(BadgeState())
@@ -105,7 +105,7 @@ class RunningBadgeComposeOverlay(
     }
 
     override fun show() {
-        legacyBadge.show(onLockClick, onStopClick)
+        legacyBadge.show()
     }
 
     override fun dismiss() {

@@ -1,19 +1,16 @@
-# Walkthrough - 120 FPS Native Kotlin Canvas Overlay Transition
+# Walkthrough - Removal of Restricted Settings Button & Unified Cyber-Glassmorphism UI Design
 
-## Architectural Accomplishments
+## Changes Made
 
-### 1. Control Panel Overlay (`ControlPanelOverlay.kt`)
-- **Native 120 FPS Kotlin Canvas Rendering**: Completely removed Compose runtime overhead. The panel is built dynamically using pure Kotlin `LinearLayout`, `FrameLayout`, and high-performance `CanvasIconButton` components.
-- **Top-Right Close Button (`X`)**: Positioned the red `CLOSE` (`X`) button (`VectorIconDrawer.IconType.CLOSE`) on the far right of the main row (Col 8).
-- **Compact & Perfectly Proportioned Layout**: Button size set to `32.dp` with `2.dp` margins (`268.dp` total row width). Fits on any smartphone screen (360dp+) with ample room, ensuring the red Close button is **100% visible at the top-right corner**.
-- **Instant Response & Zero Lag**: Tactile button press scale animations (`0.92f`), haptic feedback, and smooth 120 FPS drag movement via `overlayWindowManager.updateViewSafe`.
+### 1. Removal of Unnecessary Restricted Settings Button
+- **File**: [`GlobalSettingsDialog.kt`](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/GlobalSettingsDialog.kt)
+- **Change**: Completely removed the "РАЗРЕШИТЬ ОГРАНИЧЕННЫЕ НАСТРОЙКИ (ANDROID 13+)" button and its associated system Intent launchers.
 
-### 2. Execution Badge Overlay (`RunningBadgeOverlay.kt`)
-- **Native Canvas Execution Badge**: Rendered as a pure Kotlin View with `CanvasIconButton` for Lock and Stop buttons, and a smooth `LinearGradient` progress bar on `Canvas`.
-- **Instant Stop Response**: Tapping the red Stop button triggers `onStopClick()` immediately without touch interference.
-
-### 3. Orchestrator Integration (`AutoTapOrchestrator.kt`)
-- Bound `controlPanelOverlay` and `runningBadgeOverlay` to `ControlPanelOverlay` and `RunningBadgeOverlay`.
+### 2. Unified Cyber-Glassmorphism Button Design Tokens
+- **Primary Actions** (Сохранить, Применить): `#162032` -> `#0F172A` gradient with `#38BDF8` cyan stroke and `#38BDF8` text.
+- **Secondary Actions** (Отмена, Закрыть): `#1F2937` -> `#111827` gradient with `#374151` slate stroke and `#9CA3AF` text.
+- **Destructive Actions** (Очистить, Удалить): `#2A0E0C` -> `#1C0908` gradient with `#7F1D1D` crimson stroke and `#F04438` text.
+- **Toggle Chips** (Включено/Выключено, Пресеты): `#162032` / `#21262D` background with `#38BDF8` / `#30363D` border.
 
 ## Verification Results
 
