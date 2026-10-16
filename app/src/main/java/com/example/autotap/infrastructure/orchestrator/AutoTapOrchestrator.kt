@@ -63,7 +63,10 @@ import com.example.autotap.infrastructure.visualizer.LaserScanVisualizer
 import com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer
 import java.io.File
 import java.util.LinkedHashMap
+import kotlin.math.abs
 import kotlin.math.hypot
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -133,6 +136,15 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         MacroExecutionEngine(fallbackGestureGateway, visionGateway, safetyGovernor, scenarioRepository, templateRepository) { AutoTapAccessibilityService.instance }
     }
 
+    val screenOffMonitor by lazy {
+        ScreenOffStopMonitor(appContext) {
+            if (macroEngine.executionState.value is ExecutionState.Running) {
+                AppLogger.log(appContext, "ORCHESTRATOR", "Экран выключен (ACTION_SCREEN_OFF) — отмена воспроизведения макроса")
+                macroEngine.stop()
+            }
+        }
+    }
+
     private var activeEditDialog: EditActionDialog? = null
 
     init {
@@ -169,6 +181,9 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             }
             lastObservedActionIds = currentIds
             persistActiveSession()
+        }
+        targetManager.onVisibilityModeChanged = { mode ->
+            controlPanelOverlay.updateVisibilityMode(mode)
         }
         appScope.launch { macroEngine.executionState.collect { handleExecutionState(it) } }
         AutoTapAccessibilityService.instance?.gestureDispatcher?.onGesturePassthroughToggle = { enabled, rect -> screenLockOverlay.setPassthroughEnabled(enabled, rect) }
@@ -391,7 +406,19 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             onCaptureTriggered = { cropX, cropY, cropW, cropH, _ ->
                 val designatedRoi = captureOverlay.designatedRoi
                 val effectiveAction = if (designatedRoi != null) {
-                    actionion.copy(roiLeft = designatedRoi.left, roiTop = designatedRoi.top, roiRight = designatedRoi.right, roiBottom = designatedRoi.bottom)
+                    val currentAnchors = actionion.primaryAnchorPoints.toMutableList()
+                    val roiCenter = Point2D(designatedRoi.centerX().toFloat(), designatedRoi.centerY().toFloat())
+                    if (currentAnchors.none { abs(it.x - roiCenter.x) < 24f && abs(it.y - roiCenter.y) < 24f }) {
+                        if (currentAnchors.size >= 8) currentAnchors.removeAt(0)
+                        currentAnchors.add(roiCenter)
+                    }
+                    actionion.copy(
+                        roiLeft = designatedRoi.left,
+                        roiTop = designatedRoi.top,
+                        roiRight = designatedRoi.right,
+                        roiBottom = designatedRoi.bottom,
+                        primaryAnchorPoints = currentAnchors
+                    )
                 } else actionion
 
                 mainHandler.postDelayed({
@@ -457,7 +484,19 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             onCaptureTriggered = { cropX, cropY, cropW, cropH, _ ->
                 val designatedRoi = captureOverlay.designatedRoi
                 val effectiveAction = if (designatedRoi != null) {
-                    actionion.copy(roiLeft = designatedRoi.left, roiTop = designatedRoi.top, roiRight = designatedRoi.right, roiBottom = designatedRoi.bottom)
+                    val currentAnchors = actionion.primaryAnchorPoints.toMutableList()
+                    val roiCenter = Point2D(designatedRoi.centerX().toFloat(), designatedRoi.centerY().toFloat())
+                    if (currentAnchors.none { abs(it.x - roiCenter.x) < 24f && abs(it.y - roiCenter.y) < 24f }) {
+                        if (currentAnchors.size >= 8) currentAnchors.removeAt(0)
+                        currentAnchors.add(roiCenter)
+                    }
+                    actionion.copy(
+                        roiLeft = designatedRoi.left,
+                        roiTop = designatedRoi.top,
+                        roiRight = designatedRoi.right,
+                        roiBottom = designatedRoi.bottom,
+                        primaryAnchorPoints = currentAnchors
+                    )
                 } else actionion
 
                 mainHandler.postDelayed({
@@ -827,8 +866,12 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     val dist = hypot((foundX - action.posX).toDouble(), (foundY - action.posY).toDouble())
                     if (dist > 30.0) {
                         val newAnchors = action.primaryAnchorPoints.toMutableList()
-                        newAnchors.add(Point2D(foundX.toFloat(), foundY.toFloat()))
-                        targetManager.updateAction(action.copy(primaryAnchorPoints = newAnchors.takeLast(3)))
+                        val newPt = Point2D(foundX.toFloat(), foundY.toFloat())
+                        if (newAnchors.none { abs(it.x - newPt.x) < 24f && abs(it.y - newPt.y) < 24f }) {
+                            if (newAnchors.size >= 8) newAnchors.removeAt(0)
+                            newAnchors.add(newPt)
+                        }
+                        targetManager.updateAction(action.copy(primaryAnchorPoints = newAnchors))
                     }
                 }
             } catch (_: Exception) {
@@ -1215,7 +1258,15 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 val designatedRoi = captureOverlay.designatedRoi
                 val nextId = (targetManager.getActions().maxOfOrNull { it.id } ?: 0) + 1
                 val initialAction = if (designatedRoi != null) {
-                    MacroAction(id = nextId, roiLeft = designatedRoi.left, roiTop = designatedRoi.top, roiRight = designatedRoi.right, roiBottom = designatedRoi.bottom)
+                    val roiCenter = Point2D(designatedRoi.centerX().toFloat(), designatedRoi.centerY().toFloat())
+                    MacroAction(
+                        id = nextId,
+                        roiLeft = designatedRoi.left,
+                        roiTop = designatedRoi.top,
+                        roiRight = designatedRoi.right,
+                        roiBottom = designatedRoi.bottom,
+                        primaryAnchorPoints = listOf(roiCenter)
+                    )
                 } else null
 
                 mainHandler.postDelayed({
@@ -1398,7 +1449,74 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             onSelectRoi = { act ->
                 val curRect = if (act.roiLeft != null && act.roiRight != null) Rect(act.roiLeft, act.roiTop ?: 0, act.roiRight, act.roiBottom ?: 0) else null
                 startRoiSelector(curRect) { r ->
-                    val updated = if (r != null) act.copy(roiLeft = r.left, roiTop = r.top, roiRight = r.right, roiBottom = r.bottom) else act.copy(roiLeft = null, roiTop = null, roiRight = null, roiBottom = null)
+                    val updated = if (r != null) {
+                        val currentAnchors = act.primaryAnchorPoints.toMutableList()
+                        val roiCenter = Point2D(r.centerX().toFloat(), r.centerY().toFloat())
+                        if (currentAnchors.none { abs(it.x - roiCenter.x) < 24f && abs(it.y - roiCenter.y) < 24f }) {
+                            if (currentAnchors.size >= 8) currentAnchors.removeAt(0)
+                            currentAnchors.add(roiCenter)
+                        }
+
+                        val primaryPath = if (act.selectedTemplateIndex in act.multiTemplatePaths.indices) {
+                            act.multiTemplatePaths[act.selectedTemplateIndex]
+                        } else {
+                            act.templatePath.ifBlank { act.multiTemplatePaths.firstOrNull { it.isNotBlank() } ?: "" }
+                        }
+
+                        if (primaryPath.isNotBlank()) {
+                            TemplateMatchingEngine.registerDiscoveredLocation(primaryPath, r.centerX(), r.centerY())
+                            val history = TemplateMatchingEngine.historicalSearchAnchors.getOrPut(primaryPath) { java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap()) }
+                            history.add(Pair(r.centerX(), r.centerY()))
+
+                            try {
+                                val maskFile = if (File(primaryPath).isAbsolute && File(primaryPath).exists()) {
+                                    File(primaryPath)
+                                } else {
+                                    val tDir = File(appContext.filesDir, "templates")
+                                    val direct = File(tDir, primaryPath)
+                                    if (direct.exists()) direct else {
+                                        val fName = File(primaryPath).name
+                                        tDir.walkTopDown().filter { it.isFile && it.name == fName }.firstOrNull() ?: File(primaryPath)
+                                    }
+                                }
+                                val metaFile = File(maskFile.parentFile, "${maskFile.nameWithoutExtension}.json")
+                                if (metaFile.exists()) {
+                                    val metaJson = JSONObject(metaFile.readText())
+                                    val discArr = metaJson.optJSONArray("discoveredLocations") ?: org.json.JSONArray()
+                                    var alreadyPresent = false
+                                    for (i in 0 until discArr.length()) {
+                                        val obj = discArr.optJSONObject(i)
+                                        if (obj != null && abs(obj.optInt("x") - r.centerX()) < 24 && abs(obj.optInt("y") - r.centerY()) < 24) {
+                                            alreadyPresent = true
+                                            break
+                                        }
+                                    }
+                                    if (!alreadyPresent) {
+                                        if (discArr.length() >= 8) discArr.remove(0)
+                                        discArr.put(JSONObject().apply {
+                                            put("x", r.centerX())
+                                            put("y", r.centerY())
+                                        })
+                                        metaJson.put("discoveredLocations", discArr)
+                                        metaFile.writeText(metaJson.toString())
+                                        TemplateMatchingEngine.clearTemplateCache()
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                AppLogger.logError(appContext, "ROI_META_ADD", e)
+                            }
+                        }
+
+                        act.copy(
+                            roiLeft = r.left,
+                            roiTop = r.top,
+                            roiRight = r.right,
+                            roiBottom = r.bottom,
+                            primaryAnchorPoints = currentAnchors
+                        )
+                    } else {
+                        act.copy(roiLeft = null, roiTop = null, roiRight = null, roiBottom = null)
+                    }
                     targetManager.updateAction(updated)
                     mainHandler.postDelayed({ showEditDialog(updated) }, 150L)
                 }
@@ -1488,6 +1606,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
 
                 is ExecutionState.Running -> {
                     wasExecutingBeforeStop = true
+                    screenOffMonitor.startMonitoring()
                     controlPanelOverlay.hide(); targetManager.setTargetsTouchable(false); targetManager.setOverlaysVisible(false)
 
                     if (state.isDebugPaused) {
@@ -1505,6 +1624,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 is ExecutionState.Completed -> {
                     val wasRunning = wasExecutingBeforeStop
                     wasExecutingBeforeStop = false
+                    screenOffMonitor.stopMonitoring()
                     runningBadgeOverlay.dismiss(); debuggerToolbarOverlay.dismiss(); screenLockOverlay.dismiss()
                     controlPanelOverlay.show(); controlPanelOverlay.setPlayState(false); targetManager.setOverlaysVisible(true); targetManager.setTargetsTouchable(true)
                     val currentActions = targetManager.getActions()
@@ -1517,11 +1637,13 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 ExecutionState.Idle, is ExecutionState.Error -> {
                     val wasRunning = wasExecutingBeforeStop
                     wasExecutingBeforeStop = false
+                    screenOffMonitor.stopMonitoring()
                     runningBadgeOverlay.dismiss(); debuggerToolbarOverlay.dismiss(); screenLockOverlay.dismiss()
                     controlPanelOverlay.show(); controlPanelOverlay.setPlayState(false); targetManager.setOverlaysVisible(true); targetManager.setTargetsTouchable(true)
                 }
 
                 is ExecutionState.Paused -> {
+                    screenOffMonitor.stopMonitoring()
                     controlPanelOverlay.show(); controlPanelOverlay.setPlayState(false); targetManager.setOverlaysVisible(true); targetManager.setTargetsTouchable(true)
                 }
             }

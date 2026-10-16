@@ -40,7 +40,6 @@ class ScreenLockOverlay(
     private var uiLockContainer: LinearLayout? = null
     private var bgWindowParams: WindowManager.LayoutParams? = null
     private var uiWindowParams: WindowManager.LayoutParams? = null
-    private val firewallViews = mutableListOf<View>()
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val dm = context.resources.displayMetrics
@@ -70,7 +69,7 @@ class ScreenLockOverlay(
     fun setTemporarilyTransparent(transparent: Boolean) {
         mainHandler.post {
             bgLockContainer?.setBackgroundColor(if (transparent) Color.TRANSPARENT else currentBgColor)
-            uiLockContainer?.alpha = if (transparent) 0f else 1f
+            uiLockContainer?.alpha = 1f
         }
     }
 
@@ -78,113 +77,15 @@ class ScreenLockOverlay(
     fun setPassthroughEnabled(enabled: Boolean, rect: android.graphics.RectF? = null) {
         val bg = bgLockContainer ?: return
         val params = bgWindowParams ?: return
-        val ui = uiLockContainer
-        val uiParams = uiWindowParams
-        if (enabled) {
-            if (rect != null) {
-                mainHandler.post { showFirewall(rect) }
-            } else {
-                mainHandler.post { removeFirewall() }
-            }
-            params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-            uiParams?.let { it.flags = it.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE }
+        val newFlags = if (enabled) {
+            params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         } else {
-            mainHandler.post { removeFirewall() }
-            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-            uiParams?.let { it.flags = it.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv() }
+            params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
         }
-        overlayWindowManager.updateViewSafe(bg, params)
-        if (ui != null && uiParams != null) {
-            overlayWindowManager.updateViewSafe(ui, uiParams)
+        if (params.flags != newFlags) {
+            params.flags = newFlags
+            overlayWindowManager.updateViewSafe(bg, params)
         }
-    }
-
-    private fun showFirewall(rect: android.graphics.RectF) {
-        removeFirewall()
-        val density = context.resources.displayMetrics.density
-        val screenW = context.resources.displayMetrics.widthPixels
-        val screenH = context.resources.displayMetrics.heightPixels
-        val gap = (32 * density).toInt()
-
-        val leftX = (rect.left - gap).toInt().coerceIn(0, screenW)
-        val rightX = (rect.right + gap).toInt().coerceIn(0, screenW)
-        val topY = (rect.top - gap).toInt().coerceIn(0, screenH)
-        val bottomY = (rect.bottom + gap).toInt().coerceIn(0, screenH)
-
-        if (topY > 0) {
-            val v = View(context).apply { setBackgroundColor(Color.BLACK) }
-            val p = overlayWindowManager.createLayoutParams(
-                width = WindowManager.LayoutParams.MATCH_PARENT,
-                height = topY,
-                flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                gravity = Gravity.TOP or Gravity.START
-            ).apply {
-                x = 0
-                y = 0
-            }
-            overlayWindowManager.addViewSafe(v, p)
-            firewallViews.add(v)
-        }
-
-        if (bottomY < screenH) {
-            val v = View(context).apply { setBackgroundColor(Color.BLACK) }
-            val p = overlayWindowManager.createLayoutParams(
-                width = WindowManager.LayoutParams.MATCH_PARENT,
-                height = screenH - bottomY,
-                flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                gravity = Gravity.TOP or Gravity.START
-            ).apply {
-                x = 0
-                y = bottomY
-            }
-            overlayWindowManager.addViewSafe(v, p)
-            firewallViews.add(v)
-        }
-
-        if (leftX > 0 && bottomY > topY) {
-            val v = View(context).apply { setBackgroundColor(Color.BLACK) }
-            val p = overlayWindowManager.createLayoutParams(
-                width = leftX,
-                height = bottomY - topY,
-                flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                gravity = Gravity.TOP or Gravity.START
-            ).apply {
-                x = 0
-                y = topY
-            }
-            overlayWindowManager.addViewSafe(v, p)
-            firewallViews.add(v)
-        }
-
-        if (rightX < screenW && bottomY > topY) {
-            val v = View(context).apply { setBackgroundColor(Color.BLACK) }
-            val p = overlayWindowManager.createLayoutParams(
-                width = screenW - rightX,
-                height = bottomY - topY,
-                flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                gravity = Gravity.TOP or Gravity.START
-            ).apply {
-                x = rightX
-                y = topY
-            }
-            overlayWindowManager.addViewSafe(v, p)
-            firewallViews.add(v)
-        }
-    }
-
-    private fun removeFirewall() {
-        firewallViews.forEach {
-            overlayWindowManager.removeViewSafe(it)
-        }
-        firewallViews.clear()
     }
 
     fun show() {
@@ -192,6 +93,12 @@ class ScreenLockOverlay(
         AppLogger.log(context, "LOCK", "Активация AFK защиты экрана (AMOLED Burn-in Guard)")
         sessionStartTime = System.currentTimeMillis()
 
+        val wm = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+        val realMetrics = android.util.DisplayMetrics()
+        @Suppress("DEPRECATION")
+        wm?.defaultDisplay?.getRealMetrics(realMetrics)
+        val realW = if (realMetrics.widthPixels > 0) realMetrics.widthPixels else dm.widthPixels
+        val realH = if (realMetrics.heightPixels > 0) realMetrics.heightPixels else dm.heightPixels
 
         val initialProgress = (lockBrightness * 100).toInt().coerceIn(0, 100)
         currentBgColor = if (initialProgress == 0) Color.BLACK else {
@@ -200,20 +107,31 @@ class ScreenLockOverlay(
         }
         val bg = FrameLayout(context).apply {
             setBackgroundColor(currentBgColor)
+            @Suppress("DEPRECATION")
+            systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            )
             setOnTouchListener { _, _ -> true }
         }
         bgLockContainer = bg
 
         val bgParams = overlayWindowManager.createLayoutParams(
-            width = WindowManager.LayoutParams.MATCH_PARENT,
-            height = WindowManager.LayoutParams.MATCH_PARENT,
+            width = realW,
+            height = realH,
             flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                     WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             gravity = Gravity.TOP or Gravity.START
         ).apply {
+            x = 0
+            y = 0
             screenBrightness = if (initialProgress == 0) 0.01f else (initialProgress / 100f).coerceIn(0.01f, 1.0f)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
         }
         bgWindowParams = bgParams
         overlayWindowManager.addViewSafe(bg, bgParams)
@@ -468,7 +386,6 @@ class ScreenLockOverlay(
         countdownRunnable = null
         pixelShiftRunnable?.let { mainHandler.removeCallbacks(it) }
         pixelShiftRunnable = null
-        removeFirewall()
 
         bgLockContainer?.let {
             overlayWindowManager.removeViewSafe(it)

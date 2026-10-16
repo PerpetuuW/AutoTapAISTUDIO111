@@ -9,6 +9,13 @@ import re
 import sys
 from pathlib import Path
 
+if sys.platform == "win32":
+    try:
+        getattr(sys.stdout, "reconfigure", lambda **kw: None)(encoding="utf-8")
+        getattr(sys.stderr, "reconfigure", lambda **kw: None)(encoding="utf-8")
+    except Exception:
+        pass
+
 def run_preflight_checks(project_root_str: str) -> bool:
     root = Path(project_root_str)
     print("=" * 80)

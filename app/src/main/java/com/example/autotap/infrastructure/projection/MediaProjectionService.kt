@@ -49,8 +49,12 @@ class MediaProjectionService : Service() {
         val currentFrameWidth: Int get() = frameWidth
         val currentFrameHeight: Int get() = frameHeight
 
+        @Volatile
+        private var lastCopyTimestamp = System.currentTimeMillis()
+
         fun copyLatestFrame(outPixels: IntArray, width: Int, height: Int): Boolean {
             if (!isStreaming) return false
+            lastCopyTimestamp = System.currentTimeMillis()
             frameLock.withLock {
                 val buf = latestBuffer ?: return false
                 if (frameWidth != width || frameHeight != height || buf.size < width * height) return false
@@ -152,6 +156,11 @@ class MediaProjectionService : Service() {
             try {
                 image = reader.acquireLatestImage()
                 if (image != null) {
+                    val timeSinceLastRequest = System.currentTimeMillis() - lastCopyTimestamp
+                    if (timeSinceLastRequest > 1500L && latestBuffer != null) {
+                        return@setOnImageAvailableListener
+                    }
+
                     val plane = image.planes[0]
                     val buffer: ByteBuffer = plane.buffer
                     val pixelStride = plane.pixelStride

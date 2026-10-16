@@ -46,6 +46,13 @@ object OcrEngine {
     @Volatile
     private var cachedDictionary: List<String>? = null
 
+    private val ocrExecutor: java.util.concurrent.ExecutorService by lazy {
+        val numThreads = minOf(4, Runtime.getRuntime().availableProcessors().coerceAtLeast(2))
+        java.util.concurrent.Executors.newFixedThreadPool(numThreads) { r ->
+            Thread(r, "AutoTapOcrWorker").apply { isDaemon = true }
+        }
+    }
+
     val imagePreprocessor: ImagePreprocessing by lazy { ImagePreprocessing.instance }
 
     private fun getContext(): Context? {
@@ -856,13 +863,11 @@ object OcrEngine {
         val filteredBoxes = boxes.filter { it.width() >= 6 && it.height() >= 6 }
 
         if (filteredBoxes.isNotEmpty()) {
-            // Быстрое параллельное распознавание через пул потоков
-            val numThreads = minOf(4, Runtime.getRuntime().availableProcessors().coerceAtLeast(2))
-            val threadPool = java.util.concurrent.Executors.newFixedThreadPool(numThreads)
+            // Быстрое параллельное распознавание через переиспользуемый пул потоков
             val futures = mutableListOf<java.util.concurrent.Future<Pair<Rect, String?>>>()
 
             for (box in filteredBoxes) {
-                val f = threadPool.submit(java.util.concurrent.Callable {
+                val f = ocrExecutor.submit(java.util.concurrent.Callable {
                     val bH = box.height()
                     // Просторный горизонтальный паддинг исключительно при кропе для нейросети распознавания, не искажающий координаты бокса
                     val padX = (bH * 0.45f).toInt().coerceIn(14, 36)
@@ -881,9 +886,11 @@ object OcrEngine {
                 futures.add(f)
             }
 
-            threadPool.shutdown()
-
             for (future in futures) {
+                if (cleanQuery.isNotBlank() && matches.isNotEmpty()) {
+                    future.cancel(true)
+                    continue
+                }
                 val (box, rec) = try { future.get() } catch (_: Throwable) { continue }
                 if (!rec.isNullOrBlank()) {
                     AppLogger.log(null, "OCR_SCAN", "Бокс [${box.left},${box.top}..${box.right},${box.bottom}]: '$rec'")

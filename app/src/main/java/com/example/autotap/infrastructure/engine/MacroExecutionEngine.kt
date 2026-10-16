@@ -76,8 +76,24 @@ class MacroExecutionEngine(
 
     override val isDebugRunning: Boolean get() = isStepByStepDebug
 
+    private fun isScreenInteractive(): Boolean {
+        val ctx = accessibilityServiceProvider()?.applicationContext ?: return true
+        val pm = ctx.getSystemService(android.content.Context.POWER_SERVICE) as? android.os.PowerManager
+        return pm?.isInteractive ?: true
+    }
+
     @Volatile
     private var isPaused = false
+
+    @Volatile
+    private var cachedOverlayWindowManager: com.example.autotap.infrastructure.overlay.OverlayWindowManager? = null
+    private fun getOverlayWindowManager(ctx: android.content.Context): com.example.autotap.infrastructure.overlay.OverlayWindowManager {
+        val existing = cachedOverlayWindowManager
+        if (existing != null) return existing
+        val created = com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx)
+        cachedOverlayWindowManager = created
+        return created
+    }
 
     override fun start(scenario: MacroScenario, templates: Map<String, Bitmap>, isDebug: Boolean) {
         if (executionJob?.isActive == true) return
@@ -102,6 +118,11 @@ class MacroExecutionEngine(
 
             try {
                 while (isActive) {
+                    if (!isScreenInteractive()) {
+                        AppLogger.log(null, "MACRO_ENGINE", "Экран выключен — остановка сценария")
+                        stop()
+                        break
+                    }
                     if (currentIndex >= activeActionsList.size || currentIndex < 0) {
                         currentIndex = 0
                     }
@@ -254,6 +275,10 @@ class MacroExecutionEngine(
                                                         )
 
                                                         while (isActive && (isInfinite || (System.currentTimeMillis() - pollStartTime < timeoutMs))) {
+                                                            if (!isScreenInteractive()) {
+                                                                stop()
+                                                                break
+                                                            }
                                                             val elapsed = System.currentTimeMillis() - pollStartTime
                                                             val progressRatio = if (isInfinite) 0f else (elapsed.toFloat() / timeoutMs.toFloat()).coerceIn(0f, 1f)
 
@@ -321,6 +346,10 @@ class MacroExecutionEngine(
                                                                 }
                                                             }
                                                             if (streamedMatched) break
+                                                            if (MediaProjectionService.isStreaming) {
+                                                                delay(30L)
+                                                                continue
+                                                            }
 
                                                             val screenshot = service?.captureScreenshotSync(1500L)
                                                             if (screenshot != null) {
@@ -505,7 +534,7 @@ class MacroExecutionEngine(
                                                 } else null
                                                 com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showSearchDebugVisualization(
                                                     context = ctx,
-                                                    overlayWindowManager = com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx),
+                                                    overlayWindowManager = getOverlayWindowManager(ctx),
                                                     roi = curRoi,
                                                     bestCandidate = bestMatchCand,
                                                     rejectedCandidates = diag?.rejectedCandidates ?: emptyList(),
@@ -518,7 +547,7 @@ class MacroExecutionEngine(
                                                 val tName = bestMatchCand.templateName.removePrefix("mask_").ifBlank { "Шаблон #${action.id}" }
                                                 com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showConfidenceHighlight(
                                                     context = ctx,
-                                                    overlayWindowManager = com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx),
+                                                    overlayWindowManager = getOverlayWindowManager(ctx),
                                                     rect = matchRect,
                                                     detailText = tName,
                                                     scorePercent = matchScorePct,
@@ -541,7 +570,7 @@ class MacroExecutionEngine(
                                             withContext(kotlinx.coroutines.Dispatchers.Main) {
                                                 val ctx = accessibilityServiceProvider()?.applicationContext
                                                 if (ctx != null) {
-                                                    com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showTrainingHighlight(ctx, com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx), rect)
+                                                    com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showTrainingHighlight(ctx, getOverlayWindowManager(ctx), rect)
                                                     android.widget.Toast.makeText(ctx, "ОБУЧЕНИЕ ИИ: Цель найдена. Нажмите NEXT для клика.", android.widget.Toast.LENGTH_LONG).show()
                                                 }
                                             }
@@ -549,7 +578,7 @@ class MacroExecutionEngine(
                                             while (isPaused) { kotlinx.coroutines.delay(100L) }
                                             withContext(kotlinx.coroutines.Dispatchers.Main) {
                                                 val ctx = accessibilityServiceProvider()?.applicationContext
-                                                if (ctx != null) com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hideTrainingHighlight(com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx))
+                                                if (ctx != null) com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hideTrainingHighlight(getOverlayWindowManager(ctx))
                                             }
                                         }
 
@@ -573,7 +602,7 @@ class MacroExecutionEngine(
                                                 } else null
                                                 com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showSearchDebugVisualization(
                                                     context = ctx,
-                                                    overlayWindowManager = com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx),
+                                                    overlayWindowManager = getOverlayWindowManager(ctx),
                                                     roi = curRoi,
                                                     bestCandidate = null,
                                                     rejectedCandidates = diag?.rejectedCandidates ?: emptyList(),
@@ -737,7 +766,7 @@ class MacroExecutionEngine(
                                         if (ctx != null) {
                                             com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showConfidenceHighlight(
                                                 context = ctx,
-                                                overlayWindowManager = com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx),
+                                                overlayWindowManager = getOverlayWindowManager(ctx),
                                                 rect = ocrRect,
                                                 scorePercent = 100,
                                                 durationMs = 1400L
@@ -894,6 +923,11 @@ class MacroExecutionEngine(
 
             try {
                 while (isActive) {
+                    if (!isScreenInteractive()) {
+                        AppLogger.log(null, "GRAPH_ENGINE", "Экран выключен — остановка выполнения графа")
+                        stop()
+                        break
+                    }
                     val currentNode = scenario.nodes[activeNodeId] ?: break
 
                     if (isStepByStepDebug) {
@@ -1327,13 +1361,13 @@ class MacroExecutionEngine(
                             withContext(kotlinx.coroutines.Dispatchers.Main) {
                                 val ctx = accessibilityServiceProvider()?.applicationContext
                                 if (ctx != null) {
-                                    com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showTrainingHighlight(ctx, com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx), rect)
+                                    com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showTrainingHighlight(ctx, getOverlayWindowManager(ctx), rect)
                                 }
                             }
                             while (isPaused) { kotlinx.coroutines.delay(100L) }
                             withContext(kotlinx.coroutines.Dispatchers.Main) {
                                 val ctx = accessibilityServiceProvider()?.applicationContext
-                                if (ctx != null) com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hideTrainingHighlight(com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx))
+                                if (ctx != null) com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hideTrainingHighlight(getOverlayWindowManager(ctx))
                             }
                         }
 
@@ -1468,7 +1502,7 @@ class MacroExecutionEngine(
                 if (com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hasActiveHighlights()) {
                     hadHighlights = true
                     com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hideAllHighlights(
-                        com.example.autotap.infrastructure.overlay.OverlayWindowManager(ctx)
+                        getOverlayWindowManager(ctx)
                     )
                 }
             }
