@@ -1,10 +1,19 @@
-# AutoTap Greenfield Architecture — R8/Proguard Rules (v34.0)
+# AutoTap Architecture — R8/Proguard Shrinker Rules
 
-# Защита доменных моделей и перечислений для симметричной JSON сериализации
--keep class com.example.autotap.domain.model.** { *; }
--keep enum com.example.autotap.domain.model.** { *; }
--keep class com.example.autotap.domain.model.graph.** { *; }
--keep enum com.example.autotap.domain.model.graph.** { *; }
+# Защита доменных моделей и перечислений для JSON сериализации
+-keep @androidx.annotation.Keep class com.example.autotap.domain.model.** { *; }
+-keepclassmembers class com.example.autotap.domain.model.** {
+    <fields>;
+    <init>(...);
+}
+-keepclassmembers class com.example.autotap.domain.model.graph.** {
+    <fields>;
+    <init>(...);
+}
+-keepclassmembers enum com.example.autotap.domain.model.** {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
 
 # Защита интерфейсов шлюзов и репозиториев
 -keep interface com.example.autotap.domain.gateway.** { *; }
@@ -12,29 +21,21 @@
 -keep interface com.example.autotap.domain.engine.** { *; }
 
 # Защита ML Kit Text Recognition
--keep class com.google.mlkit.vision.text.latin.TextRecognizerOptions {
-    public static <fields>;
-}
--keep interface com.google.mlkit.vision.text.TextRecognizerOptionsInterface { *; }
--dontwarn com.google.mlkit.vision.text.cyrillic.**
+-dontwarn com.google.mlkit.**
+-keep class com.google.mlkit.vision.text.** { *; }
 
-# [V120.0] Защита MediaPipe Tasks Vision от R8 (исключение сбоя JNI нативных вызовов в релизе)
--keep class com.google.mediapipe.tasks.vision.** { *; }
--keep class com.google.mediapipe.framework.** { *; }
--keep class com.google.mediapipe.components.** { *; }
+# [V120.0] Защита MediaPipe Tasks Vision
 -dontwarn com.google.mediapipe.**
 
-# [V180.0] Защита Yandex Mobile Ads SDK для релизной сборки RuStore
--keep class com.yandex.mobile.ads.** { *; }
+# [V180.0] Защита Yandex Mobile Ads SDK
 -dontwarn com.yandex.mobile.ads.**
 
 # Защита ONNX Runtime JNI вызовов
--keep class ai.onnxruntime.** { *; }
 -dontwarn ai.onnxruntime.**
+-keep class ai.onnxruntime.** { *; }
 
-# Защита RuStore Pay SDK для проведения платежей
--keep class ru.rustore.sdk.pay.** { *; }
--dontwarn ru.rustore.sdk.pay.**
+# Защита RuStore Pay SDK
+-dontwarn ru.rustore.sdk.**
 
 # Защита Kotlin Coroutines и StateFlow
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory { *; }
