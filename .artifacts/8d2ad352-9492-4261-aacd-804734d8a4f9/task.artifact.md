@@ -1,7 +1,8 @@
 # Task List
 
-- `[x]` Reduce main row button size in `ControlPanelComposeOverlay.kt` to `30.dp` and spacing to `4.dp` (total `268.dp`) so `CLOSE` (`X`) button is 100% visible
-- `[x]` Fix drag math in `ControlPanelComposeOverlay.kt` for smooth 60 FPS movement without frame jumping
-- `[x]` Create `1AInspector/check_control_panel_compose_size_and_close_button.py` (176th inspector script)
+- `[x]` Un-deprecate and update `ControlPanelOverlay.kt` for native 120 FPS Kotlin Canvas view rendering with top-right Close button
+- `[x]` Create/update `RunningBadgeOverlay.kt` for pure native Kotlin Canvas view rendering
+- `[x]` Bind `controlPanelOverlay` and `runningBadgeOverlay` in `AutoTapOrchestrator.kt` to native Kotlin Canvas overlays
+- `[x]` Update `1AInspector` scripts for Kotlin Canvas overlay contracts
 - `[x]` Build and verify compilation
-- `[x]` Run all 176 1AInspector scripts and create walkthrough
+- `[x]` Run all 177 1AInspector scripts and create walkthrough

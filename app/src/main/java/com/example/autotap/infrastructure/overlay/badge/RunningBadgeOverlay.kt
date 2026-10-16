@@ -1,439 +1,286 @@
 package com.example.autotap.infrastructure.overlay.badge
 
-import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Paint
 import android.graphics.RectF
-import android.graphics.Typeface
-import android.graphics.drawable.ClipDrawable
+import android.graphics.Shader
 import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.LayerDrawable
-import android.os.Build
-import android.os.Handler
-import android.os.Looper
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.util.AttributeSet
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewOutlineProvider
 import android.view.WindowManager
-import android.view.animation.LinearInterpolator
 import android.widget.LinearLayout
-import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.core.graphics.toColorInt
-import com.example.autotap.domain.model.ActionType
 import com.example.autotap.domain.model.ExecutionState
 import com.example.autotap.infrastructure.overlay.OverlayWindowManager
+import com.example.autotap.infrastructure.overlay.ui.CanvasIconButton
 import com.example.autotap.infrastructure.overlay.ui.VectorIconDrawer
-import com.example.autotap.infrastructure.projection.MediaProjectionService
-import kotlin.math.abs
 
-@SuppressLint("SetTextI18n", "ClickableViewAccessibility")
+/**
+ * Высокопроизводительный нативный Kotlin Canvas оверлей бейджа исполнения (120 FPS).
+ * Мгновенная реакция кнопки СТОП и плавный прогресс-бар на Canvas.
+ */
+@SuppressLint("ClickableViewAccessibility", "SetTextI18n")
 class RunningBadgeOverlay(
     private val context: Context,
-    private val overlayWindowManager: OverlayWindowManager
+    private val overlayWindowManager: OverlayWindowManager,
+    private val onLockClick: () -> Unit,
+    private val onStopClick: () -> Unit
 ) {
-
-    private var badgeView: View? = null
+    private var rootView: View? = null
     private var tvStepHeader: TextView? = null
-    private var tvActionStatus: TextView? = null
-    private var actionProgressBar: ProgressBar? = null
-    private var fillProgressDrawable: GradientDrawable? = null
-
-    private val mainHandler = Handler(Looper.getMainLooper())
-
-    private var currentStepStartTime = 0L
-    private var currentStepDurationMs = 1000L
-    private var currentActionTitle = ""
-    private var isSearchingMode = false
-    private var isInfiniteMode = false
+    private var tvActionTitle: TextView? = null
+    private var progressBarView: View? = null
 
     private val dm = context.resources.displayMetrics
     private fun dp(v: Int): Int = (v * dm.density).toInt()
     private fun dpF(v: Float): Float = v * dm.density
 
-    private val contentWidthDp = 78
+    val contentWidthDp = 78
+    private val cardW = dp(contentWidthDp)
+    private var posX = (dm.widthPixels - cardW - dp(10)).coerceAtLeast(dp(6))
+    private var posY = dp(110)
 
-    fun isShowing(): Boolean = badgeView != null
+    private var currentProgressPercent = 0f
+    private var isSearching = false
 
-    fun setTemporarilyTransparent(transparent: Boolean) {
-        // [G-06.1] Полная блокировка паразитного стробоскопа при активном поиске и захвате
-        if (transparent && (MediaProjectionService.isStreaming || isSearchingMode)) return
-        mainHandler.post {
-            badgeView?.alpha = if (transparent) 0f else 1f
-        }
-    }
+    fun show() {
+        if (rootView != null) return
 
-    private val tickerRunnable = object : Runnable {
-        override fun run() {
-            if (badgeView != null) {
-                val elapsed = System.currentTimeMillis() - currentStepStartTime
-                if (isSearchingMode) {
-                    if (isInfiniteMode) {
-                        actionProgressBar?.progress = 50
-                    } else {
-                        val ratio = (elapsed.toFloat() / currentStepDurationMs.toFloat()).coerceIn(0f, 1f)
-                        actionProgressBar?.progress = (ratio * 100).toInt()
+        val root = object : LinearLayout(context) {
+            private var startRawX = 0f
+            private var startRawY = 0f
+            private var initLpX = 0
+            private var initLpY = 0
+            private var isDragging = false
+            private val touchSlop = dpF(4f)
+
+            override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+                when (ev.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        startRawX = ev.rawX
+                        startRawY = ev.rawY
+                        initLpX = posX
+                        initLpY = posY
+                        isDragging = false
                     }
-                } else {
-                    val ratio = (elapsed.toFloat() / currentStepDurationMs.toFloat()).coerceIn(0f, 1f)
-                    actionProgressBar?.progress = (ratio * 100).toInt()
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = ev.rawX - startRawX
+                        val dy = ev.rawY - startRawY
+                        if (Math.hypot(dx.toDouble(), dy.toDouble()) > touchSlop) {
+                            isDragging = true
+                            return true
+                        }
+                    }
                 }
-                mainHandler.postDelayed(this, 40L)
+                return super.onInterceptTouchEvent(ev)
             }
-        }
-    }
 
-    private fun vibrate(durationMs: Long) {
-        try {
-            val vibrator = context.getSystemService(Vibrator::class.java)
-            if (vibrator != null && vibrator.hasVibrator()) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    vibrator.vibrate(VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE))
-                } else {
-                    @Suppress("DEPRECATION")
-                    vibrator.vibrate(durationMs)
+            override fun onTouchEvent(event: MotionEvent): Boolean {
+                val lp = layoutParams as? WindowManager.LayoutParams ?: return super.onTouchEvent(event)
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        startRawX = event.rawX
+                        startRawY = event.rawY
+                        initLpX = posX
+                        initLpY = posY
+                        isDragging = false
+                        return true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = event.rawX - startRawX
+                        val dy = event.rawY - startRawY
+                        if (!isDragging && Math.hypot(dx.toDouble(), dy.toDouble()) > touchSlop) {
+                            isDragging = true
+                        }
+                        if (isDragging) {
+                            val maxX = (dm.widthPixels - cardW).coerceAtLeast(dp(6))
+                            posX = (initLpX + dx.toInt()).coerceIn(dp(6), maxX)
+                            posY = (initLpY + dy.toInt()).coerceIn(dp(20), dm.heightPixels - dp(80))
+                            lp.x = posX
+                            lp.y = posY
+                            overlayWindowManager.updateViewSafe(this, lp)
+                            return true
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        if (isDragging) {
+                            isDragging = false
+                            return true
+                        }
+                    }
                 }
+                return super.onTouchEvent(event)
             }
-        } catch (_: Exception) {}
-    }
-
-    fun forceVisible() {
-        mainHandler.post {
-            badgeView?.visibility = View.VISIBLE
-            badgeView?.alpha = 1f
-        }
-    }
-
-    fun show(onLockClick: () -> Unit, onStopClick: () -> Unit) {
-        if (badgeView != null) {
-            forceVisible()
-            return
-        }
-
-        val contentW = dp(contentWidthDp)
-        val padH = dp(6)
-        val totalCardW = contentW + padH * 2
-
-        val wmParams = overlayWindowManager.createLayoutParams(
-            width = WindowManager.LayoutParams.WRAP_CONTENT,
-            height = WindowManager.LayoutParams.WRAP_CONTENT,
-            gravity = Gravity.TOP or Gravity.START
-        ).apply {
-            x = (dm.widthPixels - totalCardW - dp(10)).coerceAtLeast(dp(6))
-            y = dp(110)
-        }
-
-        val rootCard = LinearLayout(context).apply {
+        }.apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            clipChildren = false
-            clipToPadding = false
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf("#F8161B22".toColorInt(), "#F80D1117".toColorInt())
+                intArrayOf(Color.parseColor("#F8161B22"), Color.parseColor("#F80D1117"))
             ).apply {
                 cornerRadius = dpF(18f)
-                setStroke(dp(1), "#38BDF8".toColorInt())
+                setStroke(dp(1), Color.parseColor("#38BDF8"))
             }
-            setPadding(padH, padH, padH, padH)
-            elevation = dpF(12f)
+            val p = dp(5)
+            setPadding(p, p, p, p)
+            elevation = dpF(16f)
+            layoutParams = LinearLayout.LayoutParams(cardW, LinearLayout.LayoutParams.WRAP_CONTENT)
         }
 
-        val tvHeader = MarqueeTextView(context).apply {
+        rootView = root
+
+        tvStepHeader = TextView(context).apply {
             text = "ШАГ 1/1"
-            setTextColor("#58A6FF".toColorInt())
-            textSize = 10f
-            typeface = Typeface.DEFAULT_BOLD
-            includeFontPadding = false
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(contentW, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                bottomMargin = dp(2)
-            }
-        }
-        tvStepHeader = tvHeader
-        rootCard.addView(tvHeader)
-
-        val infoContainer = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(contentW, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                bottomMargin = dp(4)
-            }
-        }
-
-        val tvStatus = MarqueeTextView(context).apply {
-            text = "Запуск"
-            setTextColor("#34D399".toColorInt())
+            setTextColor(Color.parseColor("#58A6FF"))
             textSize = 9.5f
-            typeface = Typeface.MONOSPACE
-            includeFontPadding = false
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(contentW, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                bottomMargin = dp(2)
+            isSingleLine = true
+            ellipsize = android.text.TextUtils.TruncateAt.MARQUEE
+            isSelected = true
+            marqueeRepeatLimit = -1
+        }
+        root.addView(tvStepHeader)
+
+        tvActionTitle = TextView(context).apply {
+            text = "Запуск"
+            setTextColor(Color.parseColor("#34D399"))
+            textSize = 9f
+            typeface = android.graphics.Typeface.MONOSPACE
+            gravity = Gravity.CENTER
+            isSingleLine = true
+            ellipsize = android.text.TextUtils.TruncateAt.MARQUEE
+            isSelected = true
+            marqueeRepeatLimit = -1
+        }
+        root.addView(tvActionTitle)
+
+        progressBarView = object : View(context) {
+            private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.parseColor("#21262D")
+                style = Paint.Style.FILL
+            }
+            private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.FILL
+            }
+            private val rectF = RectF()
+
+            override fun onDraw(canvas: Canvas) {
+                super.onDraw(canvas)
+                val w = width.toFloat()
+                val h = height.toFloat()
+                val r = h / 2f
+
+                rectF.set(0f, 0f, w, h)
+                canvas.drawRoundRect(rectF, r, r, bgPaint)
+
+                val fillW = (w * (currentProgressPercent / 100f)).coerceIn(0f, w)
+                if (fillW > 0f) {
+                    fillPaint.shader = LinearGradient(
+                        0f, 0f, fillW, 0f,
+                        Color.parseColor(if (isSearching) "#FFFFB703" else "#FF34D399"),
+                        Color.parseColor(if (isSearching) "#FFFB8500" else "#FF38BDF8"),
+                        Shader.TileMode.CLAMP
+                    )
+                    rectF.set(0f, 0f, fillW, h)
+                    canvas.drawRoundRect(rectF, r, r, fillPaint)
+                }
+            }
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(4)).apply {
+                val m = dp(3)
+                setMargins(0, m, 0, m)
             }
         }
-        tvActionStatus = tvStatus
-        infoContainer.addView(tvStatus)
-
-        val bgProgress = GradientDrawable().apply {
-            setColor("#21262D".toColorInt())
-            cornerRadius = dpF(2f)
-        }
-
-        val fillProgress = GradientDrawable(
-            GradientDrawable.Orientation.LEFT_RIGHT,
-            intArrayOf("#34D399".toColorInt(), "#38BDF8".toColorInt())
-        ).apply {
-            cornerRadius = dpF(2f)
-        }
-        fillProgressDrawable = fillProgress
-
-        val clipFill = ClipDrawable(fillProgress, Gravity.START, ClipDrawable.HORIZONTAL)
-        val progressDrawable = LayerDrawable(arrayOf(bgProgress, clipFill)).apply {
-            setId(0, android.R.id.background)
-            setId(1, android.R.id.progress)
-        }
-
-        val pBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
-            val barHeight = (3.5f * dm.density).toInt().coerceAtLeast(1)
-            layoutParams = LinearLayout.LayoutParams(contentW, barHeight)
-            max = 100
-            progress = 0
-            this.progressDrawable = progressDrawable
-        }
-        actionProgressBar = pBar
-        infoContainer.addView(pBar)
-        rootCard.addView(infoContainer)
+        root.addView(progressBarView)
 
         val buttonsRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            clipChildren = false
-            clipToPadding = false
-            layoutParams = LinearLayout.LayoutParams(contentW, dp(36))
         }
 
-        val btnLock = object : View(context) {
-            private val bounds = RectF()
-            override fun onDraw(canvas: Canvas) {
-                super.onDraw(canvas)
-                bounds.set(dpF(8.5f), dpF(8.5f), width - dpF(8.5f), height - dpF(8.5f))
-                VectorIconDrawer.drawIcon(canvas, VectorIconDrawer.IconType.LOCK, bounds, Color.WHITE, dpF(2f))
-            }
-        }.apply {
-            outlineProvider = ViewOutlineProvider.BACKGROUND
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf("#1F6FEB".toColorInt(), "#161B22".toColorInt())
-            ).apply {
-                shape = GradientDrawable.OVAL
-                setStroke(dp(1), "#58A6FF".toColorInt())
-            }
-            layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply {
-                marginEnd = dp(8)
-            }
-            setOnClickListener {
-                vibrate(30L)
-                onLockClick()
-            }
+        val btnLock = CanvasIconButton(context).apply {
+            iconType = VectorIconDrawer.IconType.LOCK
+            iconColor = Color.WHITE
+            bgColorStart = Color.parseColor("#1F6FEB")
+            bgColorEnd = Color.parseColor("#161B22")
+            strokeColor = Color.parseColor("#58A6FF")
+            strokeWidthPx = dpF(1.2f)
+            cornerRadiusPx = dpF(15f)
+            iconPaddingPx = dpF(6f)
+            val s = dp(30)
+            layoutParams = LinearLayout.LayoutParams(s, s).apply { marginEnd = dp(8) }
+            setOnClickListener { onLockClick() }
         }
         buttonsRow.addView(btnLock)
 
-        val btnStop = com.example.autotap.infrastructure.overlay.ui.CanvasIconButton(context).apply {
+        val btnStop = CanvasIconButton(context).apply {
             iconType = VectorIconDrawer.IconType.STOP
             iconColor = Color.WHITE
             bgColorStart = Color.parseColor("#F04438")
             bgColorEnd = Color.parseColor("#B42318")
             strokeColor = Color.parseColor("#FDA29B")
             strokeWidthPx = dpF(1.2f)
-            isCircleShape = true
-            iconPaddingPx = dpF(8f)
-            elevation = dpF(2f)
-            layoutParams = LinearLayout.LayoutParams(dp(36), dp(36))
-            setOnClickListener {
-                vibrate(45L)
-                onStopClick()
-            }
+            cornerRadiusPx = dpF(15f)
+            iconPaddingPx = dpF(6f)
+            val s = dp(30)
+            layoutParams = LinearLayout.LayoutParams(s, s)
+            setOnClickListener { onStopClick() }
         }
         buttonsRow.addView(btnStop)
-        rootCard.addView(buttonsRow)
 
-        rootCard.setOnTouchListener(object : View.OnTouchListener {
-            private var initX = 0
-            private var initY = 0
-            private var touchX = 0f
-            private var touchY = 0f
-            private var isMoved = false
+        root.addView(buttonsRow)
 
-            override fun onTouch(v: View, event: MotionEvent): Boolean {
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> {
-                        initX = wmParams.x
-                        initY = wmParams.y
-                        touchX = event.rawX
-                        touchY = event.rawY
-                        isMoved = false
-                        return true
-                    }
-                    MotionEvent.ACTION_MOVE -> {
-                        val dx = abs(event.rawX - touchX)
-                        val dy = abs(event.rawY - touchY)
-                        if (dx > dp(5) || dy > dp(5)) {
-                            isMoved = true
-                            val maxPosX = (dm.widthPixels - totalCardW - dp(6)).coerceAtLeast(0)
-                            wmParams.x = (initX + (event.rawX - touchX).toInt()).coerceIn(dp(6), maxPosX)
-                            wmParams.y = (initY + (event.rawY - touchY).toInt()).coerceIn(dp(20), dm.heightPixels - dp(80))
-                            overlayWindowManager.updateViewSafe(rootCard, wmParams)
-                        }
-                        return true
-                    }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        return true
-                    }
-                }
-                return false
-            }
-        })
+        val params = overlayWindowManager.createLayoutParams().apply {
+            this.x = posX
+            this.y = posY
+        }
+        overlayWindowManager.addViewSafe(root, params)
+    }
 
-        badgeView = rootCard
-        overlayWindowManager.addViewSafe(rootCard, wmParams)
-        mainHandler.post(tickerRunnable)
+    fun hide() {
+        rootView?.let {
+            overlayWindowManager.removeViewSafe(it)
+            rootView = null
+        }
+    }
+
+    fun dismiss() = hide()
+
+    fun setTemporarilyTransparent(transparent: Boolean) {
+        rootView?.alpha = if (transparent) 0f else 1f
+    }
+
+    fun forceVisible() {
+        rootView?.alpha = 1f
     }
 
     fun updateState(state: ExecutionState.Running) {
-        mainHandler.post {
-            badgeView?.alpha = 1f
-            val repeatStr = if (state.totalRepeats > 1) " (${state.currentRepeat}/${state.totalRepeats})" else ""
-            val headerText = "ШАГ ${state.currentStepIndex}/${state.totalSteps}$repeatStr"
-            if (tvStepHeader?.text?.toString() != headerText) {
-                tvStepHeader?.text = headerText
-            }
+        if (rootView == null) show()
 
-            currentStepStartTime = if (state.searchStartTime > 0L) state.searchStartTime else System.currentTimeMillis()
-            isSearchingMode = state.isSearching
-            isInfiniteMode = state.isInfiniteSearch
+        val repeatStr = if (state.totalRepeats > 1) " (${state.currentRepeat}/${state.totalRepeats})" else ""
+        tvStepHeader?.text = "ШАГ ${state.currentStepIndex}/${state.totalSteps}$repeatStr"
 
-            if (state.isSearching) {
-                currentStepDurationMs = state.searchTimeoutMs
-                val rawTitle = state.searchTitle.removeSuffix(".png").removeSuffix(".json").removeSuffix(".jpg").removePrefix("mask_").trim()
-                currentActionTitle = if (rawTitle.isNotBlank()) rawTitle else "Поиск..."
-                tvActionStatus?.setTextColor("#FFB703".toColorInt())
-                fillProgressDrawable?.setColor("#FFB703".toColorInt())
-            } else {
-                currentStepDurationMs = if (state.searchTimeoutMs > 0L) state.searchTimeoutMs else 1000L
-                currentActionTitle = when {
-                    state.activeNodeTitle.isNotEmpty() -> state.activeNodeTitle
-                    state.stepDescription.isNotEmpty() -> state.stepDescription
-                    else -> when (state.stepType) {
-                        ActionType.CLICK -> "Клик"
-                        ActionType.LONG_PRESS -> "Удержание"
-                        ActionType.SWIPE -> "Свайп"
-                        ActionType.PATH -> "Траектория"
-                        ActionType.PINCH -> "Пинч"
-                        ActionType.SUBROUTINE -> "Сценарий"
-                        ActionType.RETURN -> "Возврат"
-                        ActionType.GLOBAL_BACK -> "Назад"
-                        ActionType.GLOBAL_HOME -> "Домой"
-                        ActionType.DELAY -> "Пауза"
-                        ActionType.TRIGGER, ActionType.OCR, ActionType.COLOR_CHECK -> "Проверка"
-                    }
-                }
-                tvActionStatus?.setTextColor("#38BDF8".toColorInt())
-                fillProgressDrawable?.setColor("#6366F1".toColorInt())
-            }
-
-            if (tvActionStatus?.text?.toString() != currentActionTitle) {
-                tvActionStatus?.text = currentActionTitle
-            }
+        val title = if (state.isSearching) {
+            val rawTitle = state.searchTitle.removeSuffix(".png").removeSuffix(".json").removeSuffix(".jpg").removePrefix("mask_").trim()
+            if (rawTitle.isNotBlank()) rawTitle else "Поиск..."
+        } else {
+            "Выполнение"
         }
-    }
+        tvActionTitle?.text = title
+        tvActionTitle?.setTextColor(Color.parseColor(if (state.isSearching) "#FFB703" else "#34D399"))
 
-    fun dismiss() {
-        mainHandler.removeCallbacks(tickerRunnable)
-        badgeView?.let {
-            overlayWindowManager.removeViewSafe(it)
-            badgeView = null
-            tvStepHeader = null
-            tvActionStatus = null
-            actionProgressBar = null
-        }
-    }
+        isSearching = state.isSearching
+        val elapsed = System.currentTimeMillis() - state.searchStartTime
+        currentProgressPercent = if (state.isSearching) {
+            if (state.isInfiniteSearch) 50f else ((elapsed.toFloat() / state.searchTimeoutMs.toFloat()).coerceIn(0f, 1f) * 100f)
+        } else 100f
 
-    @SuppressLint("AppCompatCustomView")
-    private class MarqueeTextView @JvmOverloads constructor(
-        context: Context,
-        attrs: AttributeSet? = null,
-        defStyleAttr: Int = 0
-    ) : TextView(context, attrs, defStyleAttr) {
-
-        private var animator: ValueAnimator? = null
-
-        init {
-            isSingleLine = true
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.MARQUEE
-            setHorizontallyScrolling(true)
-        }
-
-        override fun setText(text: CharSequence?, type: BufferType?) {
-            super.setText(text, type)
-            post { updateMarquee() }
-        }
-
-        override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-            super.onSizeChanged(w, h, oldw, oldh)
-            updateMarquee()
-        }
-
-        override fun onDetachedFromWindow() {
-            super.onDetachedFromWindow()
-            stopMarquee()
-        }
-
-        fun stopMarquee() {
-            animator?.cancel()
-            animator = null
-            scrollTo(0, 0)
-        }
-
-        private fun updateMarquee() {
-            stopMarquee()
-            val textStr = text?.toString() ?: return
-            if (textStr.isEmpty()) return
-
-            val textWidth = paint.measureText(textStr)
-            val availableWidth = (width - paddingLeft - paddingRight).toFloat()
-
-            if (availableWidth <= 0f) return
-
-            if (textWidth > availableWidth) {
-                gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                val extraMargin = (8 * resources.displayMetrics.density).toInt()
-                val maxScrollX = (textWidth - availableWidth).toInt() + extraMargin
-                val scrollDuration = (maxScrollX * 35L).coerceAtLeast(1500L)
-
-                animator = ValueAnimator.ofInt(0, maxScrollX).apply {
-                    duration = scrollDuration
-                    repeatCount = ValueAnimator.INFINITE
-                    repeatMode = ValueAnimator.REVERSE
-                    interpolator = LinearInterpolator()
-                    startDelay = 800L
-                    addUpdateListener { anim ->
-                        val valX = anim.animatedValue as Int
-                        scrollTo(valX, 0)
-                    }
-                    start()
-                }
-            } else {
-                gravity = Gravity.CENTER
-                scrollTo(0, 0)
-            }
-        }
+        progressBarView?.invalidate()
     }
 }

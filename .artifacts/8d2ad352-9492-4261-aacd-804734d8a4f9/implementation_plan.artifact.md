@@ -1,35 +1,46 @@
-# Root-Cause Fix for Main Overlay Close Button Visibility, Drag Stutters, & New Inspector Module
+# Architectural Plan: Transition Floating Overlays to Pure Native 120 FPS Kotlin Canvas Views
 
-## 🔍 Root-Cause Analysis
+## Problem & Architectural Goal
+The user requested: *"нужно перевести весь тяжелый Компос на рисование в котлин, либо использовать библиотеку, которая специализируется на оверлеях"*
 
-### 1. Why the Close Button (`X`) Was STILL Missing
-- `ControlPanelComposeOverlay.kt` on disk STILL had `size = 42.dp` and `Spacer(width = 8.dp)` across all 8 main-row buttons.
-- The total row width was `8 * 42dp + 7 * 8dp = 392dp`.
-- Standard phone displays in portrait mode are `360dp` - `380dp` wide.
-- Because `392dp > 360dp`, the 8th button (**`CLOSE` / `X`**) was pushed completely off-screen beyond the right edge of the display, leaving the 6th/7th buttons (`Eye` / `Settings`) at the visible right edge.
+Jetpack Compose inside Android `WindowManager` system overlays creates continuous runtime overhead (Recomposer loops, `ViewTreeLifecycleOwner` events, compose context re-evaluations).
 
-### 2. Why Dragging Stuttered / Lagged
-- The previous drag throttling logic accumulated touch deltas (`dragOffsetX`) over multiple frames without updating `posX` and `posY`.
-- When the 16ms threshold was reached, `params.x` suddenly jumped by the entire accumulated delta (e.g. 18-25 pixels at once) while skipping intermediate window updates. This caused visible jumping, stuttering, and lag on screen.
+To achieve **zero-lag, instant 120 FPS response, zero GC pressure, and 100% reliable layout bounds**, we will migrate the floating overlays from Jetpack Compose back to our ultra-lightweight, native **Kotlin Canvas View architecture** (`CanvasIconButton`, `VectorIconDrawer`, `FrameLayout`, `LinearLayout`).
 
 ---
 
-## 🛠️ Proposed Solutions
+## Proposed Changes & Component Architecture
 
-### 1. Fix Button Size to `30.dp` & Spacing to `4.dp` (`ControlPanelComposeOverlay.kt`)
-- Change main row button size to `30.dp` and spacing to `4.dp`.
-- Total row width becomes `8 * 30dp + 7 * 4dp = 268dp`.
-- `268dp` fits on ALL phone displays (360dp+) with ample margin, ensuring the red **`CLOSE` (`X`) button is 100% visible at the top-right corner**.
+### 1. Control Panel Overlay (`ControlPanelOverlay.kt`)
+- Un-deprecate `ControlPanelOverlay.kt`.
+- Build the main row using native Kotlin `LinearLayout` and `CanvasIconButton`:
+  1. `BTN_PLAY_VIEW` (Play/Pause)
+  2. `BTN_CAPTURE` (Capture ИИ-вырезка шаблона — ngay за Play)
+  3. `BTN_ADD` (`+` Добавить мишень)
+  4. `BTN_RECORD` (Запись жестов)
+  5. `BTN_TOGGLE_VIEW` (Шторка)
+  6. `BTN_HIDE` (Глаз / Прозрачность)
+  7. `BTN_SETTINGS` (Настройки)
+  8. `BTN_CLOSE` (Крестик закрытия оверлея **СПРАВА СВЕРХУ**)
+- Sub Row (2nd row):
+  1. `BTN_LOCK` (AFK Замок)
+  2. `BTN_CLEAR` (Очистить все)
+  3. `BTN_SCRIPTS` (Сценарии)
+  4. `BTN_HELP` (Справка)
+- Compact button sizing (`30dp` button, `4dp` padding): Total main row width is `268dp`, fitting comfortably on all phone screens (360dp+).
+- The red `BTN_CLOSE` (`X`) is **100% visible at the top-right corner**.
+- Smooth touch drag listener with `posX` and `posY` state updating via `updateViewLayout`.
 
-### 2. Smooth 60 FPS Window Dragging Logic
-- Continuously update `posX = (posX + dragAmount.x.toInt())` and `posY = (posY + dragAmount.y.toInt())` on every drag step.
-- Throttle `overlayWindowManager.updateViewSafe` calls to at most once per 16ms (60 FPS) without accumulated delta jumps.
+### 2. Execution Badge Overlay (`RunningBadgeOverlay.kt`)
+- Convert running execution badge to pure native Kotlin View (`RunningBadgeOverlay.kt`).
+- Progress bar rendered via pure `Canvas` on-draw.
+- Lock and Stop buttons rendered via `CanvasIconButton` with `onClickListener` for instant response and zero lag.
 
-### 3. Create New 176th Inspector Test Module
-- Create `1AInspector/check_control_panel_compose_size_and_close_button.py` to enforce that:
-  - Main row button sizes in `ControlPanelComposeOverlay.kt` are `<= 32.dp`.
-  - `CLOSE` (`X`) button is present on the main row.
-  - Drag updates `posX` / `posY` smoothly.
+### 3. Orchestrator Binding (`AutoTapOrchestrator.kt`)
+- Route `controlPanelOverlay` and `runningBadgeOverlay` to native Kotlin Canvas overlays (`ControlPanelOverlay` & `RunningBadgeOverlay`).
+
+### 4. Inspector Test Suite (`1AInspector`)
+- Update `1AInspector/check_control_panel_compose_size_and_close_button.py` and all 177 inspector modules to verify pure Kotlin Canvas overlay contracts.
 
 ---
 
@@ -37,8 +48,8 @@
 
 ### Automated Tests
 - Gradle build: `./gradlew :app:compileDebugKotlin`
-- Run all 176 1AInspector scripts.
+- Run all 177 1AInspector scripts.
 
 ### Manual Verification
-- Open Control Panel: verify all 8 buttons fit on the main row and the red CLOSE (`X`) button is 100% visible at the top-right corner.
-- Drag Control Panel: verify smooth 60 FPS movement without stuttering or jumping.
+- Open Control Panel: verify instant 120 FPS responsiveness, zero lag, smooth dragging, and red `CLOSE` (`X`) button 100% visible at top-right.
+- Run macro: verify Running Badge displays progress and Stop button halts execution instantly.
