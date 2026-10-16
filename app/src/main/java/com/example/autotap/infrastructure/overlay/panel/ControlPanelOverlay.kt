@@ -307,11 +307,11 @@ class ControlPanelOverlay(
         mainRow.addView(btnCapture)
 
         // 3. Добавить шаг [+]
-        val btnAdd = createBtn(VectorIconDrawer.IconType.PLUS, "#58A6FF", 32, "BTN_ADD") { showAddActionTypeMenu(mainRow) }
+        val btnAdd = createBtn(VectorIconDrawer.IconType.PLUS, "#58A6FF", 32, "BTN_ADD") { showAddActionTypeMenu() }
         mainRow.addView(btnAdd)
 
         // 4. Запись жестов
-        val btnRecord = createBtn(VectorIconDrawer.IconType.RECORD, "#F43F5E", 32, "BTN_RECORD") { showRecordContextMenu(mainRow) }
+        val btnRecord = createBtn(VectorIconDrawer.IconType.RECORD, "#F43F5E", 32, "BTN_RECORD") { showRecordContextMenu() }
         mainRow.addView(btnRecord)
 
         // 5. Кнопка шторки (Раскрыть / Свернуть)
@@ -371,7 +371,166 @@ class ControlPanelOverlay(
         subRow.addView(btnHelp)
 
         rootLinear.addView(subRow)
+
+        actionTypeMenu = buildActionTypeMenu()
+        rootLinear.addView(actionTypeMenu)
+
+        recordModeMenu = buildRecordModeMenu()
+        rootLinear.addView(recordModeMenu)
+
         container.addView(rootLinear)
+    }
+
+    private fun buildActionTypeMenu(): View {
+        val rootMenu = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.parseColor("#161B22"), Color.parseColor("#0D1117"))
+            ).apply {
+                cornerRadius = dpF(12f)
+                setStroke(dp(1), Color.parseColor("#38BDF8"))
+            }
+            val p = dp(6)
+            setPadding(p, p, p, p)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = dp(6)
+            }
+            visibility = View.GONE
+        }
+
+        val tvTitle = android.widget.TextView(context).apply {
+            text = "ВЫБОР ТИПА ДЕЙСТВИЯ:"
+            textSize = 9f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(Color.parseColor("#38BDF8"))
+            setPadding(0, 0, 0, dp(4))
+        }
+        rootMenu.addView(tvTitle)
+
+        val types = listOf(
+            com.example.autotap.domain.model.ActionType.CLICK to "КЛИК",
+            com.example.autotap.domain.model.ActionType.LONG_PRESS to "УДЕРЖАНИЕ",
+            com.example.autotap.domain.model.ActionType.SWIPE to "СВАЙП",
+            com.example.autotap.domain.model.ActionType.PATH to "ПУТЬ",
+            com.example.autotap.domain.model.ActionType.TRIGGER to "ИИ ТРИГГЕР",
+            com.example.autotap.domain.model.ActionType.OCR to "OCR ТЕКСТ",
+            com.example.autotap.domain.model.ActionType.COLOR_CHECK to "ЦВЕТ",
+            com.example.autotap.domain.model.ActionType.SUBROUTINE to "ПОДПРОГРАММА",
+            com.example.autotap.domain.model.ActionType.DELAY to "ЗАДЕРЖКА",
+            com.example.autotap.domain.model.ActionType.GLOBAL_BACK to "НАЗАД",
+            com.example.autotap.domain.model.ActionType.GLOBAL_HOME to "ДОМОЙ"
+        )
+
+        types.chunked(3).forEach { rowTypes ->
+            val row = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(2), 0, dp(2))
+            }
+            rowTypes.forEach { (type, label) ->
+                val btn = android.widget.Button(context).apply {
+                    text = label
+                    textSize = 8f
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    includeFontPadding = false
+                    setTextColor(Color.WHITE)
+                    background = GradientDrawable().apply {
+                        setColor(Color.parseColor("#21262D"))
+                        cornerRadius = dpF(4f)
+                        setStroke(dp(1), Color.parseColor("#30363D"))
+                    }
+                    minHeight = 0; minimumHeight = 0
+                    setPadding(dp(4), dp(4), dp(4), dp(4))
+                    setOnClickListener {
+                        actionTypeMenu?.visibility = View.GONE
+                        applyDisplayMode(currentMode)
+                        listener.onAddActionSelected(type)
+                    }
+                }
+                row.addView(btn, LinearLayout.LayoutParams(0, dp(26), 1f).apply { marginEnd = dp(4) })
+            }
+            if (rowTypes.size < 3) {
+                val diff = 3 - rowTypes.size
+                for (i in 0 until diff) {
+                    row.addView(View(context), LinearLayout.LayoutParams(0, dp(26), 1f).apply { marginEnd = dp(4) })
+                }
+            }
+            rootMenu.addView(row)
+        }
+        return rootMenu
+    }
+
+    private fun buildRecordModeMenu(): View {
+        val rootMenu = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.parseColor("#161B22"), Color.parseColor("#0D1117"))
+            ).apply {
+                cornerRadius = dpF(12f)
+                setStroke(dp(1), Color.parseColor("#F43F5E"))
+            }
+            val p = dp(6)
+            setPadding(p, p, p, p)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = dp(6)
+            }
+            visibility = View.GONE
+        }
+
+        val tvTitle = android.widget.TextView(context).apply {
+            text = "ВЫБОР РЕЖИМА ЗАПИСИ:"
+            textSize = 9f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(Color.parseColor("#F43F5E"))
+            setPadding(0, 0, 0, dp(4))
+        }
+        rootMenu.addView(tvTitle)
+
+        val btnSmart = android.widget.Button(context).apply {
+            text = "УМНАЯ ЗАПИСЬ (ИИ-шаблоны)"
+            textSize = 9f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            setTextColor(Color.parseColor("#86EFAC"))
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#12201A"))
+                cornerRadius = dpF(6f)
+                setStroke(dp(1), Color.parseColor("#1E3E30"))
+            }
+            minHeight = 0; minimumHeight = 0
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            setOnClickListener {
+                recordModeMenu?.visibility = View.GONE
+                applyDisplayMode(currentMode)
+                listener.onSmartRecordClicked()
+            }
+        }
+        rootMenu.addView(btnSmart, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(28)).apply { bottomMargin = dp(4) })
+
+        val btnNormal = android.widget.Button(context).apply {
+            text = "ОБЫЧНАЯ ЗАПИСЬ (Живые жесты)"
+            textSize = 9f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            setTextColor(Color.parseColor("#C4B5FD"))
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#22183D"))
+                cornerRadius = dpF(6f)
+                setStroke(dp(1), Color.parseColor("#3E2B6B"))
+            }
+            minHeight = 0; minimumHeight = 0
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            setOnClickListener {
+                recordModeMenu?.visibility = View.GONE
+                applyDisplayMode(currentMode)
+                listener.onRecordClicked()
+            }
+        }
+        rootMenu.addView(btnNormal, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(28)))
+
+        return rootMenu
     }
 
     private fun attachDragListener(view: View) {
@@ -421,22 +580,26 @@ class ControlPanelOverlay(
         })
     }
 
-    private fun showAddActionTypeMenu(anchorView: View) {
-        com.example.autotap.infrastructure.overlay.dialog.ActionTypeSelectionDialog(
-            context = context,
-            overlayWindowManager = overlayWindowManager,
-            onActionSelected = { type ->
-                listener.onAddActionSelected(type)
-            }
-        ).show()
+    private var actionTypeMenu: View? = null
+    private var recordModeMenu: View? = null
+
+    private fun showAddActionTypeMenu() {
+        recordModeMenu?.visibility = View.GONE
+        if (actionTypeMenu?.visibility == View.VISIBLE) {
+            actionTypeMenu?.visibility = View.GONE
+        } else {
+            actionTypeMenu?.visibility = View.VISIBLE
+        }
+        applyDisplayMode(currentMode)
     }
 
-    private fun showRecordContextMenu(anchorView: View) {
-        com.example.autotap.infrastructure.overlay.dialog.RecordModeSelectionDialog(
-            context = context,
-            overlayWindowManager = overlayWindowManager,
-            onSmartRecord = { listener.onSmartRecordClicked() },
-            onNormalRecord = { listener.onRecordClicked() }
-        ).show()
+    private fun showRecordContextMenu() {
+        actionTypeMenu?.visibility = View.GONE
+        if (recordModeMenu?.visibility == View.VISIBLE) {
+            recordModeMenu?.visibility = View.GONE
+        } else {
+            recordModeMenu?.visibility = View.VISIBLE
+        }
+        applyDisplayMode(currentMode)
     }
 }

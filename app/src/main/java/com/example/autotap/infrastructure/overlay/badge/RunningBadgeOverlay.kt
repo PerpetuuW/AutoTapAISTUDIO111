@@ -236,7 +236,10 @@ class RunningBadgeOverlay(
 
         root.addView(buttonsRow)
 
-        val params = overlayWindowManager.createLayoutParams().apply {
+        val params = overlayWindowManager.createLayoutParams(
+            width = cardW,
+            height = WindowManager.LayoutParams.WRAP_CONTENT
+        ).apply {
             this.x = posX
             this.y = posY
         }
