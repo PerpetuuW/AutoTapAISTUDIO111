@@ -422,45 +422,21 @@ class ControlPanelOverlay(
     }
 
     private fun showAddActionTypeMenu(anchorView: View) {
-        val popup = android.widget.PopupMenu(context, anchorView)
-        val types = listOf(
-            com.example.autotap.domain.model.ActionType.CLICK to "КЛИК",
-            com.example.autotap.domain.model.ActionType.LONG_PRESS to "УДЕРЖАНИЕ",
-            com.example.autotap.domain.model.ActionType.SWIPE to "СВАЙП",
-            com.example.autotap.domain.model.ActionType.PATH to "ПУТЬ",
-            com.example.autotap.domain.model.ActionType.TRIGGER to "ИИ ТРИГГЕР",
-            com.example.autotap.domain.model.ActionType.OCR to "OCR ТЕКСТ",
-            com.example.autotap.domain.model.ActionType.COLOR_CHECK to "ЦВЕТ",
-            com.example.autotap.domain.model.ActionType.SUBROUTINE to "ПОДПРОГРАММА",
-            com.example.autotap.domain.model.ActionType.DELAY to "ЗАДЕРЖКА",
-            com.example.autotap.domain.model.ActionType.GLOBAL_BACK to "НАЗАД",
-            com.example.autotap.domain.model.ActionType.GLOBAL_HOME to "ДОМОЙ"
-        )
-        types.forEachIndexed { index, (type, label) ->
-            popup.menu.add(0, index, index, label)
-        }
-        popup.setOnMenuItemClickListener { item ->
-            val selectedType = types.getOrNull(item.itemId)?.first
-            if (selectedType != null) {
-                listener.onAddActionSelected(selectedType)
+        com.example.autotap.infrastructure.overlay.dialog.ActionTypeSelectionDialog(
+            context = context,
+            overlayWindowManager = overlayWindowManager,
+            onActionSelected = { type ->
+                listener.onAddActionSelected(type)
             }
-            true
-        }
-        popup.show()
+        ).show()
     }
 
     private fun showRecordContextMenu(anchorView: View) {
-        val popup = android.widget.PopupMenu(context, anchorView)
-        popup.menu.add(0, 1, 1, "УМНАЯ ЗАПИСЬ (ИИ-шаблоны)")
-        popup.menu.add(0, 2, 2, "ОБЫЧНАЯ ЗАПИСЬ (Живые жесты)")
-        popup.setOnMenuItemClickListener { item ->
-            if (item.itemId == 1) {
-                listener.onSmartRecordClicked()
-            } else {
-                listener.onRecordClicked()
-            }
-            true
-        }
-        popup.show()
+        com.example.autotap.infrastructure.overlay.dialog.RecordModeSelectionDialog(
+            context = context,
+            overlayWindowManager = overlayWindowManager,
+            onSmartRecord = { listener.onSmartRecordClicked() },
+            onNormalRecord = { listener.onRecordClicked() }
+        ).show()
     }
 }

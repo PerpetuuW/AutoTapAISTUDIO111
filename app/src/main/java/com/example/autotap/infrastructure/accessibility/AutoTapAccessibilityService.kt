@@ -133,11 +133,11 @@ class AutoTapAccessibilityService : AccessibilityService() {
                     addAction(Intent.ACTION_SCREEN_OFF)
                 }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    registerReceiver(powerShutdownReceiver, powerFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
+                    registerReceiver(powerShutdownReceiver, powerFilter, android.content.Context.RECEIVER_EXPORTED)
                 } else {
                     registerReceiver(powerShutdownReceiver, powerFilter)
                 }
-            } catch (_: Exception) {}
+            } catch (_: Throwable) {}
 
             AppLogger.log(this, "ACCESSIBILITY", "Служба кликера успешно подключена и активна")
         } catch (e: Throwable) {

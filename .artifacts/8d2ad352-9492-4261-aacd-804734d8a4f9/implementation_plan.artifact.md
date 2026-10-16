@@ -1,37 +1,33 @@
-# Unified Material 3 Cyber-Glassmorphism Button Design System & Removal of Restricted Settings Button
+# Critical Fix for Accessibility Service Crash on Screen Lock & Overlay Choice Menu Restoration
 
-## Goal
-1. **Remove Unnecessary Button**: Completely remove the "РАЗРЕШИТЬ ОГРАНИЧЕННЫЕ НАСТРОЙКИ (ANDROID 13+)" button from `GlobalSettingsDialog.kt`.
-2. **Unified Button Design System**: Standardize all button styles, colors, gradients, strokes, corner radiuses, and typography across `GlobalSettingsDialog.kt`, `ScriptsDialog.kt`, `LogViewerDialog.kt`, and `EditActionDialog.kt` into a single, cohesive **Material 3 Cyber-Glassmorphism** design system.
+## 🔍 Root Cause Analysis
 
----
+### 1. Why the Accessibility Service Crashed / Broke Down (`в итоге служба накрылась`)
+- In `AutoTapAccessibilityService.kt`, line 136 registered `powerShutdownReceiver` for system broadcasts (`ACTION_SCREEN_OFF`, `ACTION_SHUTDOWN`) using `Context.RECEIVER_NOT_EXPORTED`.
+- On Android 13+ (API 33+), registering a receiver for system broadcasts with `RECEIVER_NOT_EXPORTED` throws a fatal `SecurityException` (`Registering receiver with RECEIVER_NOT_EXPORTED for system intent ACTION_SCREEN_OFF`).
+- This uncaught `SecurityException` inside `onServiceConnected()` crashed and killed the Accessibility Service process instantly when connected or when the screen turned off.
 
-## Unified Button Design Tokens
-
-| Button Type | Background Gradient | Stroke Border | Text Color & Font | Corner Radius |
-| :--- | :--- | :--- | :--- | :---: |
-| **Primary Action** (Сохранить, Применить) | `#162032` -> `#0F172A` | `#38BDF8` (Cyan) | `#38BDF8`, BOLD, 10.5sp | `8dp` |
-| **Secondary Utility** (Отмена, Закрыть, Назад) | `#1F2937` -> `#111827` | `#374151` (Slate) | `#9CA3AF`, BOLD, 9.5sp | `8dp` |
-| **Danger / Destructive** (Удалить, Очистить) | `#2A0E0C` -> `#1C0908` | `#7F1D1D` (Crimson) | `#F04438`, BOLD, 9.5sp | `8dp` |
-| **Toggle Active** (Включено, Активно) | `#0D2E1E` -> `#061A10` | `#34D399` (Emerald) | `#86EFAC`, BOLD, 9sp | `6dp` |
-| **Toggle Inactive** (Выключено) | `#21262D` -> `#161B22` | `#30363D` (Charcoal) | `#8B949E`, BOLD, 9sp | `6dp` |
+### 2. Restoring Overlay Choice Menus instead of Lists
+- When tapping `+` or `RECORD` or selecting scenarios, replace lists with floating choice overlay cards (`ActionTypeSelectionDialog`, `RecordModeSelectionDialog`, `ScenarioChoiceOverlay`) rendered directly on top of the overlay window.
 
 ---
 
-## Proposed Changes
+## 🛠️ Proposed Solutions & Architectural Fixes
 
-### 1. GlobalSettingsDialog.kt
-- [MODIFY] [GlobalSettingsDialog.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/GlobalSettingsDialog.kt)
-  - Remove "РАЗРЕШИТЬ ОГРАНИЧЕННЫЕ НАСТРОЙКИ (ANDROID 13+)" button.
-  - Apply Unified Primary style to "СОХРАНИТЬ", Secondary to "ОТМЕНА", Danger to "СБРОСИТЬ", and Toggle style to "ВКЛЮЧЕНО / ВЫКЛЮЧЕНО".
+### 1. Fix BroadcastReceiver Registration in `AutoTapAccessibilityService.kt`
+- Register system broadcast receiver (`ACTION_SCREEN_OFF`, `ACTION_SHUTDOWN`) using `Context.RECEIVER_EXPORTED` on Android 13+ (API 33+), or without flags on older API levels.
+- Wrap receiver registration in defensive `try-catch` to guarantee that receiver registration errors can NEVER crash or kill the Accessibility Service.
+- Ensure `ACTION_SCREEN_OFF` gracefully stops macro execution (`macroEngine.stop()`), dismisses screen lock (`screenLockOverlay.dismiss()`), and hides overlays safely.
 
-### 2. ScriptsDialog.kt
-- [MODIFY] [ScriptsDialog.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/ScriptsDialog.kt)
-  - Apply Unified Primary style to "СОХРАНИТЬ СЦЕНАРИЙ", "ЭКСПОРТ ZIP", and Secondary style to "ГРАФ-РЕДАКТОР", "ЗАКРЫТЬ".
+### 2. Restore Floating Overlay Choice Cards
+- Create/restore floating selection cards (`ActionTypeSelectionDialog`, `RecordModeSelectionDialog`) so `+` and `RECORD` open floating overlay cards with big tactile buttons instead of standard lists.
 
-### 3. LogViewerDialog.kt
-- [MODIFY] [LogViewerDialog.kt](file:///C:/Users/Stas/AndroidStudioProjects/AutoTapAISTUDIO111/app/src/main/java/com/example/autotap/infrastructure/overlay/dialog/LogViewerDialog.kt)
-  - Apply Unified Primary style to active tag chips, Secondary style to inactive tag chips, and Danger style to "ОЧИСТИТЬ".
+### 3. Re-align Control Panel & Tutorial Steps
+- Main Row: `PLAY`, `CAPTURE`, `PLUS`, `RECORD`, `TOGGLE`, `CLOSE` (`X` top-right).
+- Sub Row: `HIDE` (Eye), `SETTINGS` (Settings), `LOCK`, `CLEAR`, `SCRIPTS`, `HELP`.
+- Sequential step progression in `InteractiveTutorialOverlay.kt`.
+
+---
 
 ## Verification Plan
 
@@ -40,5 +36,5 @@
 - Run all 177 1AInspector scripts.
 
 ### Manual Verification
-- Open `GlobalSettingsDialog`: verify "Ограниченные настройки" button is gone and all buttons have unified Cyber-Glassmorphism styling.
-- Open `ScriptsDialog` and `LogViewerDialog`: verify matching unified button styles.
+- Turn off screen / lock phone during macro execution: verify macro stops safely, screen lock dismisses, and the Accessibility Service remains 100% active without crashing or stopping.
+- Tap `+` and `RECORD`: verify floating choice overlay cards appear instead of standard lists.
