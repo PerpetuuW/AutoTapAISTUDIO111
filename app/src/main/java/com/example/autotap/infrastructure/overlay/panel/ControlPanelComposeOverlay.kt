@@ -170,16 +170,16 @@ class ControlPanelComposeOverlay(
 
         Box(modifier = Modifier.alpha(globalAlpha)) {
             when (state.mode) {
-                PanelDisplayMode.MINI_BUBBLE -> MiniBubble(state, dragModifier)
-                PanelDisplayMode.COMPACT_SINGLE_ROW, PanelDisplayMode.EXPANDED -> ExpandedPanel(state, dragModifier)
+                PanelDisplayMode.MINI_BUBBLE -> MiniBubble(state, modifier = dragModifier)
+                PanelDisplayMode.COMPACT_SINGLE_ROW, PanelDisplayMode.EXPANDED -> ExpandedPanel(state, modifier = dragModifier)
             }
         }
     }
 
     @Composable
-    private fun MiniBubble(state: ControlPanelState, dragModifier: Modifier) {
+    private fun MiniBubble(state: ControlPanelState, modifier: Modifier = Modifier) {
         Row(
-            modifier = dragModifier
+            modifier = modifier
                 .background(
                     brush = Brush.verticalGradient(listOf(Color(0xFF161B22), Color(0xFF0D1117))),
                     shape = RoundedCornerShape(20.dp)
@@ -209,9 +209,9 @@ class ControlPanelComposeOverlay(
     }
 
     @Composable
-    private fun ExpandedPanel(state: ControlPanelState, dragModifier: Modifier) {
+    private fun ExpandedPanel(state: ControlPanelState, modifier: Modifier = Modifier) {
         Column(
-            modifier = dragModifier
+            modifier = modifier
                 .background(
                     brush = Brush.verticalGradient(listOf(Color(0xF0161B22), Color(0xF00D1117))),
                     shape = RoundedCornerShape(20.dp)

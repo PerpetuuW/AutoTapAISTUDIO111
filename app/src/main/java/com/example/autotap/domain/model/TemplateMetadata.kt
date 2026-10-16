@@ -1,6 +1,7 @@
 package com.example.autotap.domain.model
 
 import androidx.annotation.Keep
+import kotlin.OptIn
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
