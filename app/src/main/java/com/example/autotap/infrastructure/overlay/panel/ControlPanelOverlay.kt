@@ -98,7 +98,72 @@ class ControlPanelOverlay(
         rootLinearView = null
         btnHideRef = null
 
-        val container = FrameLayout(context)
+        val container = object : FrameLayout(context) {
+            private var startRawX = 0f
+            private var startRawY = 0f
+            private var initLpX = 0
+            private var initLpY = 0
+            private var isDragging = false
+            private val touchSlop = dpF(4f)
+
+            override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+                when (ev.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        startRawX = ev.rawX
+                        startRawY = ev.rawY
+                        initLpX = posX
+                        initLpY = posY
+                        isDragging = false
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = ev.rawX - startRawX
+                        val dy = ev.rawY - startRawY
+                        if (Math.hypot(dx.toDouble(), dy.toDouble()) > touchSlop) {
+                            isDragging = true
+                            return true
+                        }
+                    }
+                }
+                return super.onInterceptTouchEvent(ev)
+            }
+
+            override fun onTouchEvent(event: MotionEvent): Boolean {
+                val lp = layoutParams as? WindowManager.LayoutParams ?: return super.onTouchEvent(event)
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        startRawX = event.rawX
+                        startRawY = event.rawY
+                        initLpX = posX
+                        initLpY = posY
+                        isDragging = false
+                        return true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = event.rawX - startRawX
+                        val dy = event.rawY - startRawY
+                        if (!isDragging && Math.hypot(dx.toDouble(), dy.toDouble()) > touchSlop) {
+                            isDragging = true
+                        }
+                        if (isDragging) {
+                            val maxX = (dm.widthPixels - dp(50)).coerceAtLeast(0)
+                            posX = (initLpX + dx.toInt()).coerceIn(0, maxX)
+                            posY = (initLpY + dy.toInt()).coerceIn(dp(20), dm.heightPixels - dp(80))
+                            lp.x = posX
+                            lp.y = posY
+                            overlayWindowManager.updateViewSafe(this, lp)
+                            return true
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        if (isDragging) {
+                            isDragging = false
+                            return true
+                        }
+                    }
+                }
+                return super.onTouchEvent(event)
+            }
+        }
         rootView = container
 
         buildViewHierarchy(container)
@@ -250,7 +315,7 @@ class ControlPanelOverlay(
         container.addView(miniBubbleLayout)
 
         // =========================================================================
-        // РЯД 1: ГЛАВНЫЙ КОМПАКТНЫЙ ТУЛБАР (8 ДЕЙСТВИЙ, С КРЕСТИКОМ X СПРАВА СВЕРХУ)
+        // РЯД 1: ГЛАВНЫЙ КОМПАКТНЫЙ ТУЛБАР (6 ДЕЙСТВИЙ, С КРЕСТИКОМ X СПРАВА СВЕРХУ)
         // =========================================================================
         val mainRow = LinearLayout(context).apply {
             tag = "MAIN_ROW"
@@ -329,7 +394,6 @@ class ControlPanelOverlay(
         val btnClose = createBtn(VectorIconDrawer.IconType.CLOSE, "#F04438", 32, "BTN_CLOSE") { listener.onCloseClicked() }
         mainRow.addView(btnClose)
 
-        attachDragListener(rootLinear)
         rootLinear.addView(mainRow)
 
         // =========================================================================

@@ -1040,13 +1040,6 @@ class TemplateFeatures(
 
         val finalMatches = nmsFilter(allCandidates.toSet())
         val topWinner = finalMatches.firstOrNull()
-        if (topWinner != null && topWinner.templatePath.isNotEmpty() && topWinner.score >= 0.88f) {
-            val history = historicalSearchAnchors.getOrPut(topWinner.templatePath) { java.util.Collections.newSetFromMap(ConcurrentHashMap()) }
-            if (history.none { abs(it.first - topWinner.clickX) < 20 && abs(it.second - topWinner.clickY) < 20 }) {
-                if (history.size >= 8) history.remove(history.first())
-                history.add(Pair(topWinner.clickX, topWinner.clickY))
-            }
-        }
 
         val elapsed = System.currentTimeMillis() - perfStartTime
         val searchRoi = if (hasRoi) Rect(roiMinX, roiMinY, roiMaxX, roiMaxY) else null
