@@ -325,22 +325,11 @@ class ControlPanelOverlay(
         }
         mainRow.addView(btnToggle)
 
-        // 6. Глаз скрытия меток
-        val btnHide = createBtn(VectorIconDrawer.IconType.VISIBILITY, if (isNumbersHiddenState) "#FBBF24" else "#38BDF8", 32, "BTN_HIDE") {
-            listener.onToggleNumbersClicked()
-        }
-        btnHideRef = btnHide
-        mainRow.addView(btnHide)
-
-        // 7. Настройки
-        val btnSettings = createBtn(VectorIconDrawer.IconType.SETTINGS, "#9CA3AF", 32, "BTN_SETTINGS") { listener.onSettingsClicked() }
-        mainRow.addView(btnSettings)
-
-        // 8. КРЕСТИК ЗАКРЫТИЯ X (СПРАВА СВЕРХУ)
+        // 6. КРЕСТИК ЗАКРЫТИЯ X (СПРАВА СВЕРХУ)
         val btnClose = createBtn(VectorIconDrawer.IconType.CLOSE, "#F04438", 32, "BTN_CLOSE") { listener.onCloseClicked() }
         mainRow.addView(btnClose)
 
-        attachDragListener(mainRow)
+        attachDragListener(rootLinear)
         rootLinear.addView(mainRow)
 
         // =========================================================================
@@ -352,6 +341,17 @@ class ControlPanelOverlay(
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(0, dp(4), 0, 0)
         }
+
+        // Глаз скрытия меток
+        val btnHide = createBtn(VectorIconDrawer.IconType.VISIBILITY, if (isNumbersHiddenState) "#FBBF24" else "#38BDF8", 30, "BTN_HIDE") {
+            listener.onToggleNumbersClicked()
+        }
+        btnHideRef = btnHide
+        subRow.addView(btnHide)
+
+        // Настройки
+        val btnSettings = createBtn(VectorIconDrawer.IconType.SETTINGS, "#9CA3AF", 30, "BTN_SETTINGS") { listener.onSettingsClicked() }
+        subRow.addView(btnSettings)
 
         val btnLock = createBtn(VectorIconDrawer.IconType.LOCK, "#94A3B8", 30, "BTN_LOCK") { listener.onScreenLockClicked() }
         val btnClear = createBtn(VectorIconDrawer.IconType.CLEAR, "#F04438", 30, "BTN_CLEAR") { listener.onClearAllClicked() }
@@ -541,11 +541,11 @@ class ControlPanelOverlay(
             private var touchY = 0f
             private var isMoved = false
 
-            override fun onTouch(v: View, event: MotionEvent): Boolean {
+            override fun onTouch(v: View, event: android.view.MotionEvent): Boolean {
                 val root = rootView ?: return false
                 val lp = root.layoutParams as? WindowManager.LayoutParams ?: return false
                 when (event.action) {
-                    MotionEvent.ACTION_DOWN -> {
+                    android.view.MotionEvent.ACTION_DOWN -> {
                         initX = lp.x
                         initY = lp.y
                         touchX = event.rawX
@@ -553,7 +553,7 @@ class ControlPanelOverlay(
                         isMoved = false
                         return true
                     }
-                    MotionEvent.ACTION_MOVE -> {
+                    android.view.MotionEvent.ACTION_MOVE -> {
                         val dx = event.rawX - touchX
                         val dy = event.rawY - touchY
                         if (Math.hypot(dx.toDouble(), dy.toDouble()) > dpF(4f)) {
@@ -568,7 +568,7 @@ class ControlPanelOverlay(
                         }
                         return true
                     }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
                         if (!isMoved) {
                             v.performClick()
                         }
