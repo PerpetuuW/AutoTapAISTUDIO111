@@ -44,8 +44,7 @@ object LinearToGraphMigrator {
         val edgesList = ArrayList<ScenarioEdge>()
         val totalActions = scenario.actions.size
 
-        // [V110.0] Постоянный неделимый стартовый узел (Unreal Engine Blueprint Root Node)
-        // Гарантирует наглядную точку старта: пользователь просто тянет провод от СТАРТ к первому действию
+        // Постоянный стартовый узел
         val startNode = ScenarioNode(
             id = "node_start",
             title = "СТАРТ",
@@ -55,12 +54,10 @@ object LinearToGraphMigrator {
         )
         nodesMap[startNode.id] = startNode
 
-        val nodeSpacingX = 400f
-        val startCanvasX = 520f // Размещение первого шага правее стартового узла
+        val startCanvasX = 520f
         val startCanvasY = 200f
 
         if (totalActions > 0) {
-            // Соединяем постоянный стартовый узел с первым действием сценария
             edgesList.add(
                 ScenarioEdge(
                     id = "edge_start_to_first",
@@ -72,7 +69,6 @@ object LinearToGraphMigrator {
             )
         }
 
-        // [Топологическая трассировка сверху вниз с учетом времени]
         var currentCanvasY = startCanvasY
         for (index in 0 until totalActions) {
             val action = scenario.actions[index]
@@ -82,6 +78,7 @@ object LinearToGraphMigrator {
             val posX = startCanvasX
             val posY = currentCanvasY + timeDelaySpacing
             currentCanvasY = posY + 60f
+
             val isDetectionType = action.type == ActionType.TRIGGER ||
                     action.type == ActionType.OCR ||
                     action.type == ActionType.COLOR_CHECK
@@ -91,11 +88,10 @@ object LinearToGraphMigrator {
                 val isOcr = action.type == ActionType.OCR
                 val isTrigger = action.type == ActionType.TRIGGER
 
-                // [V151.0] Таймаут с гарантированным запасом (Safety Margin) для защиты от ложных таймаутов
                 val safeTimeoutSeconds = when {
                     action.isWaitUntilMode -> 0
                     action.aiTimeoutSeconds > 0 -> action.aiTimeoutSeconds + 4
-                    else -> 10 // 10 секунд гарантированный безопасный таймаут с запасом
+                    else -> 10
                 }
 
                 val matchTargetNodeId = if (action.jumpToStepOnMatch != null && action.jumpToStepOnMatch in 1..totalActions) {
@@ -117,9 +113,7 @@ object LinearToGraphMigrator {
                 val isMultiTemplateAction = isTrigger && allTemplatePaths.size > 1
 
                 if (isMultiTemplateAction) {
-                    // [Мульти-поиск шаблонов в отдельных упорядоченных узлах графа]
                     val triggerSpecs = ArrayList<NodeTriggerSpec>()
-                    val branchNodes = ArrayList<ScenarioNode>()
 
                     for ((idx, path) in allTemplatePaths.withIndex()) {
                         if (path.startsWith("ocr:")) {
@@ -130,13 +124,7 @@ object LinearToGraphMigrator {
                                 id = trigId,
                                 name = "OCR: $textQuery",
                                 type = ActionType.OCR,
-                                templatePath = "",
-                                multiTemplatePaths = emptyList(),
-                                similarityThreshold = 0,
                                 targetQueryOrColor = textQuery,
-                                autoClickTarget = false,
-                                useCustomClick = action.useCustomClickOffset,
-                                clickOffset = Point2D(action.clickOffsetX, action.clickOffsetY),
                                 targetPortId = matchPortId
                             )
                             triggerSpecs.add(trigSpec)
@@ -145,7 +133,7 @@ object LinearToGraphMigrator {
                             val branchActionSpec = if (action.clickAiTarget) {
                                 NodeActionSpec(id = "act_${action.id}_${idx + 1}", type = ActionType.CLICK, x = action.posX, y = action.posY, holdDurationMs = action.holdDurationMs.coerceAtLeast(30L), delayAfterMs = action.delayMs)
                             } else {
-                                NodeActionSpec(id = "act_${action.id}_${idx + 1}", type = ActionType.DELAY, x = 0f, y = 0f, delayAfterMs = action.delayMs)
+                                NodeActionSpec(id = "act_${action.id}_${idx + 1}", type = ActionType.DELAY, delayAfterMs = action.delayMs)
                             }
 
                             val branchCanvasY = posY + (idx * 130f) - ((allTemplatePaths.size - 1) * 65f)
@@ -159,7 +147,6 @@ object LinearToGraphMigrator {
                         val templateFile = File(path)
                         val templateName = templateFile.nameWithoutExtension.removePrefix("mask_").ifEmpty { "цель_${idx + 1}" }
                         val trigId = "trig_${action.id}_${idx + 1}"
-
                         val matchPortId = "out_match_$trigId"
 
                         var tplCalibX: Float? = null
@@ -193,19 +180,8 @@ object LinearToGraphMigrator {
                             templatePath = path,
                             multiTemplatePaths = listOf(path),
                             similarityThreshold = tplSimPct,
-                            targetQueryOrColor = action.targetScriptOrQuery,
-                            colorTolerance = action.colorTolerance,
-                            isContourMode = action.isContourMode,
                             isShapeOnlyMode = tplShapeOnly,
-                            isMultiScaleMode = action.isMultiScaleMode,
                             colorDeltaEMode = tplColorDeltaE,
-                            shapeExpansion = action.shapeExpansion,
-                            paddingOffsetPx = action.paddingOffsetPx,
-                            isCircleShape = action.isCircleShape,
-                            roiLeft = action.roiLeft,
-                            roiTop = action.roiTop,
-                            roiRight = action.roiRight,
-                            roiBottom = action.roiBottom,
                             autoClickTarget = false,
                             useCustomClick = tplUseCustomOff,
                             clickOffset = Point2D(tplClickOffX, tplClickOffY),
@@ -218,22 +194,9 @@ object LinearToGraphMigrator {
 
                         val branchNodeId = "node_${action.id}_branch_${idx + 1}"
                         val branchActionSpec = if (action.clickAiTarget) {
-                            NodeActionSpec(
-                                id = "act_${action.id}_${idx + 1}",
-                                type = ActionType.CLICK,
-                                x = branchClickX,
-                                y = branchClickY,
-                                holdDurationMs = action.holdDurationMs.coerceAtLeast(30L),
-                                delayAfterMs = action.delayMs
-                            )
+                            NodeActionSpec(id = "act_${action.id}_${idx + 1}", type = ActionType.CLICK, x = branchClickX, y = branchClickY, holdDurationMs = action.holdDurationMs.coerceAtLeast(30L), delayAfterMs = action.delayMs)
                         } else {
-                            NodeActionSpec(
-                                id = "act_${action.id}_${idx + 1}",
-                                type = ActionType.DELAY,
-                                x = 0f,
-                                y = 0f,
-                                delayAfterMs = action.delayMs
-                            )
+                            NodeActionSpec(id = "act_${action.id}_${idx + 1}", type = ActionType.DELAY, delayAfterMs = action.delayMs)
                         }
 
                         val branchCanvasY = posY + (idx * 130f) - ((allTemplatePaths.size - 1) * 65f)
@@ -247,30 +210,10 @@ object LinearToGraphMigrator {
                         )
                         nodesMap[branchNodeId] = branchNode
 
-                        // Связь: Детектор -> Узел действия шаблона
-                        edgesList.add(
-                            ScenarioEdge(
-                                id = "edge_${action.id}_match_branch_${idx + 1}",
-                                fromNodeId = nodeId,
-                                fromPortId = matchPortId,
-                                toNodeId = branchNodeId,
-                                toPortId = "in_entry"
-                            )
-                        )
-
-                        // Связь: Узел действия шаблона -> Следующий узел по сценарию
-                        edgesList.add(
-                            ScenarioEdge(
-                                id = "edge_${action.id}_branch_${idx + 1}_to_next",
-                                fromNodeId = branchNodeId,
-                                fromPortId = "out_default",
-                                toNodeId = matchTargetNodeId,
-                                toPortId = "in_entry"
-                            )
-                        )
+                        edgesList.add(ScenarioEdge(id = "edge_${action.id}_match_branch_${idx + 1}", fromNodeId = nodeId, fromPortId = matchPortId, toNodeId = branchNodeId, toPortId = "in_entry"))
+                        edgesList.add(ScenarioEdge(id = "edge_${action.id}_branch_${idx + 1}_to_next", fromNodeId = branchNodeId, fromPortId = "out_default", toNodeId = matchTargetNodeId, toPortId = "in_entry"))
                     }
 
-                    // Основной узел мульти-селектора
                     val decisionNode = ScenarioNode(
                         id = nodeId,
                         title = "Мультипоиск #${action.id} (${allTemplatePaths.size} шабл.)",
@@ -286,21 +229,10 @@ object LinearToGraphMigrator {
                     )
                     nodesMap[nodeId] = decisionNode
 
-                    // Связь по таймауту
-                    edgesList.add(
-                        ScenarioEdge(
-                            id = "edge_${action.id}_timeout",
-                            fromNodeId = nodeId,
-                            fromPortId = "out_timeout",
-                            toNodeId = timeoutTargetNodeId,
-                            toPortId = "in_entry"
-                        )
-                    )
+                    edgesList.add(ScenarioEdge(id = "edge_${action.id}_timeout", fromNodeId = nodeId, fromPortId = "out_timeout", toNodeId = timeoutTargetNodeId, toPortId = "in_entry"))
                 } else {
-                    // Одиночный поиск (Trigger, OCR, ColorCheck)
                     val triggerId = "trig_${action.id}"
                     val targetPort = "out_match_$triggerId"
-
                     val triggerName = when (action.type) {
                         ActionType.TRIGGER -> "ИИ Поиск #${action.id}"
                         ActionType.OCR -> "OCR Текст #${action.id}"
@@ -335,10 +267,10 @@ object LinearToGraphMigrator {
                     )
 
                     val templateName = if (action.templatePath.isNotEmpty()) {
-                        java.io.File(action.templatePath).nameWithoutExtension.removePrefix("mask_")
+                        File(action.templatePath).nameWithoutExtension.removePrefix("mask_")
                     } else if (isOcr) {
                         action.targetScriptOrQuery.ifEmpty { "Текст" }
-                    } else "Цель" 
+                    } else "Цель"
 
                     val node = ScenarioNode(
                         id = nodeId,
@@ -357,14 +289,7 @@ object LinearToGraphMigrator {
 
                     if (action.clickAiTarget && action.jumpToStepOnMatch == null) {
                         val actNodeId = "node_${action.id}_act"
-                        val actionSpec = NodeActionSpec(
-                            id = "act_${action.id}",
-                            type = ActionType.DELAY,
-                            x = 0f,
-                            y = 0f,
-                            holdDurationMs = 0L,
-                            delayAfterMs = action.delayMs
-                        )
+                        val actionSpec = NodeActionSpec(id = "act_${action.id}", type = ActionType.DELAY, delayAfterMs = action.delayMs)
                         val actionNode = ScenarioNode(
                             id = actNodeId,
                             title = "Клик и пауза: ${action.delayMs}мс",
@@ -375,45 +300,13 @@ object LinearToGraphMigrator {
                         )
                         nodesMap[actNodeId] = actionNode
 
-                        edgesList.add(
-                            ScenarioEdge(
-                                id = "edge_${action.id}_match_to_act",
-                                fromNodeId = nodeId,
-                                fromPortId = targetPort,
-                                toNodeId = actNodeId,
-                                toPortId = "in_entry"
-                            )
-                        )
-                        edgesList.add(
-                            ScenarioEdge(
-                                id = "edge_${action.id}_act_to_next",
-                                fromNodeId = actNodeId,
-                                fromPortId = "out_default",
-                                toNodeId = matchTargetNodeId,
-                                toPortId = "in_entry"
-                            )
-                        )
+                        edgesList.add(ScenarioEdge(id = "edge_${action.id}_match_to_act", fromNodeId = nodeId, fromPortId = targetPort, toNodeId = actNodeId, toPortId = "in_entry"))
+                        edgesList.add(ScenarioEdge(id = "edge_${action.id}_act_to_next", fromNodeId = actNodeId, fromPortId = "out_default", toNodeId = matchTargetNodeId, toPortId = "in_entry"))
                     } else {
-                        edgesList.add(
-                            ScenarioEdge(
-                                id = "edge_${action.id}_match",
-                                fromNodeId = nodeId,
-                                fromPortId = targetPort,
-                                toNodeId = matchTargetNodeId,
-                                toPortId = "in_entry"
-                            )
-                        )
+                        edgesList.add(ScenarioEdge(id = "edge_${action.id}_match", fromNodeId = nodeId, fromPortId = targetPort, toNodeId = matchTargetNodeId, toPortId = "in_entry"))
                     }
 
-                    edgesList.add(
-                        ScenarioEdge(
-                            id = "edge_${action.id}_timeout",
-                            fromNodeId = nodeId,
-                            fromPortId = "out_timeout",
-                            toNodeId = timeoutTargetNodeId,
-                            toPortId = "in_entry"
-                        )
-                    )
+                    edgesList.add(ScenarioEdge(id = "edge_${action.id}_timeout", fromNodeId = nodeId, fromPortId = "out_timeout", toNodeId = timeoutTargetNodeId, toPortId = "in_entry"))
                 }
             } else {
                 val resolvedSubroutine = action.subroutineTarget.ifEmpty {
@@ -452,24 +345,16 @@ object LinearToGraphMigrator {
                 )
                 nodesMap[nodeId] = node
 
-                edgesList.add(
-                    ScenarioEdge(
-                        id = "edge_${action.id}_default",
-                        fromNodeId = nodeId,
-                        fromPortId = "out_default",
-                        toNodeId = nextDefaultNodeId
-                    )
-                )
+                edgesList.add(ScenarioEdge(id = "edge_${action.id}_default", fromNodeId = nodeId, fromPortId = "out_default", toNodeId = nextDefaultNodeId))
             }
         }
 
-        val firstNodeId = "node_${scenario.actions[0].id}"
         return GraphMacroScenario(
             id = UUID.randomUUID().toString(),
             name = scenario.name,
             version = 2,
             deviceSpecs = scenario.deviceSpecs,
-            entryNodeId = firstNodeId,
+            entryNodeId = startNode.id,
             nodes = nodesMap,
             edges = edgesList,
             globalClickDurationMs = scenario.globalClickDurationMs,
@@ -512,7 +397,6 @@ object LinearToGraphMigrator {
             "node_${scenario.actions[0].id}"
         } else "node_1"
 
-        // Сдвигаем следующий узел вниз, чтобы он не слипался с горизонтальными ветвями мультипоиска
         nodesMap[nextTargetNodeId]?.let { nextNode ->
             nodesMap[nextTargetNodeId] = nextNode.copy(canvasX = startCanvasX, canvasY = startCanvasY + 280f)
         }
@@ -520,11 +404,6 @@ object LinearToGraphMigrator {
         for ((idx, path) in validPaths.withIndex()) {
             val templateName = File(path).nameWithoutExtension.removePrefix("mask_").ifEmpty { "цель_${idx + 1}" }
             val triggerId = "trig_${targetAction.id}_${idx + 1}"
-
-
-
-
-
             val matchPortId = "out_match_$triggerId"
 
             val trig = NodeTriggerSpec(
@@ -565,25 +444,8 @@ object LinearToGraphMigrator {
             )
             nodesMap[branchNodeId] = branchNode
 
-            edgesList.add(
-                ScenarioEdge(
-                    id = "edge_multi_${targetAction.id}_$idx",
-                    fromNodeId = mainNodeId,
-                    fromPortId = matchPortId,
-                    toNodeId = branchNodeId,
-                    toPortId = "in_entry"
-                )
-            )
-
-            edgesList.add(
-                ScenarioEdge(
-                    id = "edge_return_${targetAction.id}_$idx",
-                    fromNodeId = branchNodeId,
-                    fromPortId = "out_default",
-                    toNodeId = nextTargetNodeId,
-                    toPortId = "in_entry"
-                )
-            )
+            edgesList.add(ScenarioEdge(id = "edge_multi_${targetAction.id}_$idx", fromNodeId = mainNodeId, fromPortId = matchPortId, toNodeId = branchNodeId, toPortId = "in_entry"))
+            edgesList.add(ScenarioEdge(id = "edge_return_${targetAction.id}_$idx", fromNodeId = branchNodeId, fromPortId = "out_default", toNodeId = nextTargetNodeId, toPortId = "in_entry"))
         }
 
         val timeoutNodeId = "node_${targetAction.id}_timeout"
@@ -593,27 +455,15 @@ object LinearToGraphMigrator {
             canvasX = startCanvasX + 400f,
             canvasY = startCanvasY + (validPaths.size * 140f) - ((validPaths.size - 1) * 70f),
             entryActions = listOf(
-                NodeActionSpec(
-                    id = "act_timeout_${targetAction.id}",
-                    type = ActionType.CLICK,
-                    x = targetAction.posX,
-                    y = targetAction.posY,
-                    delayAfterMs = 500L
-                )
+                NodeActionSpec(id = "act_timeout_${targetAction.id}", type = ActionType.DELAY, delayAfterMs = 50L)
             ),
             standardPorts = listOf("out_default")
         )
         nodesMap[timeoutNodeId] = timeoutActionNode
 
-        edgesList.add(
-            ScenarioEdge(
-                id = "edge_timeout_${targetAction.id}",
-                fromNodeId = mainNodeId,
-                fromPortId = "out_timeout",
-                toNodeId = timeoutNodeId,
-                toPortId = "in_entry"
-            )
-        )
+        edgesList.add(ScenarioEdge(id = "edge_timeout_${targetAction.id}", fromNodeId = mainNodeId, fromPortId = "out_timeout", toNodeId = timeoutNodeId, toPortId = "in_entry"))
+        // Замыкаем узел таймаута на следующий шаг
+        edgesList.add(ScenarioEdge(id = "edge_timeout_to_next_${targetAction.id}", fromNodeId = timeoutNodeId, fromPortId = "out_default", toNodeId = nextTargetNodeId, toPortId = "in_entry"))
 
         val updatedDecisionNode = existingMainNode.copy(
             title = "Мульти-селектор #${targetAction.id} (${validPaths.size} цели)",
@@ -638,12 +488,19 @@ object LinearToGraphMigrator {
     fun graphToLinear(graphScenario: GraphMacroScenario): MacroScenario {
         val resultActions = ArrayList<MacroAction>()
 
+        // Отсекаем служебные узлы (старт, ветвления мультипоиска _branch_, вспомогательные клики _act)
+        val validNodes = graphScenario.nodes.values.filter { node ->
+            node.id != "node_start" && !node.id.contains("_branch_") && (!node.id.contains("_act") || node.id.contains("timeout"))
+        }.filterNot { it.id.contains("_act_") }
+
         val entryNode = graphScenario.nodes[graphScenario.entryNodeId]
-        val otherNodes = graphScenario.nodes.values
-            .filter { it.id != graphScenario.entryNodeId && it.id != "node_start" }
+        val otherNodes = validNodes
+            .filter { it.id != graphScenario.entryNodeId }
             .sortedWith(compareBy<ScenarioNode> { it.canvasY.toInt() / 200 }.thenBy { it.canvasX })
 
-        val sortedNodes = if (entryNode != null && entryNode.id != "node_start") listOf(entryNode) + otherNodes else otherNodes
+        val sortedNodes = if (entryNode != null && entryNode.id != "node_start" && !entryNode.id.contains("_branch_") && !entryNode.id.contains("_act")) {
+            listOf(entryNode) + otherNodes
+        } else otherNodes
 
         val nodeIdToStepIdMap = HashMap<String, Int>()
         for (i in sortedNodes.indices) {
@@ -667,12 +524,16 @@ object LinearToGraphMigrator {
                 val clickOffsetX = if (!isColorCheck && trig.useCustomClick) trig.clickOffset.x else 0f
                 val clickOffsetY = if (!isColorCheck && trig.useCustomClick) trig.clickOffset.y else 0f
 
+                val childActNodeId = graphScenario.edges.find { it.fromNodeId == node.id && it.fromPortId == "out_match_${trig.id}" }?.toNodeId
+                val childActNode = if (childActNodeId != null) graphScenario.nodes[childActNodeId] else null
+                val recoveredDelayMs = childActNode?.entryActions?.firstOrNull()?.delayAfterMs ?: node.pollIntervalMs.coerceAtLeast(100L)
+
                 val action = MacroAction(
                     id = stepId,
                     type = trig.type,
                     posX = posX,
                     posY = posY,
-                    delayMs = node.pollIntervalMs.coerceAtLeast(100L),
+                    delayMs = recoveredDelayMs,
                     holdDurationMs = 120L,
                     checkIntervalMs = node.pollIntervalMs,
                     repeatCount = 1,
@@ -695,8 +556,6 @@ object LinearToGraphMigrator {
                     jumpToStepOnMatch = jumpMatch,
                     jumpToStepOnTimeout = jumpTimeout,
                     targetScriptOrQuery = if (isColorCheck) "" else trig.targetQueryOrColor,
-                    subroutineTag = "",
-                    subroutineTarget = "",
                     targetColorHex = if (isColorCheck) trig.targetQueryOrColor else "#00F5D4",
                     colorTolerance = trig.colorTolerance,
                     roiLeft = trig.roiLeft,
@@ -734,7 +593,7 @@ object LinearToGraphMigrator {
         }
 
         return MacroScenario(
-            name = graphScenario.name,
+            name = graphScenario.name.removeSuffix("_граф"),
             version = graphScenario.version,
             deviceSpecs = graphScenario.deviceSpecs,
             actions = resultActions,

@@ -1,20 +1,20 @@
 package com.example.autotap.infrastructure.vision
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Rect
 import com.example.autotap.core.logger.AppLogger
 import com.example.autotap.domain.model.MacroAction
 import com.example.autotap.domain.model.MatchCandidate
-import com.example.autotap.domain.model.TemplateMorphology
 import org.json.JSONObject
 import java.io.File
-import java.util.Locale
+import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
+import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
-
 
 object TemplateMatchingEngine {
 
@@ -34,7 +34,7 @@ object TemplateMatchingEngine {
     private val NEIGHBOR_DX = intArrayOf(0, -1, 1, 0, 0)
     private val NEIGHBOR_DY = intArrayOf(0, 0, 0, -1, 1)
 
-class TemplateFeatures(
+    class TemplateFeatures(
         val tw: Int,
         val th: Int,
         val shapeCount: Int,
@@ -68,7 +68,7 @@ class TemplateFeatures(
         val isRawImage: Boolean,
         val analysis: com.example.autotap.domain.model.TemplateAnalysisResult,
         val individualThreshold: Float,
-                val isShapeOnlyFromMeta: Boolean = false,
+        val isShapeOnlyFromMeta: Boolean = false,
         val isSmartColorFromMeta: Boolean = false,
         val clickOffsetXFromMeta: Float = 0f,
         val clickOffsetYFromMeta: Float = 0f,
@@ -101,8 +101,7 @@ class TemplateFeatures(
         minDist: Int
     ) {
         if (tPath.isEmpty()) return
-        // LinkedHashSet сохраняет реальный порядок добавления (FIFO для удаления самого старого элемента)
-        val set = map.getOrPut(tPath) { java.util.Collections.synchronizedSet(LinkedHashSet()) }
+        val set = map.getOrPut(tPath) { Collections.synchronizedSet(LinkedHashSet()) }
         synchronized(set) {
             if (set.none { abs(it.first - x) < minDist && abs(it.second - y) < minDist }) {
                 if (set.size >= 8) {
@@ -126,6 +125,34 @@ class TemplateFeatures(
         addLocationBoundedSafe(additionalSearchLocations, tPath, clickX, clickY, minDist = 20)
     }
 
+    /**
+     * Точечная инвалидация кэша конкретного шаблона (не сбрасывает L0-якоря других масок).
+     */
+    fun invalidateTemplate(tPath: String) {
+        if (tPath.isEmpty()) return
+        historicalSearchAnchors.remove(tPath)
+        additionalSearchLocations.remove(tPath)
+        val prefix = "${tPath}_"
+        val keysToRemove = templateFeatureCache.keys().asSequence()
+            .filter { it == tPath || it.startsWith(prefix) }
+            .toList()
+        keysToRemove.forEach { templateFeatureCache.remove(it) }
+    }
+
+    /**
+     * Перенос накопленных L0-якорей со старого пути на новый при переименовании шаблона.
+     */
+    fun migrateTemplatePath(oldPath: String, newPath: String) {
+        if (oldPath.isEmpty() || newPath.isEmpty() || oldPath == newPath) return
+        historicalSearchAnchors.remove(oldPath)?.let { historicalSearchAnchors[newPath] = it }
+        additionalSearchLocations.remove(oldPath)?.let { additionalSearchLocations[newPath] = it }
+        val prefix = "${oldPath}_"
+        templateFeatureCache.keys().asSequence()
+            .filter { it == oldPath || it.startsWith(prefix) }
+            .toList()
+            .forEach { templateFeatureCache.remove(it) }
+    }
+
     fun clearTemplateCache() {
         historicalSearchAnchors.clear()
         additionalSearchLocations.clear()
@@ -142,16 +169,18 @@ class TemplateFeatures(
         val tPixels = IntArray(tw * th)
         template.getPixels(tPixels, 0, tw, 0, 0, tw, th)
 
-                val metaLastMod = if (tPath.isNotEmpty()) {
+        val metaLastMod = if (tPath.isNotEmpty()) {
             try {
                 val mf = File(tPath)
                 val jf = File(mf.parentFile, "${mf.nameWithoutExtension}.json")
                 if (jf.exists()) jf.lastModified() else 0L
-            } catch (_: Exception) { 0L }
+            } catch (_: Exception) {
+                0L
+            }
         } else 0L
 
         val dynamicKey = if (cacheKey.isNotEmpty()) "${cacheKey}_${tw}x${th}_${template.generationId}_$metaLastMod"
-                         else "dyn_${tw}x${th}_${template.generationId}_$metaLastMod"
+        else "dyn_${tw}x${th}_${template.generationId}_$metaLastMod"
 
         return extractFeatures(tPixels, tw, th, dynamicKey, defaultSim, tPath, false)
     }
@@ -169,8 +198,7 @@ class TemplateFeatures(
         if (tPixels.isEmpty() || tw <= 0 || th <= 0) return null
 
         val dynamicKey = if (cacheKey.isNotEmpty()) "${cacheKey}_${tw}x${th}_$defaultSim"
-                         else "dyn_${tw}x${th}_$defaultSim"
-
+        else "dyn_${tw}x${th}_$defaultSim"
 
         val cached = templateFeatureCache[dynamicKey]
         if (cached != null && cached.tw == tw && cached.th == th) return cached
@@ -236,7 +264,8 @@ class TemplateFeatures(
                         metaDownscaleFactor = meta.getInt("downscaleFactor").coerceIn(1, 4)
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
 
         val area = tw * th
@@ -255,11 +284,11 @@ class TemplateFeatures(
         var colorSourcePixels = tPixels
         if (tPath.isNotEmpty()) {
             try {
-                val maskFile = java.io.File(tPath)
+                val maskFile = File(tPath)
                 if (maskFile.exists()) {
-                    val rawFile = java.io.File(maskFile.parentFile, "raw_" + maskFile.name.removePrefix("mask_"))
+                    val rawFile = File(maskFile.parentFile, "raw_" + maskFile.name.removePrefix("mask_"))
                     if (rawFile.exists()) {
-                        val rawBmp = android.graphics.BitmapFactory.decodeFile(rawFile.absolutePath)
+                        val rawBmp = BitmapFactory.decodeFile(rawFile.absolutePath)
                         if (rawBmp != null) {
                             if (rawBmp.width == tw && rawBmp.height == th) {
                                 val rp = IntArray(tw * th)
@@ -270,7 +299,8 @@ class TemplateFeatures(
                         }
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
 
         val maxPoints = tw * th
@@ -288,7 +318,6 @@ class TemplateFeatures(
         var shapeEdgeCount = 0
         var sumX = 0L
         var sumY = 0L
-
         var transparentCount = 0
 
         val lum = IntArray(tw * th)
@@ -306,7 +335,6 @@ class TemplateFeatures(
         val isRawImage = isRawPixelsParam || (transparentCount < (tw * th * 0.05))
 
         // [Adaptive Grayscale Contrast Normalization]
-        // Линейное растяжение динамического диапазона яркости [min, max] -> [0, 255] и эквализация гистограммы (CDF) для масок и стрелок
         if (!isRawImage && transparentCount > 0) {
             var minL = 255
             var maxL = 0
@@ -345,10 +373,12 @@ class TemplateFeatures(
             }
         }
 
-
         val cxEstimate = tw / 2
         val cyEstimate = th / 2
-        var q0EdgeCount = 0; var q1EdgeCount = 0; var q2EdgeCount = 0; var q3EdgeCount = 0
+        var q0EdgeCount = 0
+        var q1EdgeCount = 0
+        var q2EdgeCount = 0
+        var q3EdgeCount = 0
 
         for (ty in 0 until th) {
             val row = ty * tw
@@ -367,8 +397,8 @@ class TemplateFeatures(
                     val q = (if (tx >= cxEstimate) 1 else 0) or (if (ty >= cyEstimate) 2 else 0)
                     shapeQuadrant[shapeCount] = q
 
-                    var gx = 0f
-                    var gy = 0f
+                    val gx: Float
+                    val gy: Float
 
                     val isBorder = (tx == 0 || tx == tw - 1 || ty == 0 || ty == th - 1) ||
                             (!mask[idx - 1] || !mask[idx + 1] || !mask[idx - tw] || !mask[idx + tw])
@@ -479,13 +509,13 @@ class TemplateFeatures(
             l1LabB[i] = tempLab[2]
         }
 
-        // [V200.0] Предрассчитанные пространственные веса и групповые кластеры пикселей (0.00ms runtime overhead)
+        // [V200.0] Предрассчитанные пространственные веса и групповые кластеры пикселей
         val spatialWeights = FloatArray(shapeCount)
         val maxR = max(tw, th) / 2f
         for (i in 0 until shapeCount) {
             val dxCenter = shapeDx[i] - cX
             val dyCenter = shapeDy[i] - cY
-            val distCenter = kotlin.math.hypot(dxCenter.toDouble(), dyCenter.toDouble()).toFloat()
+            val distCenter = hypot(dxCenter.toDouble(), dyCenter.toDouble()).toFloat()
             spatialWeights[i] = 1.0f + 0.5f * (1.0f - (distCenter / maxR).coerceIn(0f, 1f))
         }
 
@@ -548,18 +578,6 @@ class TemplateFeatures(
         )
     }
 
-        private fun halton(index: Int, base: Int): Float {
-        var result = 0f
-        var f = 1f / base
-        var i = index
-        while (i > 0) {
-            result += f * (i % base)
-            i /= base
-            f /= base
-        }
-        return result
-    }
-
     private class PreparedTemplateContext(
         val tPath: String,
         val tBmp: Bitmap,
@@ -585,10 +603,9 @@ class TemplateFeatures(
         var statL2Evals = 0
 
         val allCandidates = ConcurrentHashMap.newKeySet<MatchCandidate>()
-        val rejectedCandidatesList = java.util.Collections.synchronizedList(mutableListOf<Pair<MatchCandidate, String>>())
+        val rejectedCandidatesList = Collections.synchronizedList(mutableListOf<Pair<MatchCandidate, String>>())
         val override = actionOverride
         val defaultSim = override?.similarityPercent ?: minSimilarityPercent
-        var lastUsedDownscale = override?.downscaleFactor?.takeIf { it in 1..4 } ?: 1
 
         val roiMinX: Int
         val roiMinY: Int
@@ -614,21 +631,20 @@ class TemplateFeatures(
         val isDeltaEMode = override?.colorDeltaEMode ?: false
         val selectedRoiZones = if (hasRoi) listOf(Rect(roiMinX, roiMinY, roiMaxX, roiMaxY)) else emptyList()
         val selectedAnchors = override?.primaryAnchorPoints ?: emptyList()
+        var lastUsedDownscale = override?.downscaleFactor?.takeIf { it in 1..4 } ?: 1
 
         val preparedContexts = mutableListOf<PreparedTemplateContext>()
 
         for ((tPath, tBmp) in templates) {
             if (isCancelled() || tBmp.isRecycled) continue
 
-            // [V12.2] Полная изоляция: в рантайме каждый шаблон использует свои метаданные из JSON, а в режиме калибровки (findAllMatches) — живой ползунок
             val features = extractFeatures(tBmp, tPath, tPath, defaultSim) ?: continue
-            
-            // Фиксируем реальный фактор сжатия из метаданных шаблона, если нет жесткого override
             val currentTemplateDownscale = override?.downscaleFactor?.takeIf { it in 1..4 }
                 ?: features.optimalDownscaleFactorFromMeta
             if (override?.downscaleFactor == null) {
                 lastUsedDownscale = currentTemplateDownscale
             }
+
             val rawThreshold = if (findAllMatches) (defaultSim / 100f) else features.individualThreshold
             val templateThreshold = rawThreshold.coerceIn(0.60f, 0.98f)
             val isShapeDriven = if (findAllMatches && actionOverride != null) actionOverride.isShapeOnlyMode else ((actionOverride?.isShapeOnlyMode == true) || features.isShapeOnlyFromMeta)
@@ -638,7 +654,7 @@ class TemplateFeatures(
 
             val anchorProbes = mutableListOf<com.example.autotap.domain.model.Point2D>()
 
-            // 1. МЕТАДАННЫЕ КАЛИБРОВКИ И ВЫРЕЗА: всегда используем calibratedX / calibratedY из JSON метаданных шаблона
+            // 1. МЕТАДАННЫЕ КАЛИБРОВКИ И ВЫРЕЗА
             if (features.calibratedX != null && features.calibratedY != null) {
                 anchorProbes.add(com.example.autotap.domain.model.Point2D(features.calibratedX.toFloat(), features.calibratedY.toFloat()))
             }
@@ -666,7 +682,7 @@ class TemplateFeatures(
                 }
             }
 
-            // 5. Дополнительные динамические позиции (накопительный L0 Cache)
+            // 5. Дополнительные динамические позиции (накопительный L0 Cache) с потокобезопасным чтением
             if (enableL0Cache && tPath.isNotEmpty()) {
                 historicalSearchAnchors[tPath]?.let { set ->
                     synchronized(set) {
@@ -708,7 +724,7 @@ class TemplateFeatures(
 
         // =========================================================================
         // ЭТАП 1: Умная сверхбыстрая проверка ВСЕХ масок по первичным опорным точкам
-        // (TIER 0: +-12 px, затем TIER 1: +-48 px). Занимает 1-2 мс для всех 8 масок!
+        // (TIER 0: +-12 px, затем TIER 1: +-48 px)
         // =========================================================================
         for (ctx in preparedContexts) {
             if (isCancelled()) break
@@ -853,7 +869,7 @@ class TemplateFeatures(
             } else {
                 (templateThreshold * 0.30f).coerceIn(0.18f, 0.35f)
             }
-            // [V14.0] Адаптивный шаг сетки шаблона для первичного отсева кандидатов (нативный 1:1 масштаб)
+
             val metaStep = features.optimalGridStepFromMeta
             val baseStepX = if (metaStep in 2..16) metaStep else (if (isSmall) (features.tw / 4).coerceIn(3, 6) else (features.tw / 3).coerceIn(6, 18))
             val baseStepY = if (metaStep in 2..16) metaStep else (if (isSmall) (features.th / 4).coerceIn(3, 6) else (features.th / 3).coerceIn(6, 18))
@@ -865,13 +881,12 @@ class TemplateFeatures(
 
             val estCount = ((scanLimitY - roiMinY) / gridStepY + 1) * ((scanLimitX - roiMinX) / gridStepX + 1)
             val scanPoints = ArrayList<Pair<Int, Int>>(maxOf(16, estCount))
-            // Формируем плотную регулярную сетку по области поиска
             for (gy in roiMinY..scanLimitY step gridStepY) {
                 for (gx in roiMinX..scanLimitX step gridStepX) {
                     scanPoints.add(Pair(gx, gy))
                 }
             }
-            // [V88.0] Умная пространственная оптимизация поиска с учетом расстояний на выбранных участках
+
             if (selectedRoiZones.isNotEmpty() || selectedAnchors.isNotEmpty()) {
                 scanPoints.sortBy { pt ->
                     val cx = pt.first + features.centroidX
@@ -884,11 +899,11 @@ class TemplateFeatures(
                         }
                         val zX = z.centerX().toFloat()
                         val zY = z.centerY().toFloat()
-                        val d = kotlin.math.hypot((cx - zX).toDouble(), (cy - zY).toDouble()).toFloat()
+                        val d = hypot((cx - zX).toDouble(), (cy - zY).toDouble()).toFloat()
                         if (d < minD) minD = d
                     }
                     for (a in selectedAnchors) {
-                        val d = kotlin.math.hypot((cx - a.x).toDouble(), (cy - a.y).toDouble()).toFloat()
+                        val d = hypot((cx - a.x).toDouble(), (cy - a.y).toDouble()).toFloat()
                         if (d < minD) minD = d
                     }
                     minD
@@ -932,8 +947,8 @@ class TemplateFeatures(
                             }
                         } else {
                             val totalDiff = abs(((sc ushr 16) and 0xFF) - features.l1R[i]) +
-                                abs(((sc ushr 8) and 0xFF) - features.l1G[i]) +
-                                abs((sc and 0xFF) - features.l1B[i])
+                                    abs(((sc ushr 8) and 0xFF) - features.l1G[i]) +
+                                    abs((sc and 0xFF) - features.l1B[i])
                             colorScoreSum += if (totalDiff <= 25) 1.0f else (1.0f - (totalDiff - 25) / 125.0f).coerceIn(0.0f, 1.0f)
                         }
                     }
@@ -982,7 +997,6 @@ class TemplateFeatures(
                         spatialSectors[sectorKey] = Triple(x, y, coarseScore)
                     }
 
-                    // Быстрая локальная доводка при высоком coarse скоре
                     if (coarseScore >= 0.70f) {
                         val fineScore = evaluateCandidateScore(sPixels, sw, sh, x, y, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
                         if (fineScore >= maxOf(0.92f, templateThreshold)) {
@@ -1013,12 +1027,16 @@ class TemplateFeatures(
                     var minDist = Float.MAX_VALUE
                     var inside = false
                     for (z in selectedRoiZones) {
-                        if (z.contains(sX, sY)) { inside = true; minDist = 0f; break }
-                        val d = kotlin.math.hypot((sX - z.centerX()).toDouble(), (sY - z.centerY()).toDouble()).toFloat()
+                        if (z.contains(sX, sY)) {
+                            inside = true
+                            minDist = 0f
+                            break
+                        }
+                        val d = hypot((sX - z.centerX()).toDouble(), (sY - z.centerY()).toDouble()).toFloat()
                         if (d < minDist) minDist = d
                     }
                     for (a in selectedAnchors) {
-                        val d = kotlin.math.hypot((sX - a.x).toDouble(), (sY - a.y).toDouble()).toFloat()
+                        val d = hypot((sX - a.x).toDouble(), (sY - a.y).toDouble()).toFloat()
                         if (d < minDist) minDist = d
                         if (d < 30f) inside = true
                     }
@@ -1030,13 +1048,13 @@ class TemplateFeatures(
             } else {
                 spatialSectors.values.sortedByDescending { it.third }.take(32)
             }
+
             for (spot in sectorsToScan) {
                 if (isCancelled()) break
                 var bestScore = 0f
                 var bestX = spot.first
                 var bestY = spot.second
 
-                // [V200.0] Двухуровневое сжатое сканирование сектора Tier 2 (Coarse-to-Fine 24x speedup)
                 val fineStep = if (coarseStep >= 6) 2 else 1
                 for (fy in max(roiMinY, spot.second - coarseStep)..min(scanLimitY, spot.second + coarseStep) step fineStep) {
                     for (fx in max(roiMinX, spot.first - coarseStep)..min(scanLimitX, spot.first + coarseStep) step fineStep) {
@@ -1050,7 +1068,6 @@ class TemplateFeatures(
                     }
                 }
 
-                // Второстепенная доводка 1px вокруг найденного пика
                 if (fineStep > 1 && bestScore >= (templateThreshold * 0.70f)) {
                     val peakX = bestX
                     val peakY = bestY
@@ -1108,7 +1125,7 @@ class TemplateFeatures(
             rejectedCandidates = rejectedCandidatesList.sortedByDescending { it.first.score }.take(3),
             thresholdPct = defaultSim,
             methodName = ((if (isDeltaEMode) "ГИБРИД + УМНЫЙ ЦВЕТ (ΔE)" else if (actionOverride?.isShapeOnlyMode == true) "ФОРМА / КОНТУР" else "ГИБРИД CV") + downscaleTag),
-            downscaleFactor = override?.downscaleFactor?.takeIf { it in 1..4 } ?: topWinner?.let { templateFeatureCache[it.templatePath]?.optimalDownscaleFactorFromMeta } ?: 1,
+            downscaleFactor = lastUsedDownscale,
             elapsedMs = elapsed
         )
         AppLogger.log(null, "CV_PROFILER", "Мультипоиск [${templates.size} масок]: ${elapsed}ms | L0=$statL0Hits, L1=$statL1Sectors, L2=$statL2Evals | Результат: ${finalMatches.size} целей")
@@ -1127,216 +1144,226 @@ class TemplateFeatures(
         return nmsList.take(32)
     }
 
-        fun evaluateCandidateScore(
+    fun evaluateCandidateScore(
         sPixels: IntArray, sw: Int, sh: Int, fx: Int, fy: Int,
         features: TemplateFeatures, isShapeOnly: Boolean = false,
         useDeltaE: Boolean = false,
         selectedZones: List<Rect> = emptyList(),
         selectedAnchors: List<com.example.autotap.domain.model.Point2D> = emptyList()
     ): Float {
-    if (fx < 0 || fy < 0 || fx + features.tw > sw || fy + features.th > sh) return 0f
+        if (fx < 0 || fy < 0 || fx + features.tw > sw || fy + features.th > sh) return 0f
 
-    // [V200.0] Быстрый векторный предпросмотр кластера ключевых пикселей (мгновенный отсев фона)
-    if (features.keyClusterIndices.isNotEmpty() && !isShapeOnly) {
-        var clusterDiff = 0
-        val cSize = features.keyClusterIndices.size
-        for (idx in features.keyClusterIndices) {
-            val px = fx + features.shapeDx[idx]
-            val py = fy + features.shapeDy[idx]
-            val sColor = sPixels[py * sw + px]
-            val dr = abs(((sColor ushr 16) and 0xFF) - features.shapeR[idx])
-            val dg = abs(((sColor ushr 8) and 0xFF) - features.shapeG[idx])
-            val db = abs((sColor and 0xFF) - features.shapeB[idx])
-            clusterDiff += dr + dg + db
+        // [V200.0] Быстрый векторный предпросмотр кластера ключевых пикселей
+        if (features.keyClusterIndices.isNotEmpty() && !isShapeOnly) {
+            var clusterDiff = 0
+            val cSize = features.keyClusterIndices.size
+            for (idx in features.keyClusterIndices) {
+                val px = fx + features.shapeDx[idx]
+                val py = fy + features.shapeDy[idx]
+                val sColor = sPixels[py * sw + px]
+                val dr = abs(((sColor ushr 16) and 0xFF) - features.shapeR[idx])
+                val dg = abs(((sColor ushr 8) and 0xFF) - features.shapeG[idx])
+                val db = abs((sColor and 0xFF) - features.shapeB[idx])
+                clusterDiff += dr + dg + db
+            }
+            if (clusterDiff / cSize > 175) return 0f
         }
-        if (clusterDiff / cSize > 175) return 0f
-    }
 
-    var colorScoreSum = 0f; var colorWeightSum = 0f; var edgeScoreSum = 0f; var edgeWeightSum = 0f
-    var hitQ0 = 0; var hitQ1 = 0; var hitQ2 = 0; var hitQ3 = 0; var screenTotalEdges = 0
-    val evalStride = if (features.isMicroIcon || features.isThinLine || features.tw <= 36) 1 else max(1, features.shapeCount / 90)
-    val isDeltaEActive = useDeltaE || features.isSmartColorFromMeta
+        var colorScoreSum = 0f
+        var colorWeightSum = 0f
+        var edgeScoreSum = 0f
+        var edgeWeightSum = 0f
+        var hitQ0 = 0
+        var hitQ1 = 0
+        var hitQ2 = 0
+        var hitQ3 = 0
+        var screenTotalEdges = 0
+        val evalStride = if (features.isMicroIcon || features.isThinLine || features.tw <= 36) 1 else max(1, features.shapeCount / 90)
+        val isDeltaEActive = useDeltaE || features.isSmartColorFromMeta
 
-    for (k in 0 until features.shapeCount step evalStride) {
-    val px = fx + features.shapeDx[k]
-    val py = fy + features.shapeDy[k]
-    val sIdx = py * sw + px
-    val sColor = sPixels[sIdx]
+        for (k in 0 until features.shapeCount step evalStride) {
+            val px = fx + features.shapeDx[k]
+            val py = fy + features.shapeDy[k]
+            val sIdx = py * sw + px
+            val sColor = sPixels[sIdx]
 
-    if (!isShapeOnly) {
-        if (isDeltaEActive) {
-            val dE = if (features.shapeLabL.isNotEmpty()) {
-                ColorDetector.computeDeltaEFast(sColor, features.shapeLabL[k], features.shapeLabA[k], features.shapeLabB[k])
-            } else {
-                val expColor = (features.shapeR[k] shl 16) or (features.shapeG[k] shl 8) or features.shapeB[k]
-                ColorDetector.computeDeltaE(sColor, expColor).toFloat()
+            if (!isShapeOnly) {
+                if (isDeltaEActive) {
+                    val dE = if (features.shapeLabL.isNotEmpty()) {
+                        ColorDetector.computeDeltaEFast(sColor, features.shapeLabL[k], features.shapeLabA[k], features.shapeLabB[k])
+                    } else {
+                        val expColor = (features.shapeR[k] shl 16) or (features.shapeG[k] shl 8) or features.shapeB[k]
+                        ColorDetector.computeDeltaE(sColor, expColor).toFloat()
+                    }
+                    val ptColor = when {
+                        dE <= 8.0f -> 1.0f
+                        dE <= 28.0f -> (1.0f - ((dE - 8.0f) / 20.0f))
+                        else -> 0.0f
+                    }
+                    val spatialWeight = if (features.spatialWeights.size > k) features.spatialWeights[k] else 1.0f
+                    colorScoreSum += ptColor * spatialWeight
+                    colorWeightSum += spatialWeight
+                } else {
+                    val dr = abs(((sColor ushr 16) and 0xFF) - features.shapeR[k])
+                    val dg = abs(((sColor ushr 8) and 0xFF) - features.shapeG[k])
+                    val db = abs((sColor and 0xFF) - features.shapeB[k])
+                    colorScoreSum += when {
+                        (dr + dg + db) <= 25 -> 1.0f
+                        (dr + dg + db) <= 150 -> 1.0f - ((dr + dg + db) - 25) / 125.0f
+                        else -> 0.0f
+                    }
+                    colorWeightSum += 1.0f
+                }
             }
-            val ptColor = when {
-                dE <= 8.0f -> 1.0f
-                dE <= 28.0f -> (1.0f - ((dE - 8.0f) / 20.0f))
-                else -> 0.0f
+
+            if (px in 1 until sw - 1 && py in 1 until sh - 1) {
+                val c00 = sPixels[(py - 1) * sw + (px - 1)]
+                val p00 = (((c00 ushr 16) and 0xFF) * 77 + ((c00 ushr 8) and 0xFF) * 150 + (c00 and 0xFF) * 29) shr 8
+                val c01 = sPixels[(py - 1) * sw + px]
+                val p01 = (((c01 ushr 16) and 0xFF) * 77 + ((c01 ushr 8) and 0xFF) * 150 + (c01 and 0xFF) * 29) shr 8
+                val c02 = sPixels[(py - 1) * sw + (px + 1)]
+                val p02 = (((c02 ushr 16) and 0xFF) * 77 + ((c02 ushr 8) and 0xFF) * 150 + (c02 and 0xFF) * 29) shr 8
+
+                val c10 = sPixels[py * sw + (px - 1)]
+                val p10 = (((c10 ushr 16) and 0xFF) * 77 + ((c10 ushr 8) and 0xFF) * 150 + (c10 and 0xFF) * 29) shr 8
+                val c12 = sPixels[py * sw + (px + 1)]
+                val p12 = (((c12 ushr 16) and 0xFF) * 77 + ((c12 ushr 8) and 0xFF) * 150 + (c12 and 0xFF) * 29) shr 8
+
+                val c20 = sPixels[(py + 1) * sw + (px - 1)]
+                val p20 = (((c20 ushr 16) and 0xFF) * 77 + ((c20 ushr 8) and 0xFF) * 150 + (c20 and 0xFF) * 29) shr 8
+                val c21 = sPixels[(py + 1) * sw + px]
+                val p21 = (((c21 ushr 16) and 0xFF) * 77 + ((c21 ushr 8) and 0xFF) * 150 + (c21 and 0xFF) * 29) shr 8
+                val c22 = sPixels[(py + 1) * sw + (px + 1)]
+                val p22 = (((c22 ushr 16) and 0xFF) * 77 + ((c22 ushr 8) and 0xFF) * 150 + (c22 and 0xFF) * 29) shr 8
+
+                val sgx = (p02 + 2 * p12 + p22 - (p00 + 2 * p10 + p20)).toFloat()
+                val sgy = (p20 + 2 * p21 + p22 - (p00 + 2 * p01 + p02)).toFloat()
+                val smag = sqrt((sgx * sgx + sgy * sgy).toDouble()).toFloat()
+
+                if (smag > 8.0f) screenTotalEdges++
+
+                if (features.shapeGradMag[k] > 5.0f) {
+                    val conf = (smag / 20f).coerceIn(0.25f, 1.0f)
+                    edgeWeightSum += conf
+
+                    if (smag > 6.0f) {
+                        val rawCos = (abs(sgx * features.shapeGradGx[k] + sgy * features.shapeGradGy[k]) / smag).coerceIn(0f, 1f)
+                        val shapeAlignment = if (rawCos >= 0.35f) {
+                            ((rawCos - 0.35f) / 0.65f).coerceIn(0f, 1f)
+                        } else 0f
+
+                        if (shapeAlignment > 0.20f) {
+                            edgeScoreSum += shapeAlignment * conf
+                            when (features.shapeQuadrant[k]) {
+                                0 -> hitQ0++
+                                1 -> hitQ1++
+                                2 -> hitQ2++
+                                3 -> hitQ3++
+                            }
+                        }
+                    }
+                } else if (smag > 10.0f) {
+                    edgeWeightSum += (smag / 24f).coerceIn(0.2f, 1.0f) * 0.5f
+                }
             }
-            val spatialWeight = if (features.spatialWeights.size > k) features.spatialWeights[k] else 1.0f
-            colorScoreSum += ptColor * spatialWeight
-            colorWeightSum += spatialWeight
+
+            if (k >= features.shapeCount / 3) {
+                val evalCount = (k / evalStride) + 1
+                val currentNormColor = if (colorWeightSum > 0f) (colorScoreSum / colorWeightSum) else 0f
+                val currentEdgeRatio = if (edgeWeightSum > 0f) (edgeScoreSum / edgeWeightSum) else 0f
+                val minColorThresh = if (features.isThinLine || features.isMicroIcon) 0.12f else 0.22f
+                if (!isShapeOnly && evalCount >= 8 && currentNormColor < minColorThresh && currentEdgeRatio < 0.40f) {
+                    return 0f
+                }
+                val minEdgeThresh = if (features.isThinLine || features.isMicroIcon) 0.10f else 0.18f
+                if (edgeWeightSum > 3f && currentEdgeRatio < minEdgeThresh) {
+                    return 0f
+                }
+            }
+        }
+
+        var missingQuadrants = 0
+        if (features.hasQuadrant0 && hitQ0 == 0) missingQuadrants++
+        if (features.hasQuadrant1 && hitQ1 == 0) missingQuadrants++
+        if (features.hasQuadrant2 && hitQ2 == 0) missingQuadrants++
+        if (features.hasQuadrant3 && hitQ3 == 0) missingQuadrants++
+
+        val edScore = if (edgeWeightSum > 0f) (edgeScoreSum / edgeWeightSum).coerceIn(0f, 1f) else 0.5f
+
+        val normalizedScreenEdges = screenTotalEdges * evalStride
+        val isMicroOrThin = features.isMicroIcon || features.isThinLine || min(features.tw, features.th) <= 32
+        val clutterThreshold = if (isMicroOrThin) {
+            max(features.shapeEdgeCount * 5.0f, features.shapeCount * 1.2f)
         } else {
-            val dr = abs(((sColor ushr 16) and 0xFF) - features.shapeR[k])
-            val dg = abs(((sColor ushr 8) and 0xFF) - features.shapeG[k])
-            val db = abs((sColor and 0xFF) - features.shapeB[k])
-            colorScoreSum += when {
-                (dr + dg + db) <= 25 -> 1.0f
-                (dr + dg + db) <= 150 -> 1.0f - ((dr + dg + db) - 25) / 125.0f
-                else -> 0.0f
+            max(features.shapeEdgeCount * 3.5f, features.shapeCount * 0.75f)
+        }
+        val clutterPenalty = if (normalizedScreenEdges > clutterThreshold) {
+            val minFloor = if (isMicroOrThin) 0.55f else 0.35f
+            (clutterThreshold / normalizedScreenEdges.toFloat()).coerceIn(minFloor, 1.0f)
+        } else 1.0f
+
+        val colScore = if (colorWeightSum > 0f) (colorScoreSum / colorWeightSum) else edScore
+
+        if (isShapeOnly) {
+            val completeness = when {
+                isMicroOrThin && missingQuadrants <= 1 -> 1.0f
+                isMicroOrThin && missingQuadrants == 2 -> 0.92f
+                missingQuadrants >= 3 -> 0.65f
+                missingQuadrants == 2 -> 0.88f
+                else -> 1.0f
             }
-            colorWeightSum += 1.0f
+            return (edScore * completeness * clutterPenalty).coerceIn(0f, 1f)
         }
-    }
 
-    if (px in 1 until sw - 1 && py in 1 until sh - 1) {
-    val c00 = sPixels[(py - 1) * sw + (px - 1)]
-    val p00 = (((c00 ushr 16) and 0xFF) * 77 + ((c00 ushr 8) and 0xFF) * 150 + (c00 and 0xFF) * 29) shr 8
-    val c01 = sPixels[(py - 1) * sw + px]
-    val p01 = (((c01 ushr 16) and 0xFF) * 77 + ((c01 ushr 8) and 0xFF) * 150 + (c01 and 0xFF) * 29) shr 8
-    val c02 = sPixels[(py - 1) * sw + (px + 1)]
-    val p02 = (((c02 ushr 16) and 0xFF) * 77 + ((c02 ushr 8) and 0xFF) * 150 + (c02 and 0xFF) * 29) shr 8
-
-    val c10 = sPixels[py * sw + (px - 1)]
-    val p10 = (((c10 ushr 16) and 0xFF) * 77 + ((c10 ushr 8) and 0xFF) * 150 + (c10 and 0xFF) * 29) shr 8
-    val c12 = sPixels[py * sw + (px + 1)]
-    val p12 = (((c12 ushr 16) and 0xFF) * 77 + ((c12 ushr 8) and 0xFF) * 150 + (c12 and 0xFF) * 29) shr 8
-
-    val c20 = sPixels[(py + 1) * sw + (px - 1)]
-    val p20 = (((c20 ushr 16) and 0xFF) * 77 + ((c20 ushr 8) and 0xFF) * 150 + (c20 and 0xFF) * 29) shr 8
-    val c21 = sPixels[(py + 1) * sw + px]
-    val p21 = (((c21 ushr 16) and 0xFF) * 77 + ((c21 ushr 8) and 0xFF) * 150 + (c21 and 0xFF) * 29) shr 8
-    val c22 = sPixels[(py + 1) * sw + (px + 1)]
-    val p22 = (((c22 ushr 16) and 0xFF) * 77 + ((c22 ushr 8) and 0xFF) * 150 + (c22 and 0xFF) * 29) shr 8
-
-    val sgx = (p02 + 2 * p12 + p22 - (p00 + 2 * p10 + p20)).toFloat()
-    val sgy = (p20 + 2 * p21 + p22 - (p00 + 2 * p01 + p02)).toFloat()
-    val smag = sqrt((sgx * sgx + sgy * sgy).toDouble()).toFloat()
-
-    if (smag > 8.0f) screenTotalEdges++
-
-    if (features.shapeGradMag[k] > 5.0f) {
-        val conf = (smag / 20f).coerceIn(0.25f, 1.0f)
-        edgeWeightSum += conf
-
-        if (smag > 6.0f) {
-            val rawCos = (abs(sgx * features.shapeGradGx[k] + sgy * features.shapeGradGy[k]) / smag).coerceIn(0f, 1f)
-            val shapeAlignment = if (rawCos >= 0.35f) {
-                ((rawCos - 0.35f) / 0.65f).coerceIn(0f, 1f)
-            } else 0f
-
-            if (shapeAlignment > 0.20f) {
-                edgeScoreSum += shapeAlignment * conf
-                when (features.shapeQuadrant[k]) { 0 -> hitQ0++; 1 -> hitQ1++; 2 -> hitQ2++; 3 -> hitQ3++ }
-            }
+        val effectiveEdgeWeight = when {
+            isMicroOrThin && edScore >= 0.70f -> 0.55f
+            isMicroOrThin && edScore >= 0.55f -> 0.45f
+            features.isThinLine -> 0.45f
+            features.shapeEdgeCount >= 6 && edScore >= 0.60f -> 0.40f
+            edgeWeightSum > 0f -> 0.25f
+            else -> 0.05f
         }
-    } else if (smag > 10.0f) {
-        edgeWeightSum += (smag / 24f).coerceIn(0.2f, 1.0f) * 0.5f
-    }
-    }
-
-
-    if (k >= features.shapeCount / 3) {
-        val evalCount = (k / evalStride) + 1
-        val currentNormColor = if (colorWeightSum > 0f) (colorScoreSum / colorWeightSum) else 0f
-        val currentEdgeRatio = if (edgeWeightSum > 0f) (edgeScoreSum / edgeWeightSum) else 0f
-        val minColorThresh = if (features.isThinLine || features.isMicroIcon) 0.12f else 0.22f
-        if (!isShapeOnly && evalCount >= 8 && currentNormColor < minColorThresh && currentEdgeRatio < 0.40f) {
-            return 0f
-        }
-        val minEdgeThresh = if (features.isThinLine || features.isMicroIcon) 0.10f else 0.18f
-        if (edgeWeightSum > 3f && currentEdgeRatio < minEdgeThresh) {
-            return 0f
-        }
-    }
-    }
-
-    var missingQuadrants = 0
-    if (features.hasQuadrant0 && hitQ0 == 0) missingQuadrants++
-    if (features.hasQuadrant1 && hitQ1 == 0) missingQuadrants++
-    if (features.hasQuadrant2 && hitQ2 == 0) missingQuadrants++
-    if (features.hasQuadrant3 && hitQ3 == 0) missingQuadrants++
-
-    val edScore = if (edgeWeightSum > 0f) (edgeScoreSum / edgeWeightSum).coerceIn(0f, 1f) else 0.5f
-
-    val normalizedScreenEdges = screenTotalEdges * evalStride
-    val isMicroOrThin = features.isMicroIcon || features.isThinLine || min(features.tw, features.th) <= 32
-    val clutterThreshold = if (isMicroOrThin) {
-        max(features.shapeEdgeCount * 5.0f, features.shapeCount * 1.2f)
-    } else {
-        max(features.shapeEdgeCount * 3.5f, features.shapeCount * 0.75f)
-    }
-    val clutterPenalty = if (normalizedScreenEdges > clutterThreshold) {
-        val minFloor = if (isMicroOrThin) 0.55f else 0.35f
-        (clutterThreshold / normalizedScreenEdges.toFloat()).coerceIn(minFloor, 1.0f)
-    } else 1.0f
-
-    val colScore = if (colorWeightSum > 0f) (colorScoreSum / colorWeightSum) else edScore
-
-    if (isShapeOnly) {
-        val completeness = when {
+        val completenessFactor = when {
             isMicroOrThin && missingQuadrants <= 1 -> 1.0f
-            isMicroOrThin && missingQuadrants == 2 -> 0.92f
-            missingQuadrants >= 3 -> 0.65f
-            missingQuadrants == 2 -> 0.88f
+            isMicroOrThin && missingQuadrants == 2 -> 0.94f
+            missingQuadrants >= 3 -> 0.80f
+            missingQuadrants == 2 -> 0.90f
             else -> 1.0f
         }
-        return (edScore * completeness * clutterPenalty).coerceIn(0f, 1f)
-    }
 
-    // Мягкая комбинация: если совпадение по цвету высокое (>0.60), не отсекаем из-за размытых границ
-    val effectiveEdgeWeight = when {
-        isMicroOrThin && edScore >= 0.70f -> 0.55f
-        isMicroOrThin && edScore >= 0.55f -> 0.45f
-        features.isThinLine -> 0.45f
-        features.shapeEdgeCount >= 6 && edScore >= 0.60f -> 0.40f
-        edgeWeightSum > 0f -> 0.25f
-        else -> 0.05f
-    }
-    val completenessFactor = when {
-        isMicroOrThin && missingQuadrants <= 1 -> 1.0f
-        isMicroOrThin && missingQuadrants == 2 -> 0.94f
-        missingQuadrants >= 3 -> 0.80f
-        missingQuadrants == 2 -> 0.90f
-        else -> 1.0f
-    }
+        var spatialFactor = 1.0f
+        if (selectedZones.isNotEmpty() || selectedAnchors.isNotEmpty()) {
+            val candCenterX = fx + features.centroidX
+            val candCenterY = fy + features.centroidY
+            var minDistance = Float.MAX_VALUE
+            var isInsideSelected = false
 
-    var spatialFactor = 1.0f
-    if (selectedZones.isNotEmpty() || selectedAnchors.isNotEmpty()) {
-        val candCenterX = fx + features.centroidX
-        val candCenterY = fy + features.centroidY
-        var minDistance = Float.MAX_VALUE
-        var isInsideSelected = false
-
-        for (zone in selectedZones) {
-            if (zone.contains(candCenterX, candCenterY)) {
-                isInsideSelected = true
-                minDistance = 0f
-                break
+            for (zone in selectedZones) {
+                if (zone.contains(candCenterX, candCenterY)) {
+                    isInsideSelected = true
+                    minDistance = 0f
+                    break
+                }
+                val zX = zone.centerX().toFloat()
+                val zY = zone.centerY().toFloat()
+                val d = hypot((candCenterX - zX).toDouble(), (candCenterY - zY).toDouble()).toFloat()
+                if (d < minDistance) minDistance = d
             }
-            val zX = zone.centerX().toFloat()
-            val zY = zone.centerY().toFloat()
-            val d = kotlin.math.hypot((candCenterX - zX).toDouble(), (candCenterY - zY).toDouble()).toFloat()
-            if (d < minDistance) minDistance = d
+
+            for (pt in selectedAnchors) {
+                val d = hypot((candCenterX - pt.x).toDouble(), (candCenterY - pt.y).toDouble()).toFloat()
+                if (d < minDistance) minDistance = d
+                if (d < 30f) isInsideSelected = true
+            }
+
+            val bonus = if (isDeltaEActive) 1.08f else 1.06f
+            val maxPenalty = if (isDeltaEActive) 0.50f else 0.40f
+            val distanceScale = if (isDeltaEActive) 0.65f else 0.75f
+            spatialFactor = if (isInsideSelected) bonus
+            else (1.0f - (minDistance / (sw * distanceScale)).coerceIn(0f, maxPenalty))
         }
 
-        for (pt in selectedAnchors) {
-            val d = kotlin.math.hypot((candCenterX - pt.x).toDouble(), (candCenterY - pt.y).toDouble()).toFloat()
-            if (d < minDistance) minDistance = d
-            if (d < 30f) isInsideSelected = true
-        }
-
-        val bonus = if (isDeltaEActive) 1.08f else 1.06f
-        val maxPenalty = if (isDeltaEActive) 0.50f else 0.40f
-        val distanceScale = if (isDeltaEActive) 0.65f else 0.75f
-        spatialFactor = if (isInsideSelected) bonus
-        else (1.0f - (minDistance / (sw * distanceScale)).coerceIn(0f, maxPenalty))
-    }
-
-    val combinedScore = (colScore * (1f - effectiveEdgeWeight) + edScore * effectiveEdgeWeight) * completenessFactor * clutterPenalty * spatialFactor
-    return combinedScore.coerceIn(0f, 1f)
+        val combinedScore = (colScore * (1f - effectiveEdgeWeight) + edScore * effectiveEdgeWeight) * completenessFactor * clutterPenalty * spatialFactor
+        return combinedScore.coerceIn(0f, 1f)
     }
 }
