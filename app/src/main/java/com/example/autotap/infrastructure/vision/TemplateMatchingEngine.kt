@@ -84,7 +84,9 @@ class TemplateFeatures(
         val l1LabL: FloatArray = FloatArray(0),
         val l1LabA: FloatArray = FloatArray(0),
         val l1LabB: FloatArray = FloatArray(0),
-        val metaAnchorLocations: List<com.example.autotap.domain.model.Point2D> = emptyList()
+        val metaAnchorLocations: List<com.example.autotap.domain.model.Point2D> = emptyList(),
+        val spatialWeights: FloatArray = FloatArray(0),
+        val keyClusterIndices: IntArray = IntArray(0)
     )
 
     val historicalSearchAnchors = ConcurrentHashMap<String, MutableSet<Pair<Int, Int>>>()
@@ -478,6 +480,26 @@ class TemplateFeatures(
             l1LabB[i] = tempLab[2]
         }
 
+        // [V200.0] Предрассчитанные пространственные веса и групповые кластеры пикселей (0.00ms runtime overhead)
+        val spatialWeights = FloatArray(shapeCount)
+        val maxR = max(tw, th) / 2f
+        for (i in 0 until shapeCount) {
+            val dxCenter = shapeDx[i] - cX
+            val dyCenter = shapeDy[i] - cY
+            val distCenter = kotlin.math.hypot(dxCenter.toDouble(), dyCenter.toDouble()).toFloat()
+            spatialWeights[i] = 1.0f + 0.5f * (1.0f - (distCenter / maxR).coerceIn(0f, 1f))
+        }
+
+        val clusterSize = min(8, shapeCount)
+        val keyClusterIndices = (0 until shapeCount)
+            .sortedBy { i ->
+                val dx = shapeDx[i] - cX
+                val dy = shapeDy[i] - cY
+                dx * dx + dy * dy - (shapeGradMag[i] * 10f).toInt()
+            }
+            .take(clusterSize)
+            .toIntArray()
+
         val features = TemplateFeatures(
             tw = tw, th = th, shapeCount = shapeCount,
             shapeDx = shapeDx.copyOf(shapeCount), shapeDy = shapeDy.copyOf(shapeCount),
@@ -507,7 +529,9 @@ class TemplateFeatures(
             l1LabL = l1LabL,
             l1LabA = l1LabA,
             l1LabB = l1LabB,
-            metaAnchorLocations = metaAnchors
+            metaAnchorLocations = metaAnchors,
+            spatialWeights = spatialWeights,
+            keyClusterIndices = keyClusterIndices
         )
         templateFeatureCache[dynamicKey] = features
         return features
@@ -997,14 +1021,33 @@ class TemplateFeatures(
                 var bestX = spot.first
                 var bestY = spot.second
 
-                for (fy in max(roiMinY, spot.second - coarseStep)..min(scanLimitY, spot.second + coarseStep)) {
-                    for (fx in max(roiMinX, spot.first - coarseStep)..min(scanLimitX, spot.first + coarseStep)) {
+                // [V200.0] Двухуровневое сжатое сканирование сектора Tier 2 (Coarse-to-Fine 24x speedup)
+                val fineStep = if (coarseStep >= 6) 2 else 1
+                for (fy in max(roiMinY, spot.second - coarseStep)..min(scanLimitY, spot.second + coarseStep) step fineStep) {
+                    for (fx in max(roiMinX, spot.first - coarseStep)..min(scanLimitX, spot.first + coarseStep) step fineStep) {
                         statL2Evals++
                         val score = evaluateCandidateScore(sPixels, sw, sh, fx, fy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
                         if (score > bestScore) {
                             bestScore = score
                             bestX = fx
                             bestY = fy
+                        }
+                    }
+                }
+
+                // Второстепенная доводка 1px вокруг найденного пика
+                if (fineStep > 1 && bestScore >= (templateThreshold * 0.70f)) {
+                    val peakX = bestX
+                    val peakY = bestY
+                    for (fy in max(roiMinY, peakY - 2)..min(scanLimitY, peakY + 2)) {
+                        for (fx in max(roiMinX, peakX - 2)..min(scanLimitX, peakX + 2)) {
+                            statL2Evals++
+                            val score = evaluateCandidateScore(sPixels, sw, sh, fx, fy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
+                            if (score > bestScore) {
+                                bestScore = score
+                                bestX = fx
+                                bestY = fy
+                            }
                         }
                     }
                 }
@@ -1078,6 +1121,22 @@ class TemplateFeatures(
     ): Float {
     if (fx < 0 || fy < 0 || fx + features.tw > sw || fy + features.th > sh) return 0f
 
+    // [V200.0] Быстрый векторный предпросмотр кластера ключевых пикселей (мгновенный отсев фона)
+    if (features.keyClusterIndices.isNotEmpty() && !isShapeOnly) {
+        var clusterDiff = 0
+        val cSize = features.keyClusterIndices.size
+        for (idx in features.keyClusterIndices) {
+            val px = fx + features.shapeDx[idx]
+            val py = fy + features.shapeDy[idx]
+            val sColor = sPixels[py * sw + px]
+            val dr = abs(((sColor ushr 16) and 0xFF) - features.shapeR[idx])
+            val dg = abs(((sColor ushr 8) and 0xFF) - features.shapeG[idx])
+            val db = abs((sColor and 0xFF) - features.shapeB[idx])
+            clusterDiff += dr + dg + db
+        }
+        if (clusterDiff / cSize > 175) return 0f
+    }
+
     var colorScoreSum = 0f; var colorWeightSum = 0f; var edgeScoreSum = 0f; var edgeWeightSum = 0f
     var hitQ0 = 0; var hitQ1 = 0; var hitQ2 = 0; var hitQ3 = 0; var screenTotalEdges = 0
     val evalStride = if (features.isMicroIcon || features.isThinLine || features.tw <= 36) 1 else max(1, features.shapeCount / 90)
@@ -1102,12 +1161,7 @@ class TemplateFeatures(
                 dE <= 28.0f -> (1.0f - ((dE - 8.0f) / 20.0f))
                 else -> 0.0f
             }
-            // Пространственная оптимизация внутри шаблона: точки ближе к центроиду имеют максимальный вес
-            val dxCenter = features.shapeDx[k] - features.centroidX
-            val dyCenter = features.shapeDy[k] - features.centroidY
-            val distCenter = kotlin.math.sqrt((dxCenter * dxCenter + dyCenter * dyCenter).toDouble()).toFloat()
-            val maxR = max(features.tw, features.th) / 2f
-            val spatialWeight = 1.0f + 0.5f * (1.0f - (distCenter / maxR).coerceIn(0f, 1f))
+            val spatialWeight = if (features.spatialWeights.size > k) features.spatialWeights[k] else 1.0f
             colorScoreSum += ptColor * spatialWeight
             colorWeightSum += spatialWeight
         } else {

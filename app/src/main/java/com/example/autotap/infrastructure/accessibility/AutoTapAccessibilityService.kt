@@ -316,7 +316,7 @@ class AutoTapAccessibilityService : AccessibilityService() {
         if (lockScreenShowing) {
             orchestrator.screenLockOverlay.setTemporarilyTransparent(true)
         }
-        val badgeShowing = true // Compose overlays state is handled dynamically
+        val badgeShowing = orchestrator.runningBadgeOverlay.isShowing()
         if (badgeShowing) {
             orchestrator.runningBadgeOverlay.setTemporarilyTransparent(true)
         }

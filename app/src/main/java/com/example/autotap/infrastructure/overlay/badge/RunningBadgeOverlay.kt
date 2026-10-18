@@ -255,6 +255,8 @@ class RunningBadgeOverlay(
 
     fun dismiss() = hide()
 
+    fun isShowing(): Boolean = rootView != null && rootView?.visibility == View.VISIBLE
+
     fun setTemporarilyTransparent(transparent: Boolean) {
         rootView?.alpha = if (transparent) 0f else 1f
     }
