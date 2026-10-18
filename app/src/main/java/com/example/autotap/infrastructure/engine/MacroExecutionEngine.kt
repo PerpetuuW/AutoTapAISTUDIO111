@@ -274,6 +274,7 @@ class MacroExecutionEngine(
                                                                 action.id, activeTemplates.size, ocrQueries.size, baseSimilarity, if (isInfinite) "БЕСКОНЕЧНО" else "${action.aiTimeoutSeconds}сек")
                                                         )
 
+                                                        var lastStateEmittedTime = 0L
                                                         while (isActive && (isInfinite || (System.currentTimeMillis() - pollStartTime < timeoutMs))) {
                                                             if (!isScreenInteractive()) {
                                                                 stop()
@@ -282,20 +283,23 @@ class MacroExecutionEngine(
                                                             val elapsed = System.currentTimeMillis() - pollStartTime
                                                             val progressRatio = if (isInfinite) 0f else (elapsed.toFloat() / timeoutMs.toFloat()).coerceIn(0f, 1f)
 
-                                                            _executionState.value = ExecutionState.Running(
-                                                                currentStepIndex = currentIndex + 1,
-                                                                totalSteps = activeActionsList.size,
-                                                                currentRepeat = currentRepeat + 1,
-                                                                totalRepeats = repeats,
-                                                                isDebugPaused = false,
-                                                                isSearching = true,
-                                                                searchProgress = progressRatio,
-                                                                searchTitle = if (activeTemplates.size + ocrQueries.size > 1) "Мультипоиск (${activeTemplates.size + ocrQueries.size} целей)" else if (activeTemplates.isNotEmpty()) "Поиск: ${File(activeTemplates.first().first).nameWithoutExtension.removePrefix("mask_").trim()}" else "Поиск шаблона",
-                                                                searchStartTime = pollStartTime,
-                                                                searchTimeoutMs = timeoutMs,
-                                                                isInfiniteSearch = isInfinite,
-                                                                stepType = ActionType.TRIGGER
-                                                            )
+                                                            if (elapsed - lastStateEmittedTime >= 250L || lastStateEmittedTime == 0L) {
+                                                                lastStateEmittedTime = elapsed
+                                                                _executionState.value = ExecutionState.Running(
+                                                                    currentStepIndex = currentIndex + 1,
+                                                                    totalSteps = activeActionsList.size,
+                                                                    currentRepeat = currentRepeat + 1,
+                                                                    totalRepeats = repeats,
+                                                                    isDebugPaused = false,
+                                                                    isSearching = true,
+                                                                    searchProgress = progressRatio,
+                                                                    searchTitle = if (activeTemplates.size + ocrQueries.size > 1) "Мультипоиск (${activeTemplates.size + ocrQueries.size} целей)" else if (activeTemplates.isNotEmpty()) "Поиск: ${File(activeTemplates.first().first).nameWithoutExtension.removePrefix("mask_").trim()}" else "Поиск шаблона",
+                                                                    searchStartTime = pollStartTime,
+                                                                    searchTimeoutMs = timeoutMs,
+                                                                    isInfiniteSearch = isInfinite,
+                                                                    stepType = ActionType.TRIGGER
+                                                                )
+                                                            }
 
                                                             val service = accessibilityServiceProvider()
                                                             val dm = service?.resources?.displayMetrics

@@ -27,6 +27,8 @@ object TargetHighlightVisualizer {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val activeHighlightViews = java.util.Collections.synchronizedList(mutableListOf<java.lang.ref.WeakReference<View>>())
     private val activeHighlightRects = java.util.Collections.synchronizedList(mutableListOf<Rect>())
+    @Volatile
+    private var lastHighlightShowTime = 0L
 
     /**
      * Глобальный флаг включения визуального дебага (настраивается в глобальных настройках).
@@ -168,6 +170,9 @@ object TargetHighlightVisualizer {
         templateBitmap: Bitmap? = null
     ) {
         if (!isVisualDebugEnabled) return
+        val now = System.currentTimeMillis()
+        if (now - lastHighlightShowTime < 300L) return
+        lastHighlightShowTime = now
 
         hideAllHighlights(overlayWindowManager)
         val dm = context.resources.displayMetrics
