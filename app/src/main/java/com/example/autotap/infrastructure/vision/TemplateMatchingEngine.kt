@@ -1093,7 +1093,7 @@ class TemplateFeatures(
             rejectedCandidates = rejectedCandidatesList.sortedByDescending { it.first.score }.take(3),
             thresholdPct = defaultSim,
             methodName = ((if (isDeltaEMode) "ГИБРИД + УМНЫЙ ЦВЕТ (ΔE)" else if (actionOverride?.isShapeOnlyMode == true) "ФОРМА / КОНТУР" else "ГИБРИД CV") + downscaleTag),
-            downscaleFactor = lastUsedDownscale,
+            downscaleFactor = override?.downscaleFactor?.takeIf { it in 1..4 } ?: topWinner?.let { templateFeatureCache[it.templatePath]?.optimalDownscaleFactorFromMeta } ?: 1,
             elapsedMs = elapsed
         )
         AppLogger.log(null, "CV_PROFILER", "Мультипоиск [${templates.size} масок]: ${elapsed}ms | L0=$statL0Hits, L1=$statL1Sectors, L2=$statL2Evals | Результат: ${finalMatches.size} целей")

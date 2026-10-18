@@ -18,7 +18,7 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
     private val trashDir: File
         get() = File(context.filesDir, "trash_templates").apply { mkdirs() }
 
-    private val memoryCache = ConcurrentHashMap<String, Bitmap>()
+    private val memoryCache = android.util.LruCache<String, Bitmap>(32)
 
     override fun loadAllTemplates(): List<Pair<String, Bitmap>> {
         val result = mutableListOf<Pair<String, Bitmap>>()
@@ -28,11 +28,11 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             !it.name.startsWith("screen_", ignoreCase = true)
         }.forEach { file ->
             val path = file.absolutePath
-            val cached = memoryCache[path]
+            val cached = memoryCache.get(path)
             val bmp = if (cached != null && !cached.isRecycled) {
                 cached
             } else {
-                BitmapFactory.decodeFile(path)?.also { memoryCache[path] = it }
+                BitmapFactory.decodeFile(path)?.also { memoryCache.put(path, it) }
             }
             if (bmp != null && !bmp.isRecycled) {
                 result.add(path to bmp)
@@ -43,7 +43,7 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
 
     override fun getTemplate(path: String): Bitmap? {
         if (path.isBlank()) return null
-        val cached = memoryCache[path]
+        val cached = memoryCache.get(path)
         if (cached != null && !cached.isRecycled) return cached
 
         val file = File(path)
@@ -53,7 +53,7 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
 
         if (targetFile == null || !targetFile.exists()) return null
         return try {
-            BitmapFactory.decodeFile(targetFile.absolutePath)?.also { memoryCache[path] = it }
+            BitmapFactory.decodeFile(targetFile.absolutePath)?.also { memoryCache.put(path, it) }
         } catch (_: Exception) { null }
     }
 
@@ -96,15 +96,25 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             if (cleanName != null && File(existingPath).name != cleanName) {
                 val oldFile = File(existingPath)
                 val newFile = File(targetDir, if (cleanName.endsWith(".png")) cleanName else "$cleanName.png")
-                // При переименовании перекалибровываемого шаблона допускаем замену
+                
+                // Переименовываем все связанные файлы
+                val parent = oldFile.parentFile
+                val oldBase = oldFile.nameWithoutExtension.removePrefix("mask_")
+                val newBase = newFile.nameWithoutExtension.removePrefix("mask_")
+                
+                File(parent, "raw_$oldBase.png").let { if (it.exists()) it.renameTo(File(targetDir, "raw_$newBase.png")) }
+                File(parent, "screen_$oldBase.jpg").let { if (it.exists()) it.renameTo(File(targetDir, "screen_$newBase.jpg")) }
+                File(parent, "mask_$oldBase.json").let { if (it.exists()) it.renameTo(File(targetDir, "mask_$newBase.json")) }
+                
                 oldFile.renameTo(newFile)
                 newFile.absolutePath
             } else existingPath
         }
 
         val maskFile = File(tPath)
-        val rawFile = File(maskFile.parentFile, "raw_" + maskFile.name.removePrefix("mask_"))
-        val screenFile = File(maskFile.parentFile, "screen_" + maskFile.name.removePrefix("mask_"))
+        val baseNameNoPrefix = maskFile.nameWithoutExtension.removePrefix("mask_")
+        val rawFile = File(maskFile.parentFile, "raw_$baseNameNoPrefix.png")
+        val screenFile = File(maskFile.parentFile, "screen_$baseNameNoPrefix.jpg")
         val metaFile = File(maskFile.parentFile, "${maskFile.nameWithoutExtension}.json")
 
         try {
@@ -121,7 +131,7 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             if (existingPath != null && existingPath != tPath) {
                 memoryCache.remove(existingPath)
             }
-            memoryCache[tPath] = maskBmp.copy(Bitmap.Config.ARGB_8888, true)
+            maskBmp.copy(Bitmap.Config.ARGB_8888, true)?.let { memoryCache.put(tPath, it) }
         } catch (e: Exception) {
             AppLogger.logError(context, "STORAGE", e)
         }
@@ -174,7 +184,7 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             if (!oldFolder.exists() || newFolder.exists()) return false
             val success = oldFolder.renameTo(newFolder)
             if (success) {
-                memoryCache.clear() // Cache paths are invalidated
+                memoryCache.evictAll() // Cache paths are invalidated
             }
             success
         } catch (e: Exception) {
@@ -193,7 +203,9 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             val baseName = maskFile.nameWithoutExtension
 
             val metaFile = File(parentDir, "$baseName.json")
-            val rawFile = File(parentDir, "raw_" + maskFile.name.removePrefix("mask_"))
+            val baseNameNoPrefix = maskFile.nameWithoutExtension.removePrefix("mask_")
+            val rawFile = File(parentDir, "raw_$baseNameNoPrefix.png")
+            val screenFile = File(parentDir, "screen_$baseNameNoPrefix.jpg")
 
             val targetTrashMask = File(trashDir, maskFile.name)
             val success = maskFile.renameTo(targetTrashMask)
@@ -203,6 +215,9 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             }
             if (rawFile.exists()) {
                 rawFile.renameTo(File(trashDir, rawFile.name))
+            }
+            if (screenFile.exists()) {
+                screenFile.renameTo(File(trashDir, screenFile.name))
             }
 
             AppLogger.log(context, "STORAGE", "Шаблон '$baseName' перемещен в корзину")
@@ -220,7 +235,9 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             val baseName = trashMaskFile.nameWithoutExtension
 
             val metaFile = File(trashDir, "$baseName.json")
-            val rawFile = File(trashDir, "raw_" + trashMaskFile.name.removePrefix("mask_"))
+            val baseNameNoPrefix = trashMaskFile.nameWithoutExtension.removePrefix("mask_")
+            val rawFile = File(trashDir, "raw_$baseNameNoPrefix.png")
+            val screenFile = File(trashDir, "screen_$baseNameNoPrefix.jpg")
 
             val targetMask = File(defaultDir, trashMaskFile.name)
             val success = trashMaskFile.renameTo(targetMask)
@@ -230,6 +247,9 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             }
             if (rawFile.exists()) {
                 rawFile.renameTo(File(defaultDir, rawFile.name))
+            }
+            if (screenFile.exists()) {
+                screenFile.renameTo(File(defaultDir, screenFile.name))
             }
 
             AppLogger.log(context, "STORAGE", "Шаблон '$baseName' восстановлен из корзины")
@@ -296,6 +316,6 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
     }
 
     override fun clearCache() {
-        memoryCache.clear()
+        memoryCache.evictAll()
     }
 }
