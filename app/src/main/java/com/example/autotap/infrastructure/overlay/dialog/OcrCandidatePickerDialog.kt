@@ -193,7 +193,13 @@ class OcrCandidatePickerDialog(
                     }
 
                     if (bestIdx != -1) {
-                        applySelection(bestIdx)
+                        if (bestIdx == selectedIndex) {
+                            // Повторный тап по той же рамке — мгновенное подтверждение выбора
+                            onCandidateSelected(bestIdx, candidates[bestIdx])
+                            dismiss()
+                        } else {
+                            applySelection(bestIdx)
+                        }
                         return true
                     }
                 }

@@ -75,7 +75,10 @@ object TargetHighlightVisualizer {
             upper.contains("MATCH") || upper.contains("REJECT") ||
             upper.contains("DEBUG") || upper.contains("ВХОЖДЕНИЕ") ||
             upper.contains("ЦЕНТР КЛИКА") || upper.contains("ОБУЧЕНИЕ ИИ") ||
-            upper.contains("СЖАТИЕ") || upper.contains("МАСШТАБ") || upper.contains("DOWNSCALE")
+            upper.contains("СЖАТИЕ") || upper.contains("МАСШТАБ") || upper.contains("DOWNSCALE") ||
+            upper.contains("ШАГ ") || upper.contains("ЗАПУСК") || upper.contains("ПОИСК") ||
+            upper.contains("AUTOTAP") || upper.contains("ТАБЛИЦА СОВПАДЕНИЙ") ||
+            upper.contains("ИНСТРУКЦИЯ К ДЕЙСТВИЮ")
         ) {
             return true
         }

@@ -1559,21 +1559,49 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     } finally {
                         if (!cropped.isRecycled) cropped.recycle()
                     }
-                    val recognizedText = ocrResults.firstOrNull()?.matchedText?.trim() ?: ""
+                    val globalOcrResults = ocrResults.map { res ->
+                        res.copy(
+                            clickX = res.clickX + safeX,
+                            clickY = res.clickY + safeY,
+                            rectLeft = res.rectLeft + safeX,
+                            rectTop = res.rectTop + safeY,
+                            rectRight = res.rectRight + safeX,
+                            rectBottom = res.rectBottom + safeY
+                        )
+                    }
 
-                    controlPanelOverlay.show()
-                    targetManager.setOverlaysVisible(true)
-                    if (recognizedText.isNotBlank()) {
-                        val existingMulti = action.multiTemplatePaths.filter { it.isNotBlank() }.toMutableList()
-                        val ocrEntry = "ocr:$recognizedText"
-                        if (!existingMulti.contains(ocrEntry)) {
-                            existingMulti.add(ocrEntry)
-                        }
-                        val updated = action.copy(multiTemplatePaths = existingMulti.distinct())
-                        targetManager.updateAction(updated)
-                        Toast.makeText(appContext, "Считан текст с экрана: '$recognizedText'", Toast.LENGTH_LONG).show()
-                        mainHandler.postDelayed({ showEditDialog(updated) }, 150L)
+                    if (globalOcrResults.isNotEmpty()) {
+                        mainHandler.postDelayed({
+                            com.example.autotap.infrastructure.overlay.dialog.OcrCandidatePickerDialog(
+                                context = appContext,
+                                overlayWindowManager = overlayWindowManager,
+                                candidates = globalOcrResults,
+                                onDismiss = {
+                                    controlPanelOverlay.show()
+                                    targetManager.setOverlaysVisible(true)
+                                    showEditDialog(action)
+                                }
+                            ) { idx, selectedMatch ->
+                                controlPanelOverlay.show()
+                                targetManager.setOverlaysVisible(true)
+                                val cleanText = selectedMatch.matchedText.trim()
+                                if (cleanText.isNotBlank()) {
+                                    val existingMulti = action.multiTemplatePaths.filter { it.isNotBlank() }.toMutableList()
+                                    val ocrEntry = "ocr:$cleanText"
+                                    if (!existingMulti.contains(ocrEntry)) {
+                                        existingMulti.add(ocrEntry)
+                                    }
+                                    val updated = action.copy(multiTemplatePaths = existingMulti.distinct())
+                                    targetManager.updateAction(updated)
+                                    com.example.autotap.infrastructure.ocr.OcrQueryMetadataManager.saveOcrQueryToHistory(appContext, cleanText)
+                                    Toast.makeText(appContext, "Выбран OCR текст: '$cleanText'", Toast.LENGTH_SHORT).show()
+                                    mainHandler.postDelayed({ showEditDialog(updated) }, 150L)
+                                }
+                            }.show()
+                        }, 100L)
                     } else {
+                        controlPanelOverlay.show()
+                        targetManager.setOverlaysVisible(true)
                         Toast.makeText(appContext, "Текст на выделенном фрагменте не распознан", Toast.LENGTH_SHORT).show()
                         mainHandler.postDelayed({ showEditDialog(action) }, 150L)
                     }
