@@ -3,12 +3,12 @@ package com.example.autotap.infrastructure.storage
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.LruCache
 import com.example.autotap.core.logger.AppLogger
 import com.example.autotap.domain.repository.ITemplateRepository
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
-import java.util.concurrent.ConcurrentHashMap
-import org.json.JSONObject
 
 class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository {
 
@@ -18,21 +18,32 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
     private val trashDir: File
         get() = File(context.filesDir, "trash_templates").apply { mkdirs() }
 
-    private val memoryCache = android.util.LruCache<String, Bitmap>(32)
+    // Потокобезопасный LruCache с лимитом 16 МБ (размер считается в килобайтах)
+    private val maxCacheSizeKb = 16 * 1024
+    private val memoryCache = object : LruCache<String, Bitmap>(maxCacheSizeKb) {
+        override fun sizeOf(key: String, value: Bitmap): Int {
+            return (value.allocationByteCount / 1024).coerceAtLeast(1)
+        }
+    }
+
+    private fun getCachedBitmap(path: String): Bitmap? {
+        val bmp = memoryCache.get(path)
+        return if (bmp != null && !bmp.isRecycled) bmp else {
+            if (bmp != null) memoryCache.remove(path)
+            null
+        }
+    }
 
     override fun loadAllTemplates(): List<Pair<String, Bitmap>> {
         val result = mutableListOf<Pair<String, Bitmap>>()
         baseTemplatesDir.walkTopDown().filter {
             it.isFile && it.name.endsWith(".png", ignoreCase = true) &&
-            !it.name.startsWith("raw_", ignoreCase = true) &&
-            !it.name.startsWith("screen_", ignoreCase = true)
+                    !it.name.startsWith("raw_", ignoreCase = true) &&
+                    !it.name.startsWith("screen_", ignoreCase = true)
         }.forEach { file ->
             val path = file.absolutePath
-            val cached = memoryCache.get(path)
-            val bmp = if (cached != null && !cached.isRecycled) {
-                cached
-            } else {
-                BitmapFactory.decodeFile(path)?.also { memoryCache.put(path, it) }
+            val bmp = getCachedBitmap(path) ?: BitmapFactory.decodeFile(path)?.also {
+                memoryCache.put(path, it)
             }
             if (bmp != null && !bmp.isRecycled) {
                 result.add(path to bmp)
@@ -43,8 +54,7 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
 
     override fun getTemplate(path: String): Bitmap? {
         if (path.isBlank()) return null
-        val cached = memoryCache.get(path)
-        if (cached != null && !cached.isRecycled) return cached
+        getCachedBitmap(path)?.let { return it }
 
         val file = File(path)
         val targetFile = if (file.exists()) file else {
@@ -53,8 +63,15 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
 
         if (targetFile == null || !targetFile.exists()) return null
         return try {
-            BitmapFactory.decodeFile(targetFile.absolutePath)?.also { memoryCache.put(path, it) }
-        } catch (_: Exception) { null }
+            BitmapFactory.decodeFile(targetFile.absolutePath)?.also {
+                memoryCache.put(path, it)
+                if (targetFile.absolutePath != path) {
+                    memoryCache.put(targetFile.absolutePath, it)
+                }
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     override fun getTemplateMetadata(path: String): Map<String, Any>? {
@@ -71,20 +88,82 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             val map = mutableMapOf<String, Any>()
             json.keys().forEach { map[it] = json.get(it) }
             map
-        } catch (_: Exception) { null }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Вспомогательный метод для синхронного перемещения/переименования всех сопутствующих файлов шаблона
+     * (raw_, screen_.png / screen_.jpg и .json).
+     */
+    private fun moveRelatedFiles(oldMaskFile: File, newMaskFile: File) {
+        val oldDir = oldMaskFile.parentFile ?: baseTemplatesDir
+        val newDir = newMaskFile.parentFile ?: baseTemplatesDir
+
+        val oldBase = oldMaskFile.nameWithoutExtension.removePrefix("mask_")
+        val newBase = newMaskFile.nameWithoutExtension.removePrefix("mask_")
+
+        val oldRaw = File(oldDir, "raw_$oldBase.png")
+        val newRaw = File(newDir, "raw_$newBase.png")
+        if (oldRaw.exists()) {
+            if (newRaw.exists() && newRaw != oldRaw) newRaw.delete()
+            oldRaw.renameTo(newRaw)
+        }
+
+        // Проверяем как .png (старый формат), так и .jpg
+        val oldScreenPng = File(oldDir, "screen_$oldBase.png")
+        val oldScreenJpg = File(oldDir, "screen_$oldBase.jpg")
+        when {
+            oldScreenPng.exists() -> {
+                val newScreenPng = File(newDir, "screen_$newBase.png")
+                if (newScreenPng.exists() && newScreenPng != oldScreenPng) newScreenPng.delete()
+                oldScreenPng.renameTo(newScreenPng)
+            }
+            oldScreenJpg.exists() -> {
+                val newScreenJpg = File(newDir, "screen_$newBase.jpg")
+                if (newScreenJpg.exists() && newScreenJpg != oldScreenJpg) newScreenJpg.delete()
+                oldScreenJpg.renameTo(newScreenJpg)
+            }
+        }
+
+        val oldMeta = File(oldDir, "${oldMaskFile.nameWithoutExtension}.json")
+        val newMeta = File(newDir, "${newMaskFile.nameWithoutExtension}.json")
+        if (oldMeta.exists()) {
+            if (newMeta.exists() && newMeta != oldMeta) newMeta.delete()
+            oldMeta.renameTo(newMeta)
+        }
+    }
+
+    private fun deleteRelatedFiles(maskFile: File) {
+        val dir = maskFile.parentFile ?: return
+        val base = maskFile.nameWithoutExtension.removePrefix("mask_")
+        File(dir, "raw_$base.png").takeIf { it.exists() }?.delete()
+        File(dir, "screen_$base.png").takeIf { it.exists() }?.delete()
+        File(dir, "screen_$base.jpg").takeIf { it.exists() }?.delete()
+        File(dir, "${maskFile.nameWithoutExtension}.json").takeIf { it.exists() }?.delete()
+        maskFile.takeIf { it.exists() }?.delete()
     }
 
     // [V12.0] Перегрузка метода для поддержки полноэкранного скриншота
-    fun saveTemplateWithScreen(folderName: String, existingPath: String?, maskBmp: Bitmap, rawBmp: Bitmap?, screenBmp: Bitmap?, metadata: JSONObject, customFileName: String? = null): String {
+    fun saveTemplateWithScreen(
+        folderName: String,
+        existingPath: String?,
+        maskBmp: Bitmap,
+        rawBmp: Bitmap?,
+        screenBmp: Bitmap?,
+        metadata: JSONObject,
+        customFileName: String? = null
+    ): String {
         val targetDir = File(baseTemplatesDir, folderName).apply { mkdirs() }
         val cleanName = customFileName?.takeIf { it.isNotBlank() }?.let {
-            val name = if (it.startsWith("mask_")) it else "mask_$it"
+            val safe = it.trim().replace(Regex("[^a-zA-Z0-9_-]"), "_")
+            val name = if (safe.startsWith("mask_")) safe else "mask_$safe"
             if (name.endsWith(".png")) name else "$name.png"
         }
-        
+
         val tPath = if (existingPath.isNullOrBlank()) {
             var targetFile = File(targetDir, cleanName ?: "mask_${System.currentTimeMillis()}.png")
-            // [V29.0] Гарантированная уникальность при создании новых шаблонов (предотвращение перезаписи)
             var suffixCounter = 1
             while (targetFile.exists()) {
                 val base = targetFile.nameWithoutExtension
@@ -93,29 +172,28 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             }
             targetFile.absolutePath
         } else {
-            if (cleanName != null && File(existingPath).name != cleanName) {
-                val oldFile = File(existingPath)
-                val newFile = File(targetDir, if (cleanName.endsWith(".png")) cleanName else "$cleanName.png")
-                
-                // Переименовываем все связанные файлы
-                val parent = oldFile.parentFile
-                val oldBase = oldFile.nameWithoutExtension.removePrefix("mask_")
-                val newBase = newFile.nameWithoutExtension.removePrefix("mask_")
-                
-                File(parent, "raw_$oldBase.png").let { if (it.exists()) it.renameTo(File(targetDir, "raw_$newBase.png")) }
-                File(parent, "screen_$oldBase.jpg").let { if (it.exists()) it.renameTo(File(targetDir, "screen_$newBase.jpg")) }
-                File(parent, "mask_$oldBase.json").let { if (it.exists()) it.renameTo(File(targetDir, "mask_$newBase.json")) }
-                
-                oldFile.renameTo(newFile)
+            val oldFile = File(existingPath)
+            if (cleanName != null && (oldFile.name != cleanName || oldFile.parentFile != targetDir)) {
+                val newFile = File(targetDir, cleanName)
+                if (oldFile.exists()) {
+                    moveRelatedFiles(oldFile, newFile)
+                    if (newFile.exists() && newFile != oldFile) newFile.delete()
+                    oldFile.renameTo(newFile)
+                }
                 newFile.absolutePath
-            } else existingPath
+            } else {
+                existingPath
+            }
         }
 
         val maskFile = File(tPath)
-        val baseNameNoPrefix = maskFile.nameWithoutExtension.removePrefix("mask_")
-        val rawFile = File(maskFile.parentFile, "raw_$baseNameNoPrefix.png")
-        val screenFile = File(maskFile.parentFile, "screen_$baseNameNoPrefix.jpg")
-        val metaFile = File(maskFile.parentFile, "${maskFile.nameWithoutExtension}.json")
+        val parentDir = maskFile.parentFile ?: targetDir
+        val baseWithoutPrefix = maskFile.nameWithoutExtension.removePrefix("mask_")
+
+        val rawFile = File(parentDir, "raw_$baseWithoutPrefix.png")
+        // Сохраняем имя screen_<base>.png для полной совместимости с остальными частями проекта
+        val screenFile = File(parentDir, "screen_$baseWithoutPrefix.png")
+        val metaFile = File(parentDir, "${maskFile.nameWithoutExtension}.json")
 
         try {
             FileOutputStream(maskFile).use { out -> maskBmp.compress(Bitmap.CompressFormat.PNG, 100, out) }
@@ -131,14 +209,22 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             if (existingPath != null && existingPath != tPath) {
                 memoryCache.remove(existingPath)
             }
-            maskBmp.copy(Bitmap.Config.ARGB_8888, true)?.let { memoryCache.put(tPath, it) }
+            memoryCache.put(tPath, maskBmp.copy(Bitmap.Config.ARGB_8888, false))
         } catch (e: Exception) {
             AppLogger.logError(context, "STORAGE", e)
         }
         return tPath
     }
 
-    override fun saveTemplate(folderName: String, existingPath: String?, maskBmp: android.graphics.Bitmap, rawBmp: android.graphics.Bitmap?, metadata: org.json.JSONObject, screenBmp: android.graphics.Bitmap?, customFileName: String?): String {
+    override fun saveTemplate(
+        folderName: String,
+        existingPath: String?,
+        maskBmp: Bitmap,
+        rawBmp: Bitmap?,
+        metadata: JSONObject,
+        screenBmp: Bitmap?,
+        customFileName: String?
+    ): String {
         return saveTemplateWithScreen(folderName, existingPath, maskBmp, rawBmp, screenBmp, metadata, customFileName)
     }
 
@@ -160,13 +246,17 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             }
             if (deleteTemplates) {
                 for (file in files) {
+                    memoryCache.remove(file.absolutePath)
                     file.delete()
                 }
                 folder.delete()
             } else {
                 val defaultDir = File(baseTemplatesDir, "default").apply { mkdirs() }
                 for (file in files) {
-                    file.renameTo(File(defaultDir, file.name))
+                    memoryCache.remove(file.absolutePath)
+                    val target = File(defaultDir, file.name)
+                    if (target.exists()) target.delete()
+                    file.renameTo(target)
                 }
                 folder.delete()
             }
@@ -184,7 +274,7 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             if (!oldFolder.exists() || newFolder.exists()) return false
             val success = oldFolder.renameTo(newFolder)
             if (success) {
-                memoryCache.evictAll() // Cache paths are invalidated
+                memoryCache.evictAll() // Сбрасываем кэш, так как пути изменились
             }
             success
         } catch (e: Exception) {
@@ -199,26 +289,13 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             if (!maskFile.exists()) return false
 
             memoryCache.remove(templatePath)
-            val parentDir = maskFile.parentFile
             val baseName = maskFile.nameWithoutExtension
-
-            val metaFile = File(parentDir, "$baseName.json")
-            val baseNameNoPrefix = maskFile.nameWithoutExtension.removePrefix("mask_")
-            val rawFile = File(parentDir, "raw_$baseNameNoPrefix.png")
-            val screenFile = File(parentDir, "screen_$baseNameNoPrefix.jpg")
-
             val targetTrashMask = File(trashDir, maskFile.name)
-            val success = maskFile.renameTo(targetTrashMask)
 
-            if (metaFile.exists()) {
-                metaFile.renameTo(File(trashDir, metaFile.name))
-            }
-            if (rawFile.exists()) {
-                rawFile.renameTo(File(trashDir, rawFile.name))
-            }
-            if (screenFile.exists()) {
-                screenFile.renameTo(File(trashDir, screenFile.name))
-            }
+            // Перемещаем raw_, screen_ и .json вместе с маской
+            moveRelatedFiles(maskFile, targetTrashMask)
+            if (targetTrashMask.exists()) targetTrashMask.delete()
+            val success = maskFile.renameTo(targetTrashMask)
 
             AppLogger.log(context, "STORAGE", "Шаблон '$baseName' перемещен в корзину")
             success
@@ -233,24 +310,12 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             if (!trashMaskFile.exists()) return false
             val defaultDir = File(baseTemplatesDir, "default").apply { mkdirs() }
             val baseName = trashMaskFile.nameWithoutExtension
-
-            val metaFile = File(trashDir, "$baseName.json")
-            val baseNameNoPrefix = trashMaskFile.nameWithoutExtension.removePrefix("mask_")
-            val rawFile = File(trashDir, "raw_$baseNameNoPrefix.png")
-            val screenFile = File(trashDir, "screen_$baseNameNoPrefix.jpg")
-
             val targetMask = File(defaultDir, trashMaskFile.name)
-            val success = trashMaskFile.renameTo(targetMask)
 
-            if (metaFile.exists()) {
-                metaFile.renameTo(File(defaultDir, metaFile.name))
-            }
-            if (rawFile.exists()) {
-                rawFile.renameTo(File(defaultDir, rawFile.name))
-            }
-            if (screenFile.exists()) {
-                screenFile.renameTo(File(defaultDir, screenFile.name))
-            }
+            // Восстанавливаем raw_, screen_ и .json вместе с маской
+            moveRelatedFiles(trashMaskFile, targetMask)
+            if (targetMask.exists()) targetMask.delete()
+            val success = trashMaskFile.renameTo(targetMask)
 
             AppLogger.log(context, "STORAGE", "Шаблон '$baseName' восстановлен из корзины")
             success
@@ -267,11 +332,16 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             var purgedCount = 0
             for (f in files) {
                 if (f.lastModified() < cutoff) {
-                    if (f.delete()) purgedCount++
+                    if (f.name.startsWith("mask_") && f.name.endsWith(".png")) {
+                        deleteRelatedFiles(f)
+                        purgedCount++
+                    } else if (f.delete()) {
+                        purgedCount++
+                    }
                 }
             }
             if (purgedCount > 0) {
-                AppLogger.log(context, "STORAGE", "Очищено $purgedCount устаревших файлов из корзины")
+                AppLogger.log(context, "STORAGE", "Очищено $purgedCount устаревших объектов из корзины")
             }
         } catch (e: Exception) {
             AppLogger.logError(context, "STORAGE", e)
@@ -279,7 +349,9 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
     }
 
     override fun listTrash(): List<File> {
-        return trashDir.listFiles()?.filter { it.isFile && it.name.startsWith("mask_") && it.name.endsWith(".png") } ?: emptyList()
+        return trashDir.listFiles()?.filter {
+            it.isFile && it.name.startsWith("mask_") && it.name.endsWith(".png")
+        } ?: emptyList()
     }
 
     override fun renameTemplate(oldPath: String, newName: String): String? {
@@ -288,23 +360,18 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             if (!maskFile.exists()) return null
 
             val parentDir = maskFile.parentFile ?: baseTemplatesDir
-            val cleanNewName = newName.trim().replace(Regex("[^a-zA-Z0-9_-]"), "_")
+            val cleanNewName = newName.trim().replace(Regex("[^a-zA-Z0-9_-]"), "_").removePrefix("mask_")
             if (cleanNewName.isEmpty()) return null
 
-            val targetMask = File(parentDir, "mask_$cleanNewName.png")
-            val targetRaw = File(parentDir, "raw_$cleanNewName.png")
-            val targetScreen = File(parentDir, "screen_$cleanNewName.png")
-            val targetMeta = File(parentDir, "mask_$cleanNewName.json")
-
             val oldBase = maskFile.nameWithoutExtension.removePrefix("mask_")
-            val oldRaw = File(parentDir, "raw_$oldBase.png")
-            val oldScreen = File(parentDir, "screen_$oldBase.png")
-            val oldMeta = File(parentDir, "${maskFile.nameWithoutExtension}.json")
+            val targetMask = File(parentDir, "mask_$cleanNewName.png")
 
-            maskFile.renameTo(targetMask)
-            if (oldRaw.exists()) oldRaw.renameTo(targetRaw)
-            if (oldScreen.exists()) oldScreen.renameTo(targetScreen)
-            if (oldMeta.exists()) oldMeta.renameTo(targetMeta)
+            if (targetMask.absolutePath == maskFile.absolutePath) return maskFile.absolutePath
+
+            moveRelatedFiles(maskFile, targetMask)
+            if (targetMask.exists()) targetMask.delete()
+            val renamed = maskFile.renameTo(targetMask)
+            if (!renamed) return null
 
             memoryCache.remove(oldPath)
             AppLogger.log(context, "STORAGE", "Шаблон переименован: $oldBase -> $cleanNewName")

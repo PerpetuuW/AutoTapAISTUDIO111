@@ -92,39 +92,38 @@ class TemplateFeatures(
     val historicalSearchAnchors = ConcurrentHashMap<String, MutableSet<Pair<Int, Int>>>()
     val additionalSearchLocations = ConcurrentHashMap<String, MutableSet<Pair<Int, Int>>>()
     private val templateFeatureCache = ConcurrentHashMap<String, TemplateFeatures>()
-    fun registerDiscoveredLocation(tPath: String, x: Int, y: Int) {
+
+    private fun addLocationBoundedSafe(
+        map: ConcurrentHashMap<String, MutableSet<Pair<Int, Int>>>,
+        tPath: String,
+        x: Int,
+        y: Int,
+        minDist: Int
+    ) {
         if (tPath.isEmpty()) return
-        val set = additionalSearchLocations.getOrPut(tPath) { java.util.Collections.synchronizedSet(mutableSetOf()) }
+        // LinkedHashSet сохраняет реальный порядок добавления (FIFO для удаления самого старого элемента)
+        val set = map.getOrPut(tPath) { java.util.Collections.synchronizedSet(LinkedHashSet()) }
         synchronized(set) {
-            if (set.none { Math.abs(it.first - x) < 24 && Math.abs(it.second - y) < 24 }) {
+            if (set.none { abs(it.first - x) < minDist && abs(it.second - y) < minDist }) {
                 if (set.size >= 8) {
-                    val first = set.firstOrNull()
-                    if (first != null) set.remove(first)
+                    val iterator = set.iterator()
+                    if (iterator.hasNext()) {
+                        iterator.next()
+                        iterator.remove()
+                    }
                 }
                 set.add(Pair(x, y))
             }
         }
     }
 
-    private fun recordFoundLocation(tPath: String, clickX: Int, clickY: Int) {
-        if (tPath.isEmpty()) return
-        val history = historicalSearchAnchors.getOrPut(tPath) { java.util.Collections.newSetFromMap(ConcurrentHashMap()) }
-        if (history.none { abs(it.first - clickX) < 20 && abs(it.second - clickY) < 20 }) {
-            if (history.size >= 8) {
-                val oldest = history.firstOrNull()
-                if (oldest != null) history.remove(oldest)
-            }
-            history.add(Pair(clickX, clickY))
-        }
+    fun registerDiscoveredLocation(tPath: String, x: Int, y: Int) {
+        addLocationBoundedSafe(additionalSearchLocations, tPath, x, y, minDist = 24)
+    }
 
-        val locs = additionalSearchLocations.getOrPut(tPath) { java.util.Collections.newSetFromMap(ConcurrentHashMap()) }
-        if (locs.none { abs(it.first - clickX) < 20 && abs(it.second - clickY) < 20 }) {
-            if (locs.size >= 8) {
-                val oldest = locs.firstOrNull()
-                if (oldest != null) locs.remove(oldest)
-            }
-            locs.add(Pair(clickX, clickY))
-        }
+    private fun recordFoundLocation(tPath: String, clickX: Int, clickY: Int) {
+        addLocationBoundedSafe(historicalSearchAnchors, tPath, clickX, clickY, minDist = 20)
+        addLocationBoundedSafe(additionalSearchLocations, tPath, clickX, clickY, minDist = 20)
     }
 
     fun clearTemplateCache() {
@@ -589,6 +588,7 @@ class TemplateFeatures(
         val rejectedCandidatesList = java.util.Collections.synchronizedList(mutableListOf<Pair<MatchCandidate, String>>())
         val override = actionOverride
         val defaultSim = override?.similarityPercent ?: minSimilarityPercent
+        var lastUsedDownscale = override?.downscaleFactor?.takeIf { it in 1..4 } ?: 1
 
         val roiMinX: Int
         val roiMinY: Int
@@ -614,7 +614,6 @@ class TemplateFeatures(
         val isDeltaEMode = override?.colorDeltaEMode ?: false
         val selectedRoiZones = if (hasRoi) listOf(Rect(roiMinX, roiMinY, roiMaxX, roiMaxY)) else emptyList()
         val selectedAnchors = override?.primaryAnchorPoints ?: emptyList()
-        val lastUsedDownscale = override?.downscaleFactor?.takeIf { it in 1..4 } ?: 1
 
         val preparedContexts = mutableListOf<PreparedTemplateContext>()
 
@@ -623,6 +622,13 @@ class TemplateFeatures(
 
             // [V12.2] Полная изоляция: в рантайме каждый шаблон использует свои метаданные из JSON, а в режиме калибровки (findAllMatches) — живой ползунок
             val features = extractFeatures(tBmp, tPath, tPath, defaultSim) ?: continue
+            
+            // Фиксируем реальный фактор сжатия из метаданных шаблона, если нет жесткого override
+            val currentTemplateDownscale = override?.downscaleFactor?.takeIf { it in 1..4 }
+                ?: features.optimalDownscaleFactorFromMeta
+            if (override?.downscaleFactor == null) {
+                lastUsedDownscale = currentTemplateDownscale
+            }
             val rawThreshold = if (findAllMatches) (defaultSim / 100f) else features.individualThreshold
             val templateThreshold = rawThreshold.coerceIn(0.60f, 0.98f)
             val isShapeDriven = if (findAllMatches && actionOverride != null) actionOverride.isShapeOnlyMode else ((actionOverride?.isShapeOnlyMode == true) || features.isShapeOnlyFromMeta)
@@ -662,16 +668,24 @@ class TemplateFeatures(
 
             // 5. Дополнительные динамические позиции (накопительный L0 Cache)
             if (enableL0Cache && tPath.isNotEmpty()) {
-                historicalSearchAnchors[tPath]?.forEach { loc ->
-                    val pt = com.example.autotap.domain.model.Point2D(loc.first.toFloat(), loc.second.toFloat())
-                    if (anchorProbes.none { p -> abs(p.x - pt.x) < 16f && abs(p.y - pt.y) < 16f }) {
-                        anchorProbes.add(pt)
+                historicalSearchAnchors[tPath]?.let { set ->
+                    synchronized(set) {
+                        for (loc in set) {
+                            val pt = com.example.autotap.domain.model.Point2D(loc.first.toFloat(), loc.second.toFloat())
+                            if (anchorProbes.none { p -> abs(p.x - pt.x) < 16f && abs(p.y - pt.y) < 16f }) {
+                                anchorProbes.add(pt)
+                            }
+                        }
                     }
                 }
-                additionalSearchLocations[tPath]?.forEach { loc ->
-                    val pt = com.example.autotap.domain.model.Point2D(loc.first.toFloat(), loc.second.toFloat())
-                    if (anchorProbes.none { p -> abs(p.x - pt.x) < 16f && abs(p.y - pt.y) < 16f }) {
-                        anchorProbes.add(pt)
+                additionalSearchLocations[tPath]?.let { set ->
+                    synchronized(set) {
+                        for (loc in set) {
+                            val pt = com.example.autotap.domain.model.Point2D(loc.first.toFloat(), loc.second.toFloat())
+                            if (anchorProbes.none { p -> abs(p.x - pt.x) < 16f && abs(p.y - pt.y) < 16f }) {
+                                anchorProbes.add(pt)
+                            }
+                        }
                     }
                 }
             }
@@ -882,6 +896,7 @@ class TemplateFeatures(
             }
             val coarseStep = maxOf(gridStepX, gridStepY)
             val effectiveDownscale = override?.downscaleFactor?.takeIf { it in 1..4 } ?: features.optimalDownscaleFactorFromMeta
+            lastUsedDownscale = effectiveDownscale
             val sampleStride = if (isSmall) 1 else (effectiveDownscale / 2).coerceIn(1, 2)
 
             for (pt in scanPoints) {
