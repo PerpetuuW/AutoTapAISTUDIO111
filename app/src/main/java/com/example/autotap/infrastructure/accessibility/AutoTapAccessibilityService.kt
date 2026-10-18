@@ -301,57 +301,79 @@ class AutoTapAccessibilityService : AccessibilityService() {
         } catch (_: Exception) {}
     }
 
-    fun captureScreenshotSync(timeoutMs: Long = 1500L): Bitmap? {
+    suspend fun captureScreenshotAsync(timeoutMs: Long = 1500L): Bitmap? = kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
         wakeUpScreenIfNeeded()
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            if (continuation.isActive) continuation.resumeWith(Result.success(null))
+            return@suspendCancellableCoroutine
+        }
         val now = System.currentTimeMillis()
-        if (now - lastScreenshotCallTime < 30L) return null
-        if (!isScreenshotInProgress.compareAndSet(false, true)) return null
+        if (now - lastScreenshotCallTime < 30L || !isScreenshotInProgress.compareAndSet(false, true)) {
+            if (continuation.isActive) continuation.resumeWith(Result.success(null))
+            return@suspendCancellableCoroutine
+        }
         lastScreenshotCallTime = now
-        val latch = CountDownLatch(1)
-        var capturedBitmap: Bitmap? = null
 
         val orchestrator = AutoTapOrchestrator.getInstance(this)
         val lockScreenShowing = orchestrator.screenLockOverlay.isShowing()
-        if (lockScreenShowing) {
-            orchestrator.screenLockOverlay.setTemporarilyTransparent(true)
-        }
+        if (lockScreenShowing) orchestrator.screenLockOverlay.setTemporarilyTransparent(true)
         val badgeShowing = orchestrator.runningBadgeOverlay.isShowing()
-        if (badgeShowing) {
-            orchestrator.runningBadgeOverlay.setTemporarilyTransparent(true)
-        }
+        if (badgeShowing) orchestrator.runningBadgeOverlay.setTemporarilyTransparent(true)
         val highlightsShowing = com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hasActiveHighlights()
-        if (highlightsShowing) {
-            com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.setTemporarilyTransparent(true)
+        if (highlightsShowing) com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.setTemporarilyTransparent(true)
+
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        val isResumed = AtomicBoolean(false)
+        fun finish(bmp: Bitmap?) {
+            if (isResumed.compareAndSet(false, true)) {
+                if (lockScreenShowing) orchestrator.screenLockOverlay.setTemporarilyTransparent(false)
+                if (badgeShowing) orchestrator.runningBadgeOverlay.setTemporarilyTransparent(false)
+                if (highlightsShowing) com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.setTemporarilyTransparent(false)
+                isScreenshotInProgress.set(false)
+                if (continuation.isActive) continuation.resumeWith(Result.success(bmp))
+            }
         }
+
+        val timeoutRunnable = Runnable { finish(null) }
+        handler.postDelayed(timeoutRunnable, timeoutMs)
 
         try {
             takeScreenshot(Display.DEFAULT_DISPLAY, bgScreenshotExecutor, object : AccessibilityService.TakeScreenshotCallback {
                 override fun onSuccess(screenshotResult: AccessibilityService.ScreenshotResult) {
+                    handler.removeCallbacks(timeoutRunnable)
                     val hwBuffer = screenshotResult.hardwareBuffer
                     var hwBitmap: Bitmap? = null
+                    var resBmp: Bitmap? = null
                     try {
                         val colorSpace = screenshotResult.colorSpace
                         hwBitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) Bitmap.wrapHardwareBuffer(hwBuffer, colorSpace) else null
-                        capturedBitmap = hwBitmap?.copy(Bitmap.Config.ARGB_8888, false)
+                        resBmp = hwBitmap?.copy(Bitmap.Config.ARGB_8888, false)
                     } catch (_: Throwable) {
                     } finally {
                         hwBitmap?.let { if (!it.isRecycled) it.recycle() }
                         try { hwBuffer.close() } catch (_: Throwable) {}
-                        latch.countDown()
+                        finish(resBmp)
                     }
                 }
-                override fun onFailure(errorCode: Int) { latch.countDown() }
+                override fun onFailure(errorCode: Int) {
+                    handler.removeCallbacks(timeoutRunnable)
+                    finish(null)
+                }
             })
-            try { latch.await(timeoutMs, TimeUnit.MILLISECONDS) } catch (_: InterruptedException) {}
         } catch (_: Throwable) {
-        } finally {
-            if (lockScreenShowing) orchestrator.screenLockOverlay.setTemporarilyTransparent(false)
-            if (badgeShowing) orchestrator.runningBadgeOverlay.setTemporarilyTransparent(false)
-            if (highlightsShowing) com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.setTemporarilyTransparent(false)
-            isScreenshotInProgress.set(false)
+            handler.removeCallbacks(timeoutRunnable)
+            finish(null)
         }
-        return capturedBitmap
+    }
+
+    fun captureScreenshotSync(timeoutMs: Long = 1500L): Bitmap? {
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            AppLogger.log(this, "ACCESSIBILITY", "ПРЕДУПРЕЖДЕНИЕ: captureScreenshotSync вызван на Главном потоке — перенаправление в async")
+            return null
+        }
+        return kotlinx.coroutines.runBlocking {
+            captureScreenshotAsync(timeoutMs)
+        }
     }
 
     fun findTextInActiveWindow(query: String, roi: Rect? = null): List<com.example.autotap.domain.model.OcrMatchResult> {

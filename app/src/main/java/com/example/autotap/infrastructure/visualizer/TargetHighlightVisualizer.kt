@@ -109,18 +109,7 @@ object TargetHighlightVisualizer {
         if (Looper.myLooper() == Looper.getMainLooper()) {
             action.run()
         } else {
-            if (transparent) {
-                val latch = java.util.concurrent.CountDownLatch(1)
-                mainHandler.post {
-                    action.run()
-                    latch.countDown()
-                }
-                try {
-                    latch.await(35, java.util.concurrent.TimeUnit.MILLISECONDS)
-                } catch (_: InterruptedException) {}
-            } else {
-                mainHandler.post(action)
-            }
+            mainHandler.post(action)
         }
     }
 

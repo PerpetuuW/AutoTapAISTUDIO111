@@ -355,7 +355,7 @@ class MacroExecutionEngine(
                                                                 continue
                                                             }
 
-                                                            val screenshot = service?.captureScreenshotSync(1500L)
+                                                            val screenshot = service?.captureScreenshotAsync(1500L)
                                                             if (screenshot != null) {
                                                                 try {
                                                                     val candidateList = mutableListOf<MatchCandidate>()
@@ -621,7 +621,7 @@ class MacroExecutionEngine(
                                     // Экспресс-лечение маски при неудачной автоматизации
                                     onAutoHealRequested?.let { healHandler ->
                                         val service = accessibilityServiceProvider()
-                                        val frozenBmp = service?.captureScreenshotSync(1000L)
+                                        val frozenBmp = service?.captureScreenshotAsync(1000L)
                                         if (frozenBmp != null) {
                                             isPaused = true
                                             _executionState.value = ExecutionState.Paused(PauseReason.USER_MANUAL)
@@ -697,7 +697,7 @@ class MacroExecutionEngine(
                                     }
 
                                     ensureCleanScreenBeforeCapture()
-                                    val screenshot = service?.captureScreenshotSync(1500L)
+                                    val screenshot = service?.captureScreenshotAsync(1500L)
                                     if (screenshot != null) {
                                         try {
                                             if (query.startsWith("regex:")) {
@@ -822,7 +822,7 @@ class MacroExecutionEngine(
 
                                     val service = accessibilityServiceProvider()
                                     ensureCleanScreenBeforeCapture()
-                                    val screenshot = service?.captureScreenshotSync(1000L)
+                                    val screenshot = service?.captureScreenshotAsync(1000L)
                                     if (screenshot != null) {
                                         try {
                                             matched = visionGateway.checkColor(
@@ -1127,7 +1127,7 @@ class MacroExecutionEngine(
                                 }
                             }
                             if (!frameProcessedViaStream) {
-                                val screenshot = service?.captureScreenshotSync(1500L)
+                                val screenshot = service?.captureScreenshotAsync(1500L)
                                 if (screenshot != null) {
                                     try {
                                         for (trig in currentNode.triggers) {

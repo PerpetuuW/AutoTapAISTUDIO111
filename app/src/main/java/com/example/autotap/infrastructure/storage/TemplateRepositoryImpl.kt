@@ -22,7 +22,11 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
 
     override fun loadAllTemplates(): List<Pair<String, Bitmap>> {
         val result = mutableListOf<Pair<String, Bitmap>>()
-        baseTemplatesDir.walkTopDown().filter { it.isFile && it.name.startsWith("mask_") && it.name.endsWith(".png") }.forEach { file ->
+        baseTemplatesDir.walkTopDown().filter {
+            it.isFile && it.name.endsWith(".png", ignoreCase = true) &&
+            !it.name.startsWith("raw_", ignoreCase = true) &&
+            !it.name.startsWith("screen_", ignoreCase = true)
+        }.forEach { file ->
             val path = file.absolutePath
             val cached = memoryCache[path]
             val bmp = if (cached != null && !cached.isRecycled) {
