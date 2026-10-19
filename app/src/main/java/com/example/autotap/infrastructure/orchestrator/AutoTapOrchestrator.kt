@@ -406,35 +406,48 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
     }
 
     fun startCaptureForStep(actionion: MacroAction) {
+        startTemplateCalibration(actionion)
+    }
+
+    fun startTemplateCalibration(actionion: MacroAction) {
         targetManager.setOverlaysVisible(false)
         controlPanelOverlay.hide()
 
-        lateinit var captureOverlay: CaptureFrameOverlay
-        captureOverlay = CaptureFrameOverlay(
-            context = appContext,
-            overlayWindowManager = overlayWindowManager,
-            onCaptureTriggered = { cropX, cropY, cropW, cropH, _ ->
-                val designatedRoi = captureOverlay.designatedRoi
-                val effectiveAction = if (designatedRoi != null) {
-                    val currentAnchors = actionion.primaryAnchorPoints.toMutableList()
-                    val roiCenter = Point2D(designatedRoi.centerX().toFloat(), designatedRoi.centerY().toFloat())
-                    if (currentAnchors.none { abs(it.x - roiCenter.x) < 24f && abs(it.y - roiCenter.y) < 24f }) {
-                        if (currentAnchors.size >= 8) currentAnchors.removeAt(0)
-                        currentAnchors.add(roiCenter)
-                    }
-                    actionion.copy(
-                        roiLeft = designatedRoi.left,
-                        roiTop = designatedRoi.top,
-                        roiRight = designatedRoi.right,
-                        roiBottom = designatedRoi.bottom,
-                        primaryAnchorPoints = currentAnchors
-                    )
-                } else actionion
+        appScope.launch(Dispatchers.Default) {
+            val service = AutoTapAccessibilityService.instance
+            val screenshot = service?.captureScreenshotAsync(2500L) ?: run {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(appContext, "Не удалось получить снимок экрана", Toast.LENGTH_SHORT).show()
+                    controlPanelOverlay.show()
+                    targetManager.setOverlaysVisible(true)
+                }
+                return@launch
+            }
 
-                mainHandler.postDelayed({
-                    val service = AutoTapAccessibilityService.instance
-                    val screenshot = service?.captureScreenshotSync(2000L)
-                    if (screenshot != null) {
+            withContext(Dispatchers.Main) {
+                lateinit var captureOverlay: CaptureFrameOverlay
+                captureOverlay = CaptureFrameOverlay(
+                    context = appContext,
+                    overlayWindowManager = overlayWindowManager,
+                    overrideScreenshot = screenshot,
+                    onCaptureTriggered = { cropX, cropY, cropW, cropH, _ ->
+                        val designatedRoi = captureOverlay.designatedRoi
+                        val effectiveAction = if (designatedRoi != null) {
+                            val currentAnchors = actionion.primaryAnchorPoints.toMutableList()
+                            val roiCenter = Point2D(designatedRoi.centerX().toFloat(), designatedRoi.centerY().toFloat())
+                            if (currentAnchors.none { abs(it.x - roiCenter.x) < 24f && abs(it.y - roiCenter.y) < 24f }) {
+                                if (currentAnchors.size >= 8) currentAnchors.removeAt(0)
+                                currentAnchors.add(roiCenter)
+                            }
+                            actionion.copy(
+                                roiLeft = designatedRoi.left,
+                                roiTop = designatedRoi.top,
+                                roiRight = designatedRoi.right,
+                                roiBottom = designatedRoi.bottom,
+                                primaryAnchorPoints = currentAnchors
+                            )
+                        } else actionion
+
                         val safeW = cropW.coerceIn(8, screenshot.width)
                         val safeH = cropH.coerceIn(8, screenshot.height)
                         val safeX = cropX.coerceIn(0, screenshot.width - safeW)
@@ -470,49 +483,55 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                                 }
                             ).show()
                         }
-                    } else {
+                    },
+                    onCancelled = {
                         controlPanelOverlay.show()
                         targetManager.setOverlaysVisible(true)
                     }
-                }, 80L)
-            },
-            onCancelled = {
-                controlPanelOverlay.show()
-                targetManager.setOverlaysVisible(true)
+                ).apply { show() }
             }
-        ).apply { show() }
+        }
     }
 
     fun startAddTemplateForStep(actionion: MacroAction) {
         targetManager.setOverlaysVisible(false)
         controlPanelOverlay.hide()
 
-        lateinit var captureOverlay: CaptureFrameOverlay
-        captureOverlay = CaptureFrameOverlay(
-            context = appContext,
-            overlayWindowManager = overlayWindowManager,
-            onCaptureTriggered = { cropX, cropY, cropW, cropH, _ ->
-                val designatedRoi = captureOverlay.designatedRoi
-                val effectiveAction = if (designatedRoi != null) {
-                    val currentAnchors = actionion.primaryAnchorPoints.toMutableList()
-                    val roiCenter = Point2D(designatedRoi.centerX().toFloat(), designatedRoi.centerY().toFloat())
-                    if (currentAnchors.none { abs(it.x - roiCenter.x) < 24f && abs(it.y - roiCenter.y) < 24f }) {
-                        if (currentAnchors.size >= 8) currentAnchors.removeAt(0)
-                        currentAnchors.add(roiCenter)
-                    }
-                    actionion.copy(
-                        roiLeft = designatedRoi.left,
-                        roiTop = designatedRoi.top,
-                        roiRight = designatedRoi.right,
-                        roiBottom = designatedRoi.bottom,
-                        primaryAnchorPoints = currentAnchors
-                    )
-                } else actionion
+        appScope.launch(Dispatchers.Default) {
+            val service = AutoTapAccessibilityService.instance
+            val screenshot = service?.captureScreenshotAsync(2500L) ?: run {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(appContext, "Не удалось получить снимок экрана", Toast.LENGTH_SHORT).show()
+                    controlPanelOverlay.show()
+                    targetManager.setOverlaysVisible(true)
+                }
+                return@launch
+            }
 
-                mainHandler.postDelayed({
-                    val service = AutoTapAccessibilityService.instance
-                    val screenshot = service?.captureScreenshotSync(2000L)
-                    if (screenshot != null) {
+            withContext(Dispatchers.Main) {
+                lateinit var captureOverlay: CaptureFrameOverlay
+                captureOverlay = CaptureFrameOverlay(
+                    context = appContext,
+                    overlayWindowManager = overlayWindowManager,
+                    overrideScreenshot = screenshot,
+                    onCaptureTriggered = { cropX, cropY, cropW, cropH, _ ->
+                        val designatedRoi = captureOverlay.designatedRoi
+                        val effectiveAction = if (designatedRoi != null) {
+                            val currentAnchors = actionion.primaryAnchorPoints.toMutableList()
+                            val roiCenter = Point2D(designatedRoi.centerX().toFloat(), designatedRoi.centerY().toFloat())
+                            if (currentAnchors.none { abs(it.x - roiCenter.x) < 24f && abs(it.y - roiCenter.y) < 24f }) {
+                                if (currentAnchors.size >= 8) currentAnchors.removeAt(0)
+                                currentAnchors.add(roiCenter)
+                            }
+                            actionion.copy(
+                                roiLeft = designatedRoi.left,
+                                roiTop = designatedRoi.top,
+                                roiRight = designatedRoi.right,
+                                roiBottom = designatedRoi.bottom,
+                                primaryAnchorPoints = currentAnchors
+                            )
+                        } else actionion
+
                         val safeW = cropW.coerceIn(8, screenshot.width)
                         val safeH = cropH.coerceIn(8, screenshot.height)
                         val safeX = cropX.coerceIn(0, screenshot.width - safeW)
@@ -562,17 +581,14 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                                 }
                             ).show()
                         }
-                    } else {
+                    },
+                    onCancelled = {
                         controlPanelOverlay.show()
                         targetManager.setOverlaysVisible(true)
                     }
-                }, 80L)
-            },
-            onCancelled = {
-                controlPanelOverlay.show()
-                targetManager.setOverlaysVisible(true)
+                ).apply { show() }
             }
-        ).apply { show() }
+        }
     }
 
 

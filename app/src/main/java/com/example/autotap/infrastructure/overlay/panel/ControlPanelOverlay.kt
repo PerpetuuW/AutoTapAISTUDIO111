@@ -372,13 +372,13 @@ class ControlPanelOverlay(
         val btnCapture = createBtn(VectorIconDrawer.IconType.CAPTURE, "#38BDF8", 32, "BTN_CAPTURE") { listener.onCaptureClicked() }
         mainRow.addView(btnCapture)
 
-        // 3. Добавить шаг [+]
-        val btnAdd = createBtn(VectorIconDrawer.IconType.PLUS, "#58A6FF", 32, "BTN_ADD") { showAddActionTypeMenu() }
-        mainRow.addView(btnAdd)
-
-        // 4. Запись жестов
+        // 3. Запись жестов (Запись сразу за снимком)
         val btnRecord = createBtn(VectorIconDrawer.IconType.RECORD, "#F43F5E", 32, "BTN_RECORD") { showRecordContextMenu() }
         mainRow.addView(btnRecord)
+
+        // 4. Добавить шаг [+]
+        val btnAdd = createBtn(VectorIconDrawer.IconType.PLUS, "#58A6FF", 32, "BTN_ADD") { showAddActionTypeMenu() }
+        mainRow.addView(btnAdd)
 
         // 5. Кнопка шторки (Раскрыть / Свернуть)
         val btnToggle = createBtn(VectorIconDrawer.IconType.PANEL_EXPAND, "#94A3B8", 32, "BTN_TOGGLE_VIEW") {
@@ -392,7 +392,7 @@ class ControlPanelOverlay(
         mainRow.addView(btnToggle)
 
         // 6. ОБУЧЕНИЕ И СПРАВКА ? (НА 1-М УРОВНЕ РЯДОМ С КРЕСТИКОМ, ФИОЛЕТОВАЯ)
-        val btnHelp = createBtn(VectorIconDrawer.IconType.HELP, "#A78BFA", 32, "BTN_HELP") {
+        val btnHelp = createBtn(VectorIconDrawer.IconType.HELP, "#A78BFA", 32, "BTN_TUTORIAL") {
             InteractiveTutorialOverlay(
                 context = context,
                 overlayWindowManager = overlayWindowManager,
@@ -585,11 +585,6 @@ class ControlPanelOverlay(
             isClickable = true
             isFocusable = true
             setPadding(dp(8), dp(4), dp(8), dp(4))
-            setOnClickListener {
-                recordModeMenu?.visibility = View.GONE
-                applyDisplayMode(currentMode)
-                listener.onSmartRecordClicked()
-            }
 
             val iconView = CanvasIconButton(context).apply {
                 iconType = VectorIconDrawer.IconType.WAND
@@ -611,6 +606,12 @@ class ControlPanelOverlay(
                 setTextColor("#86EFAC".toColorInt())
             }
             addView(tvLabel)
+
+            setOnClickListener {
+                recordModeMenu?.visibility = View.GONE
+                applyDisplayMode(currentMode)
+                listener.onSmartRecordClicked()
+            }
         }
         rootMenu.addView(btnSmart, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(30)).apply { bottomMargin = dp(4) })
 
