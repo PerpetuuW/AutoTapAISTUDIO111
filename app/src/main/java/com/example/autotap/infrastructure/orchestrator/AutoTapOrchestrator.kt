@@ -1338,6 +1338,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             val graph = LinearToGraphMigrator.linearToGraph(scenario)
             scenarioRepository.saveGraphScenario(graph)
             Toast.makeText(appContext, "Сценарий '$defaultName' сохранен!", Toast.LENGTH_SHORT).show()
+            onScriptsClicked()
         } else {
             Toast.makeText(appContext, "Ошибка сохранения сценария", Toast.LENGTH_SHORT).show()
         }

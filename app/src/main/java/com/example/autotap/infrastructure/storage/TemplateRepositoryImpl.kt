@@ -88,16 +88,14 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             val map = mutableMapOf<String, Any>()
             json.keys().forEach { map[it] = json.get(it) }
 
-            if (json.has("additionalSearchLocations")) {
-                val locArray = json.optJSONArray("additionalSearchLocations")
-                if (locArray != null) {
-                    for (i in 0 until locArray.length()) {
-                        val obj = locArray.optJSONObject(i)
-                        if (obj != null) {
-                            val x = obj.optInt("x")
-                            val y = obj.optInt("y")
-                            com.example.autotap.infrastructure.vision.TemplateMatchingEngine.registerDiscoveredLocation(path, x, y)
-                        }
+            val locArray = json.optJSONArray("discoveredLocations") ?: json.optJSONArray("additionalSearchLocations")
+            if (locArray != null) {
+                for (i in 0 until locArray.length()) {
+                    val obj = locArray.optJSONObject(i)
+                    if (obj != null) {
+                        val x = obj.optInt("x")
+                        val y = obj.optInt("y")
+                        com.example.autotap.infrastructure.vision.TemplateMatchingEngine.registerDiscoveredLocation(path, x, y)
                     }
                 }
             }
@@ -228,6 +226,7 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
                         })
                     }
                 }
+                metadata.put("discoveredLocations", locArray)
                 metadata.put("additionalSearchLocations", locArray)
             }
 

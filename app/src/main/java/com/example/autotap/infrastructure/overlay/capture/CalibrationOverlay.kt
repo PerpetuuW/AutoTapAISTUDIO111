@@ -2171,6 +2171,7 @@ private val targetStepId: Int? = null,
                     }
                     if (discArr.length() > 0) {
                         put("discoveredLocations", discArr)
+                        put("additionalSearchLocations", discArr)
                     }
                     if (activeRoiZones.isNotEmpty()) {
                         val rArr = org.json.JSONArray()

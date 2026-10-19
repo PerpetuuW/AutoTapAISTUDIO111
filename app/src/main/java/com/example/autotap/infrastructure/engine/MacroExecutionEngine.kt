@@ -425,7 +425,7 @@ class MacroExecutionEngine(
                                                                     screenshot.recycle()
                                                                 }
                                                             }
-                                                            delay(checkInterval)
+                                                            delay(if (!isMatched) checkInterval.coerceAtLeast(180L) else checkInterval)
                                                         }
 
                                                         if (!isMatched) {
@@ -1148,7 +1148,7 @@ class MacroExecutionEngine(
                             }
 
                             if (matchedTrigger != null) break
-                            delay(pollInterval)
+                            delay(pollInterval.coerceAtLeast(180L))
                         }
 
                         if (matchedTrigger != null) {

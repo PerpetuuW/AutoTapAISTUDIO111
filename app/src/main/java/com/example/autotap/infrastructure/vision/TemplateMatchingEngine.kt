@@ -782,9 +782,10 @@ object TemplateMatchingEngine {
             }
             if (tier0Found && !findAllMatches) continue
 
-            // TIER 1: Окрестность UI (+-48 px вокруг опорной точки, 2-3 мс)
+            // TIER 1: Быстрая двухпроходная окрестность UI (+-48 px вокруг главных опорных точек, 2-3 мс)
             var tier1Found = false
-            for (probe in ctx.anchorProbes) {
+            val primaryProbes = ctx.anchorProbes.take(3)
+            for (probe in primaryProbes) {
                 val expLeft = (probe.x - features.centroidX).toInt().coerceIn(roiMinX, scanLimitX)
                 val expTop = (probe.y - features.centroidY).toInt().coerceIn(roiMinY, scanLimitY)
 
@@ -793,9 +794,9 @@ object TemplateMatchingEngine {
                 var bestLocalY = expTop
                 val localRange = 48
 
-                for (dy in -localRange..localRange step 2) {
+                for (dy in -localRange..localRange step 6) {
                     val qy = (expTop + dy).coerceIn(roiMinY, scanLimitY)
-                    for (dx in -localRange..localRange step 2) {
+                    for (dx in -localRange..localRange step 6) {
                         val qx = (expLeft + dx).coerceIn(roiMinX, scanLimitX)
                         val score = evaluateCandidateScore(sPixels, sw, sh, qx, qy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
                         if (score > bestLocalScore) {
@@ -806,17 +807,19 @@ object TemplateMatchingEngine {
                     }
                 }
 
-                val peakX = bestLocalX
-                val peakY = bestLocalY
-                for (fdy in -1..1) {
-                    val fqy = (peakY + fdy).coerceIn(roiMinY, scanLimitY)
-                    for (fdx in -1..1) {
-                        val fqx = (peakX + fdx).coerceIn(roiMinX, scanLimitX)
-                        val score = evaluateCandidateScore(sPixels, sw, sh, fqx, fqy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
-                        if (score > bestLocalScore) {
-                            bestLocalScore = score
-                            bestLocalX = fqx
-                            bestLocalY = fqy
+                if (bestLocalScore >= (confidentThreshold * 0.65f)) {
+                    val peakX = bestLocalX
+                    val peakY = bestLocalY
+                    for (fdy in -2..2) {
+                        val fqy = (peakY + fdy).coerceIn(roiMinY, scanLimitY)
+                        for (fdx in -2..2) {
+                            val fqx = (peakX + fdx).coerceIn(roiMinX, scanLimitX)
+                            val score = evaluateCandidateScore(sPixels, sw, sh, fqx, fqy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
+                            if (score > bestLocalScore) {
+                                bestLocalScore = score
+                                bestLocalX = fqx
+                                bestLocalY = fqy
+                            }
                         }
                     }
                 }
