@@ -7,6 +7,36 @@ import kotlin.math.hypot
 object PathCompressionEngine {
 
     /**
+     * Точное RDP-сжатие записанных траекторий жестов (дуги, джойстики, волны)
+     * БЕЗ отсечения сглаженных изгибов. Сохраняет естественную плавно изогнутую геометрию.
+     */
+    fun compressRecordedPath(
+        points: List<Point2D>,
+        maxPoints: Int = 60,
+        initialEpsilon: Float = 2.5f
+    ): List<Point2D> {
+        if (points.size <= 2) return points
+
+        var eps = initialEpsilon
+        var compressed = rdpRecursive(points, eps)
+
+        var iterations = 0
+        while (compressed.size > maxPoints && iterations < 8) {
+            eps *= 1.35f
+            compressed = rdpRecursive(points, eps)
+            iterations++
+        }
+
+        val finalResult = if (compressed.size > maxPoints) {
+            downsampleFixed(compressed, maxPoints)
+        } else {
+            compressed
+        }
+
+        return if (finalResult.size >= 2) finalResult else listOf(points.first(), points.last())
+    }
+
+    /**
      * Сжимает последовательность точек жеста, создавая опорные вершины
      * СТРОГО в местах радикального изменения направления (углы, резкие повороты, изломы траектории).
      *
