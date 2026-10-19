@@ -712,7 +712,7 @@ class TargetOverlayManager(
                                 return true
                             } else if (pendingId != null) {
                                 pendingSwapActionId = null
-                                targetViews[currentAct.id]?.alpha = 1.0f
+                                targetViews[currentAct.id]?.alpha = if (visibilityMode == OverlayVisibilityMode.TRANSPARENT) 0.30f else 1.0f
                                 return true
                             }
 

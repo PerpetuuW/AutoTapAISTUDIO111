@@ -218,7 +218,7 @@ object PathCompressionEngine {
                 val y = 0.5f * ((2f * p1.y) +
                         (-p0.y + p2.y) * t +
                         (2f * p0.y - 5f * p1.y + 4f * p2.y - p3.y) * t2 +
-                        (-p0.y + 3f * p1.y - 3f * p2.y + p3.x) * t3)
+                        (-p0.y + 3f * p1.y - 3f * p2.y + p3.y) * t3)
 
                 val timeMs = p1.timeOffsetMs + ((p2.timeOffsetMs - p1.timeOffsetMs) * t).toLong()
 

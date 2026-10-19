@@ -490,8 +490,8 @@ object LinearToGraphMigrator {
 
         // Отсекаем служебные узлы (старт, ветвления мультипоиска _branch_, вспомогательные клики _act)
         val validNodes = graphScenario.nodes.values.filter { node ->
-            node.id != "node_start" && !node.id.contains("_branch_") && (!node.id.contains("_act") || node.id.contains("timeout"))
-        }.filterNot { it.id.contains("_act_") }
+            node.id != "node_start" && !node.id.contains("_branch_") && !node.id.contains("_act") && !node.id.contains("timeout")
+        }
 
         val entryNode = graphScenario.nodes[graphScenario.entryNodeId]
         val otherNodes = validNodes
@@ -515,8 +515,18 @@ object LinearToGraphMigrator {
                 val matchEdge = graphScenario.edges.firstOrNull { it.fromNodeId == node.id && it.fromPortId == trig.targetPortId }
                 val timeoutEdge = graphScenario.edges.firstOrNull { it.fromNodeId == node.id && it.fromPortId == "out_timeout" }
 
-                val jumpMatch = matchEdge?.toNodeId?.let { nodeIdToStepIdMap[it] }
-                val jumpTimeout = timeoutEdge?.toNodeId?.let { nodeIdToStepIdMap[it] }
+                val rawTargetId = matchEdge?.toNodeId
+                val resolvedTargetId = if (rawTargetId != null && (rawTargetId.contains("_act") || rawTargetId.contains("_branch_"))) {
+                    graphScenario.edges.firstOrNull { it.fromNodeId == rawTargetId && it.fromPortId == "out_default" }?.toNodeId
+                } else rawTargetId
+                val jumpMatch = resolvedTargetId?.let { nodeIdToStepIdMap[it] }
+                
+                val rawTimeoutTargetId = timeoutEdge?.toNodeId
+                val resolvedTimeoutTargetId = if (rawTimeoutTargetId != null && rawTimeoutTargetId.contains("_timeout")) {
+                    graphScenario.edges.firstOrNull { it.fromNodeId == rawTimeoutTargetId && it.fromPortId == "out_default" }?.toNodeId
+                } else rawTimeoutTargetId
+                val jumpTimeout = resolvedTimeoutTargetId?.let { nodeIdToStepIdMap[it] }
+                
                 val isColorCheck = trig.type == ActionType.COLOR_CHECK
 
                 val posX = if (isColorCheck) trig.clickOffset.x else 0f
@@ -528,6 +538,9 @@ object LinearToGraphMigrator {
                 val childActNode = if (childActNodeId != null) graphScenario.nodes[childActNodeId] else null
                 val recoveredDelayMs = childActNode?.entryActions?.firstOrNull()?.delayAfterMs ?: node.pollIntervalMs.coerceAtLeast(100L)
 
+                val allPaths = node.triggers.flatMap { listOf(it.templatePath) + it.multiTemplatePaths }.filter { it.isNotBlank() }.distinct()
+                val primaryPath = allPaths.firstOrNull() ?: ""
+
                 val action = MacroAction(
                     id = stepId,
                     type = trig.type,
@@ -537,8 +550,8 @@ object LinearToGraphMigrator {
                     holdDurationMs = 120L,
                     checkIntervalMs = node.pollIntervalMs,
                     repeatCount = 1,
-                    templatePath = trig.templatePath,
-                    multiTemplatePaths = trig.multiTemplatePaths,
+                    templatePath = primaryPath,
+                    multiTemplatePaths = allPaths,
                     similarityPercent = trig.similarityThreshold,
                     aiTimeoutSeconds = node.timeoutSeconds,
                     clickAiTarget = trig.autoClickTarget,

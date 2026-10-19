@@ -133,6 +133,18 @@ object ProjectIntegrityInspector {
             }
         }
 
+        val allScreenFiles = templatesDir.walkTopDown()
+            .filter { it.isFile && it.name.startsWith("screen_") && (it.name.endsWith(".png") || it.name.endsWith(".jpg")) }
+            .toList()
+
+        for (screen in allScreenFiles) {
+            val base = screen.nameWithoutExtension.removePrefix("screen_")
+            val expectedMask = File(screen.parentFile, "mask_$base.png")
+            if (!expectedMask.exists() && screen.delete()) {
+                pruned++
+            }
+        }
+
         return pruned
     }
 }

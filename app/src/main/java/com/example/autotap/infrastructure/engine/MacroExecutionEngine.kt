@@ -972,6 +972,7 @@ class MacroExecutionEngine(
                         if (!isActive) break
                         val repeats = if (act.repeatCount <= 0) 1 else act.repeatCount
                         for (rep in 0 until repeats) {
+                            while (isPaused && isActive) delay(200L)
                             if (!isActive) break
                             val jitter = if (act.randomRadiusPx > 0) safetyGovernor.calculateJitter(act.randomRadiusPx) else 0L
                             val actDelay = (act.delayAfterMs + jitter + telemetry.suggestedCoolingDelayMs).coerceAtLeast(10L)
@@ -995,7 +996,7 @@ class MacroExecutionEngine(
                                 ActionType.SWIPE, ActionType.PATH -> {
                                     val actMacro = MacroAction(
                                         id = 1,
-                                        type = ActionType.PATH,
+                                        type = act.type,
                                         posX = act.x,
                                         posY = act.y,
                                         endX = act.endX,
@@ -1491,6 +1492,7 @@ class MacroExecutionEngine(
     }
 
     override fun stepDebugNext() {
+        isPaused = false
         debugStepDeferred?.complete(Unit)
     }
 

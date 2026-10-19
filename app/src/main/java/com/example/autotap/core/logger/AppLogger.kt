@@ -13,7 +13,9 @@ object AppLogger {
     private const val TAG = "AutoTap"
     private const val MAX_LOG_SIZE = 1024 * 1024 // 1 MB
     private val logLock = Any()
-    private val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
+    private val sdfThreadLocal = object : ThreadLocal<SimpleDateFormat>() {
+        override fun initialValue() = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
+    }
 
     @Volatile
     var appContext: Context? = null
@@ -117,7 +119,8 @@ object AppLogger {
     }
 
     fun log(context: Context?, category: String, message: String) {
-        val timeStr = sdf.format(Date())
+        val sdf = sdfThreadLocal.get()
+        val timeStr = sdf?.format(Date()) ?: ""
         val formatted = "[$timeStr][$category] $message"
         Log.d(TAG, formatted)
 
@@ -132,7 +135,8 @@ object AppLogger {
         Log.e(TAG, "[$category] EXCEPTION: $stackTrace", throwable)
 
         val targetCtx = context ?: appContext ?: return
-        val timeStr = sdf.format(Date())
+        val sdf = sdfThreadLocal.get()
+        val timeStr = sdf?.format(Date()) ?: ""
         val entry = "=== [$timeStr][$category] FATAL EXCEPTION ===\n$stackTrace\n========================================\n"
         writeWithRotation(targetCtx, entry)
     }

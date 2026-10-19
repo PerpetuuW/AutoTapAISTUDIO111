@@ -627,9 +627,6 @@ class GraphEditorOverlay(
                         scenarioRepository.saveGraphScenario(newSc)
                     }
                     currentRepeats = next
-                    currentRepeats = next
-                    currentRepeats = next
-                    currentRepeats = next
                     tvRepeatsLabel.text = "Итераций: $next"
                     }
                     }
@@ -660,9 +657,6 @@ class GraphEditorOverlay(
                         canvasView?.setGraphScenario(newSc)
                         scenarioRepository.saveGraphScenario(newSc)
                     }
-                    currentRepeats = next
-                    currentRepeats = next
-                    currentRepeats = next
                     currentRepeats = next
                     tvRepeatsLabel.text = "Итераций: $next"
                     }

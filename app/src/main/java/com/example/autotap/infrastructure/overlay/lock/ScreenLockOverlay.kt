@@ -248,12 +248,14 @@ class ScreenLockOverlay(
                         if (prog == 0) {
                             tvModeStatus.text = "AMOLED ECO: ЭКРАН ВЫКЛ (0 Вт)"
                             tvModeStatus.setTextColor("#34D399".toColorInt())
-                            bgLockContainer?.setBackgroundColor(Color.BLACK)
+                            currentBgColor = Color.BLACK
+                            bgLockContainer?.setBackgroundColor(currentBgColor)
                         } else {
                             tvModeStatus.text = "ПРОСМОТР: ЯРКОСТЬ $prog%"
                             tvModeStatus.setTextColor("#38BDF8".toColorInt())
                             val alpha = (255 * (1.0f - brRatio * 0.35f)).toInt().coerceIn(160, 255)
-                            bgLockContainer?.setBackgroundColor(Color.argb(alpha, 0, 0, 0))
+                            currentBgColor = Color.argb(alpha, 0, 0, 0)
+                            bgLockContainer?.setBackgroundColor(currentBgColor)
                         }
                         val p = bgWindowParams ?: return
                         p.screenBrightness = if (prog == 0) 0.01f else brRatio.coerceIn(0.01f, 1.0f)

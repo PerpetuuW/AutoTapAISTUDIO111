@@ -384,12 +384,6 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                             put("type", trig.type.name)
                             put("behavior", trig.behavior.name)
                             put("targetOccurrenceIndex", trig.targetOccurrenceIndex)
-                            put("behavior", trig.behavior.name)
-                            put("targetOccurrenceIndex", trig.targetOccurrenceIndex)
-                            put("behavior", trig.behavior.name)
-                            put("targetOccurrenceIndex", trig.targetOccurrenceIndex)
-                            put("behavior", trig.behavior.name)
-                            put("targetOccurrenceIndex", trig.targetOccurrenceIndex)
                             put("templatePath", trig.templatePath)
                             val multiPathsArr = JSONArray()
                             trig.multiTemplatePaths.forEach { multiPathsArr.put(it) }

@@ -34,6 +34,7 @@ class OcrCandidatePickerDialog(
     private var isDismissed = false
     private var rootFrameLayout: View? = null
     private var selectedIndex: Int = 0
+    private var onSelectionChangedListener: ((Int) -> Unit)? = null
 
     private val dm = context.resources.displayMetrics
     private fun dp(v: Int): Int = (v * dm.density).toInt()
@@ -338,6 +339,10 @@ class OcrCandidatePickerDialog(
             highlightViewRef?.invalidate()
         }
 
+        onSelectionChangedListener = {
+            updateTableHighlight()
+        }
+
         fun applySelectionInternal(idx: Int) {
             selectedIndex = idx
             updateTableHighlight()
@@ -493,6 +498,7 @@ class OcrCandidatePickerDialog(
     private fun applySelection(index: Int) {
         if (index in candidates.indices) {
             selectedIndex = index
+            onSelectionChangedListener?.invoke(index)
             rootFrameLayout?.invalidate()
         }
     }

@@ -42,6 +42,13 @@ class TargetOverlayView(
         }
     }
 
+    private val defaultBadgeDrawable = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        cornerRadius = dpF(4f)
+        setColor("#E60B0814".toColorInt())
+        setStroke(dpF(1.2f).toInt(), "#38BDF8".toColorInt())
+    }
+
     init {
         elevation = 0f
         clipChildren = false
@@ -175,7 +182,7 @@ class TargetOverlayView(
             ActionType.TRIGGER -> {
                 val bmp = if (action.templatePath.isNotBlank()) {
                     templateProvider?.invoke(action.templatePath)
-                        ?: TemplateRepositoryImpl(context).getTemplate(action.templatePath)
+                        ?: com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(context).templateRepository.getTemplate(action.templatePath)
                 } else null
 
 
@@ -184,6 +191,7 @@ class TargetOverlayView(
                     ivTemplate.visibility = View.VISIBLE
                     tvNumber.visibility = View.GONE
                     tvCornerBadge.text = "#${action.id}"
+                    tvCornerBadge.background = defaultBadgeDrawable
                     tvCornerBadge.visibility = if (isNumbersHidden || tvCornerBadge.text.isNullOrBlank()) View.GONE else View.VISIBLE
                 } else {
                     ivTemplate.visibility = View.GONE
