@@ -33,7 +33,6 @@ import com.example.autotap.domain.repository.ITemplateRepository
 import com.example.autotap.infrastructure.accessibility.AutoTapAccessibilityService
 import com.example.autotap.infrastructure.engine.MacroExecutionEngine
 import com.example.autotap.infrastructure.overlay.OverlayWindowManager
-import com.example.autotap.infrastructure.overlay.badge.RunningBadgeComposeOverlay
 import com.example.autotap.infrastructure.overlay.capture.CalibrationOverlay
 import com.example.autotap.infrastructure.overlay.capture.CaptureFrameOverlay
 import com.example.autotap.infrastructure.overlay.capture.EyedropperOverlay
@@ -1532,96 +1531,107 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         targetManager.setOverlaysVisible(false)
         controlPanelOverlay.hide()
 
-        val service = AutoTapAccessibilityService.instance
-        val screenshot = service?.captureScreenshotSync(2000L)
-        if (screenshot == null) {
-            Toast.makeText(appContext, "Не удалось сделать снимок экрана", Toast.LENGTH_SHORT).show()
-            controlPanelOverlay.show()
-            targetManager.setOverlaysVisible(true)
-            return
-        }
-
-        CaptureFrameOverlay(
-            context = appContext,
-            overlayWindowManager = overlayWindowManager,
-            overrideScreenshot = screenshot,
-            onCaptureTriggered = { cropX, cropY, cropW, cropH, _ ->
-                try {
-                    val maxX = (screenshot.width - 4).coerceAtLeast(0)
-                    val maxY = (screenshot.height - 4).coerceAtLeast(0)
-                    val safeX = cropX.coerceIn(0, maxX)
-                    val safeY = cropY.coerceIn(0, maxY)
-                    val safeW = cropW.coerceIn(4, (screenshot.width - safeX).coerceAtLeast(4))
-                    val safeH = cropH.coerceIn(4, (screenshot.height - safeY).coerceAtLeast(4))
-                    val cropped = Bitmap.createBitmap(screenshot, safeX, safeY, safeW, safeH)
-                    val ocrResults = try {
-                        com.example.autotap.infrastructure.ocr.OcrEngine.findTextOnScreen(cropped, "", 2000L, null, mutableMapOf())
-                    } finally {
-                        if (!cropped.isRecycled) cropped.recycle()
-                    }
-                    val globalOcrResults = ocrResults.map { res ->
-                        res.copy(
-                            clickX = res.clickX + safeX,
-                            clickY = res.clickY + safeY,
-                            rectLeft = res.rectLeft + safeX,
-                            rectTop = res.rectTop + safeY,
-                            rectRight = res.rectRight + safeX,
-                            rectBottom = res.rectBottom + safeY
-                        )
-                    }
-
-                    if (globalOcrResults.isNotEmpty()) {
-                        mainHandler.postDelayed({
-                            com.example.autotap.infrastructure.overlay.dialog.OcrCandidatePickerDialog(
-                                context = appContext,
-                                overlayWindowManager = overlayWindowManager,
-                                candidates = globalOcrResults,
-                                onDismiss = {
-                                    controlPanelOverlay.show()
-                                    targetManager.setOverlaysVisible(true)
-                                    showEditDialog(action)
-                                }
-                            ) { idx, selectedMatch ->
-                                controlPanelOverlay.show()
-                                targetManager.setOverlaysVisible(true)
-                                val cleanText = selectedMatch.matchedText.trim()
-                                if (cleanText.isNotBlank()) {
-                                    val existingMulti = action.multiTemplatePaths.filter { it.isNotBlank() }.toMutableList()
-                                    val ocrEntry = "ocr:$cleanText"
-                                    if (!existingMulti.contains(ocrEntry)) {
-                                        existingMulti.add(ocrEntry)
-                                    }
-                                    val updated = action.copy(multiTemplatePaths = existingMulti.distinct())
-                                    targetManager.updateAction(updated)
-                                    com.example.autotap.infrastructure.ocr.OcrQueryMetadataManager.saveOcrQueryToHistory(appContext, cleanText)
-                                    Toast.makeText(appContext, "Выбран OCR текст: '$cleanText'", Toast.LENGTH_SHORT).show()
-                                    mainHandler.postDelayed({ showEditDialog(updated) }, 150L)
-                                }
-                            }.show()
-                        }, 100L)
-                    } else {
-                        controlPanelOverlay.show()
-                        targetManager.setOverlaysVisible(true)
-                        Toast.makeText(appContext, "Текст на выделенном фрагменте не распознан", Toast.LENGTH_SHORT).show()
-                        mainHandler.postDelayed({ showEditDialog(action) }, 150L)
-                    }
-                    } catch (e: Throwable) {
-                    AppLogger.logError(appContext, "OCR_SELECTION_CRASH", e)
+        appScope.launch(Dispatchers.Default) {
+            val service = AutoTapAccessibilityService.instance
+            val screenshot = service?.captureScreenshotAsync(2500L)
+            if (screenshot == null) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(appContext, "Не удалось сделать снимок экрана", Toast.LENGTH_SHORT).show()
                     controlPanelOverlay.show()
                     targetManager.setOverlaysVisible(true)
-                    Toast.makeText(appContext, "Ошибка считывания текста: ${e.message}", Toast.LENGTH_SHORT).show()
-                    mainHandler.postDelayed({ showEditDialog(action) }, 150L)
-                    } finally {
-                    screenshot.recycle()
-                    }
-            },
-            onCancelled = {
-                screenshot.recycle()
-                controlPanelOverlay.show()
-                targetManager.setOverlaysVisible(true)
-                showEditDialog(action)
+                }
+                return@launch
             }
-        ).show()
+
+            withContext(Dispatchers.Main) {
+                CaptureFrameOverlay(
+                    context = appContext,
+                    overlayWindowManager = overlayWindowManager,
+                    overrideScreenshot = screenshot,
+                    onCaptureTriggered = { cropX, cropY, cropW, cropH, _ ->
+                        appScope.launch(Dispatchers.Default) {
+                            try {
+                                val maxX = (screenshot.width - 4).coerceAtLeast(0)
+                                val maxY = (screenshot.height - 4).coerceAtLeast(0)
+                                val safeX = cropX.coerceIn(0, maxX)
+                                val safeY = cropY.coerceIn(0, maxY)
+                                val safeW = cropW.coerceIn(4, (screenshot.width - safeX).coerceAtLeast(4))
+                                val safeH = cropH.coerceIn(4, (screenshot.height - safeY).coerceAtLeast(4))
+                                val cropped = Bitmap.createBitmap(screenshot, safeX, safeY, safeW, safeH)
+                                val ocrResults = try {
+                                    com.example.autotap.infrastructure.ocr.OcrEngine.findTextOnScreen(cropped, "", 2000L, null, mutableMapOf())
+                                } finally {
+                                    if (!cropped.isRecycled) cropped.recycle()
+                                }
+                                val globalOcrResults = ocrResults.map { res ->
+                                    res.copy(
+                                        clickX = res.clickX + safeX,
+                                        clickY = res.clickY + safeY,
+                                        rectLeft = res.rectLeft + safeX,
+                                        rectTop = res.rectTop + safeY,
+                                        rectRight = res.rectRight + safeX,
+                                        rectBottom = res.rectBottom + safeY
+                                    )
+                                }
+
+                                withContext(Dispatchers.Main) {
+                                    if (globalOcrResults.isNotEmpty()) {
+                                        com.example.autotap.infrastructure.overlay.dialog.OcrCandidatePickerDialog(
+                                            context = appContext,
+                                            overlayWindowManager = overlayWindowManager,
+                                            candidates = globalOcrResults,
+                                            onDismiss = {
+                                                controlPanelOverlay.show()
+                                                targetManager.setOverlaysVisible(true)
+                                                showEditDialog(action)
+                                            },
+                                            onCandidateSelected = { idx, selectedMatch ->
+                                                controlPanelOverlay.show()
+                                                targetManager.setOverlaysVisible(true)
+                                                val cleanText = selectedMatch.matchedText.trim()
+                                                if (cleanText.isNotBlank()) {
+                                                    val existingMulti = action.multiTemplatePaths.filter { it.isNotBlank() }.toMutableList()
+                                                    val ocrEntry = "ocr:$cleanText"
+                                                    if (!existingMulti.contains(ocrEntry)) {
+                                                        existingMulti.add(ocrEntry)
+                                                    }
+                                                    val updated = action.copy(multiTemplatePaths = existingMulti.distinct())
+                                                    targetManager.updateAction(updated)
+                                                    com.example.autotap.infrastructure.ocr.OcrQueryMetadataManager.saveOcrQueryToHistory(appContext, cleanText)
+                                                    Toast.makeText(appContext, "Выбран OCR текст: '$cleanText'", Toast.LENGTH_SHORT).show()
+                                                    mainHandler.postDelayed({ showEditDialog(updated) }, 150L)
+                                                }
+                                            }
+                                        ).show()
+                                    } else {
+                                        controlPanelOverlay.show()
+                                        targetManager.setOverlaysVisible(true)
+                                        Toast.makeText(appContext, "Текст на выделенном фрагменте не распознан", Toast.LENGTH_SHORT).show()
+                                        showEditDialog(action)
+                                    }
+                                }
+                            } catch (e: Throwable) {
+                                AppLogger.logError(appContext, "OCR_SELECTION_CRASH", e)
+                                withContext(Dispatchers.Main) {
+                                    controlPanelOverlay.show()
+                                    targetManager.setOverlaysVisible(true)
+                                    Toast.makeText(appContext, "Ошибка считывания текста: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    showEditDialog(action)
+                                }
+                            } finally {
+                                screenshot.recycle()
+                            }
+                        }
+                    },
+                    onCancelled = {
+                        screenshot.recycle()
+                        controlPanelOverlay.show()
+                        targetManager.setOverlaysVisible(true)
+                        showEditDialog(action)
+                    }
+                ).show()
+            }
+        }
     }
 
 
@@ -1650,7 +1660,6 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 }
 
                 is ExecutionState.Completed -> {
-                    val wasRunning = wasExecutingBeforeStop
                     wasExecutingBeforeStop = false
                     screenOffMonitor.stopMonitoring()
                     runningBadgeOverlay.dismiss(); debuggerToolbarOverlay.dismiss(); screenLockOverlay.dismiss()
@@ -1663,7 +1672,6 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     }
                 }
                 ExecutionState.Idle, is ExecutionState.Error -> {
-                    val wasRunning = wasExecutingBeforeStop
                     wasExecutingBeforeStop = false
                     screenOffMonitor.stopMonitoring()
                     runningBadgeOverlay.dismiss(); debuggerToolbarOverlay.dismiss(); screenLockOverlay.dismiss()

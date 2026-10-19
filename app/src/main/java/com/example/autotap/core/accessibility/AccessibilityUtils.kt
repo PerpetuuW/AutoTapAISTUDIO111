@@ -11,7 +11,7 @@ import android.view.accessibility.AccessibilityManager
 object AccessibilityUtils {
 
     fun isServiceEnabled(context: Context, serviceClass: Class<out AccessibilityService>): Boolean {
-        val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager ?: return false
+        val am = (context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager) ?: return false
 
         try {
             val runningViaAm = am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK).any {
@@ -25,7 +25,7 @@ object AccessibilityUtils {
         val enabledServices = try {
             Settings.Secure.getString(
                 context.contentResolver,
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
             ) ?: ""
         } catch (_: Exception) { "" }
 

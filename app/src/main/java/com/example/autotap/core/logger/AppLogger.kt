@@ -49,13 +49,24 @@ object AppLogger {
             }
 
             try {
-                com.github.anrwatchdog.ANRWatchDog(3000)
+                com.github.anrwatchdog.ANRWatchDog(2500)
                     .setANRListener { error ->
-                        logError(appContext, "ANR_FREEZE", error)
+                        val threadDump = StringBuilder()
+                        threadDump.append("=== DUMP ВСЕХ ПОТОКОВ ПРИ ANR (Задержка UI > 2500мс) ===\n")
+                        Thread.getAllStackTraces().forEach { (thread, stack) ->
+                            threadDump.append("Поток: ${thread.name} (Priority: ${thread.priority}, State: ${thread.state})\n")
+                            stack.take(15).forEach { elem ->
+                                threadDump.append("    at $elem\n")
+                            }
+                            threadDump.append("\n")
+                        }
+                        logError(appContext, "ANR_FREEZE_DUMP", error)
+                        log(appContext, "ANR_THREAD_DUMP", threadDump.toString())
                     }
                     .setIgnoreDebugger(true)
                     .start()
-                log(null, "TELEMETRY", "ANR-WatchDog успешно запущен (порог 3000мс)")
+                log(null, "TELEMETRY", "ANR-WatchDog с дампом потоков успешно запущен (порог 2500мс)")
+                startFrameDropTracer()
             } catch (e: Exception) {
                 Log.e(TAG, "Ошибка запуска ANR-WatchDog", e)
             }
@@ -64,11 +75,39 @@ object AppLogger {
         }
     }
 
+    private var lastFrameNanos = 0L
+    private fun startFrameDropTracer() {
+        try {
+            android.view.Choreographer.getInstance().postFrameCallback(object : android.view.Choreographer.FrameCallback {
+                override fun doFrame(frameTimeNanos: Long) {
+                    if (lastFrameNanos != 0L) {
+                        val frameIntervalMs = (frameTimeNanos - lastFrameNanos) / 1_000_000L
+                        // Логируем только реальные пропуски кадров при АКТИВНОЙ отрисовке (60мс .. 350мс)
+                        // Значения > 350мс относятся к паузам между жестами / ожиданию взаимодействия и НЕ являются фризами UI
+                        if (frameIntervalMs in 60L..350L) {
+                            log(null, "UI_JANK", "ПРОПУСК КАДРОВ: Задержка рисовки UI $frameIntervalMs мс")
+                        }
+                    }
+                    lastFrameNanos = frameTimeNanos
+                    android.view.Choreographer.getInstance().postFrameCallback(this)
+                }
+            })
+        } catch (_: Exception) {}
+    }
+
+    fun logPerf(category: String, operation: String, elapsedMs: Long) {
+        val isMainThread = android.os.Looper.myLooper() == android.os.Looper.getMainLooper()
+        val threadName = if (isMainThread) "UI_MAIN" else "BACKGROUND"
+        if ((isMainThread && elapsedMs > 40L) || (!isMainThread && elapsedMs > 300L)) {
+            log(appContext, "PERF_ALERT", "Задержка [$threadName][$category]: '$operation' заняла $elapsedMs мс")
+        }
+    }
+
     private fun writeWithRotation(targetCtx: Context, content: String) {
         synchronized(logLock) {
             try {
                 val logFile = File(targetCtx.filesDir, "error_log.txt")
-                if (logFile.exists() && logFile.length() > MAX_LOG_SIZE) {
+                if (logFile.exists() && (logFile.length() > MAX_LOG_SIZE)) {
                     val tail = logFile.readText(Charsets.UTF_8).takeLast(512 * 1024)
                     logFile.writeText("...[АВТО-РОТАЦИЯ ЛОГОВ]...\n$tail", Charsets.UTF_8)
                 }

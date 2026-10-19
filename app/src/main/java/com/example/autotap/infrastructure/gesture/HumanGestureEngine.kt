@@ -58,8 +58,8 @@ object HumanGestureEngine {
             val mag = kotlin.math.sqrt(-2.0 * kotlin.math.ln(u1)) * 1.5
             val angle = 2.0 * Math.PI * u2
             
-            val jitterX = if (i < steps) (mag * kotlin.math.cos(angle)).toFloat() else 0f
-            val jitterY = if (i < steps) (mag * kotlin.math.sin(angle)).toFloat() else 0f
+            val jitterX = if (i < steps) (mag * cos(angle)).toFloat() else 0f
+            val jitterY = if (i < steps) (mag * sin(angle)).toFloat() else 0f
 
             val x = (1 - easedT).pow(3) * safeStartX +
                     3 * (1 - easedT).pow(2) * easedT * mid1X +

@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.res.Configuration
-import android.os.Build
 import android.os.LocaleList
 import java.util.Locale
 
@@ -41,12 +40,7 @@ object LocalizationManager {
 
         val resources = context.resources
         val config = Configuration(resources.configuration)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            config.setLocales(LocaleList(locale))
-        } else {
-            @Suppress("DEPRECATION")
-            config.locale = locale
-        }
+        config.setLocales(LocaleList(locale))
         @Suppress("DEPRECATION")
         resources.updateConfiguration(config, resources.displayMetrics)
     }
@@ -57,15 +51,7 @@ object LocalizationManager {
         Locale.setDefault(locale)
 
         val config = Configuration(context.resources.configuration)
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            config.setLocales(LocaleList(locale))
-            context.createConfigurationContext(config)
-        } else {
-            @Suppress("DEPRECATION")
-            config.locale = locale
-            @Suppress("DEPRECATION")
-            context.resources.updateConfiguration(config, context.resources.displayMetrics)
-            context
-        }
+        config.setLocales(LocaleList(locale))
+        return context.createConfigurationContext(config)
     }
 }

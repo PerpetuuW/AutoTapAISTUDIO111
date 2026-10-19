@@ -1,7 +1,5 @@
 package com.example.autotap.infrastructure.overlay.graph
 
-
-import android.text.TextUtils
 import android.text.TextPaint
 import com.example.autotap.domain.model.ActionType
 import com.example.autotap.domain.model.graph.TriggerBehavior

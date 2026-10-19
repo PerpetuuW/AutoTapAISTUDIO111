@@ -65,6 +65,9 @@ class ClickPulseView(context: Context) : View(context) {
         super.onDetachedFromWindow()
     }
 
+    private val glowColors = IntArray(3)
+    private val glowStops = floatArrayOf(0f, 0.55f, 1f)
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (startTime == -1L) startTime = System.currentTimeMillis()
@@ -83,14 +86,13 @@ class ClickPulseView(context: Context) : View(context) {
 
         // 1. Неоновое градиентное свечение (Radial Glow)
         if (currentRadius > 4f) {
+            glowColors[0] = Color.argb((140 * alphaMultiplier).toInt(), 56, 189, 248)
+            glowColors[1] = Color.argb((70 * alphaMultiplier).toInt(), 167, 139, 250)
+            glowColors[2] = Color.TRANSPARENT
             glowPaint.shader = RadialGradient(
                 cx, cy, currentRadius,
-                intArrayOf(
-                    Color.argb((140 * alphaMultiplier).toInt(), 56, 189, 248),
-                    Color.argb((70 * alphaMultiplier).toInt(), 167, 139, 250),
-                    Color.TRANSPARENT
-                ),
-                floatArrayOf(0f, 0.55f, 1f),
+                glowColors,
+                glowStops,
                 Shader.TileMode.CLAMP
             )
             canvas.drawCircle(cx, cy, currentRadius, glowPaint)

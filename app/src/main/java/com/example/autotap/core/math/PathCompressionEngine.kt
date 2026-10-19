@@ -25,7 +25,7 @@ object PathCompressionEngine {
         var compressed = rdpRecursive(points, eps)
 
         var iterations = 0
-        while (compressed.size > maxPoints && iterations < 8) {
+        while ((compressed.size > maxPoints) && (iterations < 8)) {
             eps *= 1.45f
             compressed = rdpRecursive(points, eps)
             iterations++

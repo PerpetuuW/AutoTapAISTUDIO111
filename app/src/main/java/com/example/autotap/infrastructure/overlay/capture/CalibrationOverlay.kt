@@ -145,7 +145,7 @@ private val targetStepId: Int? = null,
         val isMicro = minDim < 28 || area <= 1600
         val isThin = (h in 1..20 && w >= 20) || (w in 1..20 && h >= 20)
         return when {
-            isMicro || isThin || minDim < 28 -> 1
+            isMicro || isThin -> 1
             minDim < 64 -> 2
             minDim < 140 -> 3
             else -> 4

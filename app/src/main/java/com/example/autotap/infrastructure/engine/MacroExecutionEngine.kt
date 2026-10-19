@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import android.graphics.Rect
 import android.widget.Toast
 import com.example.autotap.core.logger.AppLogger
-import com.example.autotap.core.math.PathCompressionEngine
 import com.example.autotap.core.safety.SafetyGovernor
 import com.example.autotap.domain.engine.IMacroEngine
 import com.example.autotap.domain.engine.SubroutineManager
@@ -261,7 +260,7 @@ class MacroExecutionEngine(
                                                         val hasNextStep = (currentIndex + 1 < activeActionsList.size) || (action.jumpToStepOnTimeout != null)
                                                         val isInfinite = !hasNextStep || action.isWaitUntilMode || action.aiTimeoutSeconds == 0
                                                         val timeoutMs = if (isInfinite) Long.MAX_VALUE else (if (action.aiTimeoutSeconds > 0) action.aiTimeoutSeconds else (if (activeTemplates.size > 1 || action.multiTemplatePaths.size > 1) 8 else 5)) * 1000L
-                                                        val checkInterval = if (MediaProjectionService.isStreaming) 16L else (action.checkIntervalMs + adaptiveCooling).coerceIn(50L, 1000L)
+                                                        val checkInterval = if (MediaProjectionService.isStreaming) 33L else (action.checkIntervalMs + adaptiveCooling).coerceIn(50L, 1000L)
                                                         val pollStartTime = System.currentTimeMillis()
                                                         var isMatched = false
                                                         var bestMatchCand: MatchCandidate? = null
@@ -758,7 +757,6 @@ class MacroExecutionEngine(
                                 }
 
                                 if (isMatched) {
-                                    val matchedTextStr = variableContext["last_ocr"] ?: query
                                     val ocrRect = matchedOcrRect ?: android.graphics.Rect(
                                         (clickTargetX - 48).toInt().coerceAtLeast(0),
                                         (clickTargetY - 24).toInt().coerceAtLeast(0),
@@ -859,7 +857,7 @@ class MacroExecutionEngine(
                                 totalExecutedSteps++
                             }
                             ActionType.SUBROUTINE -> {
-                                val subName = (if (action.targetScriptOrQuery.isNotBlank()) action.targetScriptOrQuery else action.subroutineTag).trim()
+                                val subName = action.targetScriptOrQuery.ifBlank { action.subroutineTag }.trim()
                                 if (subName.isNotEmpty()) {
                                     val subScenario = scenarioRepository.loadScenario(subName)
                                     if (subScenario != null && subScenario.actions.isNotEmpty() &&
@@ -897,7 +895,7 @@ class MacroExecutionEngine(
 
                 val elapsed = System.currentTimeMillis() - startTime
                 _executionState.value = ExecutionState.Completed(totalExecutedSteps, elapsed)
-            } catch (c: CancellationException) {
+            } catch (_: CancellationException) {
                 _executionState.value = ExecutionState.Idle
             } catch (t: Throwable) {
                 AppLogger.logError(null, "MACRO_ENGINE", t)
@@ -1069,7 +1067,7 @@ class MacroExecutionEngine(
                     } else if (currentNode.triggers.isNotEmpty()) {
                         val isInfinite = currentNode.isInfiniteWait || currentNode.timeoutSeconds == 0
                         val timeoutMs = if (isInfinite) Long.MAX_VALUE else (if (currentNode.timeoutSeconds > 0) currentNode.timeoutSeconds else 5) * 1000L
-                        val pollInterval = if (MediaProjectionService.isStreaming) 16L else (currentNode.pollIntervalMs + telemetry.suggestedCoolingDelayMs).coerceIn(50L, 1000L)
+                        val pollInterval = if (MediaProjectionService.isStreaming) 33L else (currentNode.pollIntervalMs + telemetry.suggestedCoolingDelayMs).coerceIn(50L, 1000L)
                         val pollStartTime = System.currentTimeMillis()
                         var matchedTrigger: NodeTriggerSpec? = null
 

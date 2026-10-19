@@ -153,6 +153,7 @@ object OcrQueryMetadataManager {
                 val ocrPrefs = context.getSharedPreferences("autotap_recent_ocr", Context.MODE_PRIVATE)
                 val existing = ocrPrefs.getString("recent_queries", "") ?: ""
                 val merged = (existing.split("|||") + recentQueries.split("|||"))
+                    .asSequence()
                     .filter { it.isNotBlank() }
                     .distinct()
                     .take(20)

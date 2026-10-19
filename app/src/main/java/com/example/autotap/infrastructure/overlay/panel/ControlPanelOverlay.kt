@@ -2,11 +2,11 @@ package com.example.autotap.infrastructure.overlay.panel
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.drawable.GradientDrawable
+import androidx.core.graphics.toColorInt
 
 import android.view.Gravity
 import android.view.MotionEvent
@@ -21,6 +21,7 @@ import com.example.autotap.infrastructure.overlay.model.PanelDisplayMode
 import com.example.autotap.infrastructure.overlay.tutorial.InteractiveTutorialOverlay
 import com.example.autotap.infrastructure.overlay.ui.CanvasIconButton
 import com.example.autotap.infrastructure.overlay.ui.VectorIconDrawer
+import kotlin.math.hypot
 
 /**
  * Высокопроизводительный нативный Kotlin Canvas оверлей панели управления (120 FPS).
@@ -66,22 +67,22 @@ class ControlPanelOverlay(
         (btnHideRef as? CanvasIconButton)?.apply {
             when (mode) {
                 OverlayVisibilityMode.FULL -> {
-                    iconColor = Color.parseColor("#38BDF8")
-                    bgColorStart = Color.parseColor("#162032")
-                    bgColorEnd = Color.parseColor("#0F172A")
-                    strokeColor = Color.parseColor("#38BDF8")
+                    iconColor = "#38BDF8".toColorInt()
+                    bgColorStart = "#162032".toColorInt()
+                    bgColorEnd = "#0F172A".toColorInt()
+                    strokeColor = "#38BDF8".toColorInt()
                 }
                 OverlayVisibilityMode.TRANSPARENT -> {
-                    iconColor = Color.parseColor("#A78BFA")
-                    bgColorStart = Color.parseColor("#2E123D")
-                    bgColorEnd = Color.parseColor("#170924")
-                    strokeColor = Color.parseColor("#A78BFA")
+                    iconColor = "#A78BFA".toColorInt()
+                    bgColorStart = "#2E123D".toColorInt()
+                    bgColorEnd = "#170924".toColorInt()
+                    strokeColor = "#A78BFA".toColorInt()
                 }
                 OverlayVisibilityMode.HIDDEN -> {
-                    iconColor = Color.parseColor("#FBBF24")
-                    bgColorStart = Color.parseColor("#3B2606")
-                    bgColorEnd = Color.parseColor("#1F1403")
-                    strokeColor = Color.parseColor("#F59E0B")
+                    iconColor = "#FBBF24".toColorInt()
+                    bgColorStart = "#3B2606".toColorInt()
+                    bgColorEnd = "#1F1403".toColorInt()
+                    strokeColor = "#F59E0B".toColorInt()
                 }
             }
         }
@@ -118,7 +119,7 @@ class ControlPanelOverlay(
                     MotionEvent.ACTION_MOVE -> {
                         val dx = ev.rawX - startRawX
                         val dy = ev.rawY - startRawY
-                        if (Math.hypot(dx.toDouble(), dy.toDouble()) > touchSlop) {
+                        if (hypot(dx, dy) > touchSlop) {
                             isDragging = true
                             return true
                         }
@@ -516,7 +517,7 @@ class ControlPanelOverlay(
             }
             if (rowTypes.size < 3) {
                 val diff = 3 - rowTypes.size
-                for (i in 0 until diff) {
+                repeat(diff) {
                     row.addView(View(context), LinearLayout.LayoutParams(0, dp(26), 1f).apply { marginEnd = dp(4) })
                 }
             }

@@ -37,7 +37,7 @@ object LicenseManager {
         } catch (_: Exception) { "" }
 
         return DEVELOPER_DEVICE_IDS.any { id ->
-            id == androidId || id == buildSerial || id == systemSerial
+            (id == androidId) || (id == buildSerial) || (id == systemSerial)
         }
     }
 
@@ -56,7 +56,7 @@ object LicenseManager {
     }
 
 
-    fun isFeatureUnlocked(context: Context, feature: Feature): Boolean {
+    fun isFeatureUnlocked(context: Context, @Suppress("UNUSED_PARAMETER") feature: Feature): Boolean {
         if ((context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) return true
         if (isDeveloperDevice(context)) return true
 

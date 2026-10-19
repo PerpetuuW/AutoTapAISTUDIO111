@@ -774,6 +774,9 @@ object OcrEngine {
         outVariables: MutableMap<String, String>? = null
     ): List<OcrMatchResult> {
         val perfStart = System.currentTimeMillis()
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            AppLogger.log(null, "OCR_THREAD_WARN", "ПРЕДУПРЕЖДЕНИЕ: OcrEngine.findTextOnScreen вызвана из UI потока! Это может вызвать задержку интерфейса.")
+        }
         if (!isValidForOcr(bitmap)) {
             AppLogger.log(null, "OCR", "OCR отменен: передан невалидный bitmap")
             return emptyList()
@@ -820,7 +823,6 @@ object OcrEngine {
         }
 
         val cleanQuery = targetQuery.trim()
-        val stripH = 48
         val gOffsetX = effectiveRoi?.left?.coerceIn(0, srcBmp.width - 1) ?: 0
         val gOffsetY = effectiveRoi?.top?.coerceIn(0, srcBmp.height - 1) ?: 0
 
@@ -946,6 +948,7 @@ object OcrEngine {
         if (srcBmp != bitmap && !srcBmp.isRecycled) srcBmp.recycle()
 
         val elapsed = System.currentTimeMillis() - perfStart
+        AppLogger.logPerf("OCR", "Game OCR search '$targetQuery'", elapsed)
         if (targetQuery.isNotBlank()) {
             AppLogger.log(null, "OCR", "Game OCR: совпадений для '$targetQuery' не обнаружено (время: ${elapsed}мс)")
         }

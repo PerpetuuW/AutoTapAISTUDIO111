@@ -121,7 +121,7 @@ class LogViewerDialog(
         fun updateLogsView() {
             val allLogs = AppLogger.getLogs(context)
             val lines = allLogs.split('\n')
-            val regex = Regex("\\[([A-Z0-9_]{3,25})\\]")
+            val regex = Regex("\\[([A-Z0-9_]{3,25})]")
             val tags = LinkedHashSet<String>()
             for (line in lines) {
                 val matches = regex.findAll(line)

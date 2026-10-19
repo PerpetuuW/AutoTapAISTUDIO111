@@ -35,7 +35,7 @@ class SafetyGovernor(private val context: Context) {
     fun getTelemetry(): ThermalTelemetry {
         val now = SystemClock.elapsedRealtime()
         synchronized(telemetryLock) {
-            if (now - lastTelemetryTime < 1500L) {
+            if ((now - lastTelemetryTime) < 1500L) {
                 return cachedTelemetry
             }
             try {

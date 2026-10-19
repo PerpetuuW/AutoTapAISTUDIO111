@@ -66,7 +66,7 @@ class GestureDispatcher(
 
     fun sendLivePathStart(startX: Float, startY: Float): Boolean {
         val service = serviceProvider() ?: return false
-        val path = android.graphics.Path().apply {
+        val path = Path().apply {
             moveTo(startX, startY)
             lineTo(startX, startY)
         }

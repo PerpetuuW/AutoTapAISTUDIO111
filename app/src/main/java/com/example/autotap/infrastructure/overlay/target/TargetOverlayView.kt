@@ -35,6 +35,13 @@ class TargetOverlayView(
     private fun dp(value: Int): Int = (value * dm.density).toInt()
     private fun dpF(value: Float): Float = value * dm.density
 
+    private val pathBadgeDrawable by lazy {
+        GradientDrawable().apply {
+            setColor(0xFF7C3AED.toInt())
+            cornerRadius = dpF(4f)
+        }
+    }
+
     init {
         elevation = 0f
         clipChildren = false
@@ -132,10 +139,7 @@ class TargetOverlayView(
         if (action.type == ActionType.PATH) {
             tvCornerBadge.visibility = View.VISIBLE
             tvCornerBadge.text = "ПУТЬ"
-            tvCornerBadge.background = GradientDrawable().apply {
-                setColor(Color.parseColor("#7C3AED"))
-                cornerRadius = dpF(4f)
-            }
+            tvCornerBadge.background = pathBadgeDrawable
         }
 
         val labelText = when {

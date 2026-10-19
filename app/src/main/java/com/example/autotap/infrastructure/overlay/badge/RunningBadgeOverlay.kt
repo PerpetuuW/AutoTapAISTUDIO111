@@ -9,6 +9,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.drawable.GradientDrawable
+import androidx.core.graphics.toColorInt
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -19,6 +20,7 @@ import com.example.autotap.domain.model.ExecutionState
 import com.example.autotap.infrastructure.overlay.OverlayWindowManager
 import com.example.autotap.infrastructure.overlay.ui.CanvasIconButton
 import com.example.autotap.infrastructure.overlay.ui.VectorIconDrawer
+import kotlin.math.hypot
 
 /**
  * Высокопроизводительный нативный Kotlin Canvas оверлей бейджа исполнения (120 FPS).
@@ -71,7 +73,7 @@ class RunningBadgeOverlay(
                     MotionEvent.ACTION_MOVE -> {
                         val dx = ev.rawX - startRawX
                         val dy = ev.rawY - startRawY
-                        if (Math.hypot(dx.toDouble(), dy.toDouble()) > touchSlop) {
+                        if (hypot(dx, dy) > touchSlop) {
                             isDragging = true
                             return true
                         }
@@ -94,7 +96,7 @@ class RunningBadgeOverlay(
                     MotionEvent.ACTION_MOVE -> {
                         val dx = event.rawX - startRawX
                         val dy = event.rawY - startRawY
-                        if (!isDragging && Math.hypot(dx.toDouble(), dy.toDouble()) > touchSlop) {
+                        if (!isDragging && hypot(dx, dy) > touchSlop) {
                             isDragging = true
                         }
                         if (isDragging) {
@@ -121,10 +123,10 @@ class RunningBadgeOverlay(
             gravity = Gravity.CENTER_HORIZONTAL
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(Color.parseColor("#F8161B22"), Color.parseColor("#F80D1117"))
+                intArrayOf("#F8161B22".toColorInt(), "#F80D1117".toColorInt())
             ).apply {
                 cornerRadius = dpF(18f)
-                setStroke(dp(1), Color.parseColor("#38BDF8"))
+                setStroke(dp(1), "#38BDF8".toColorInt())
             }
             val p = dp(5)
             setPadding(p, p, p, p)
