@@ -391,7 +391,18 @@ class ControlPanelOverlay(
         }
         mainRow.addView(btnToggle)
 
-        // 6. КРЕСТИК ЗАКРЫТИЯ X (СПРАВА СВЕРХУ)
+        // 6. ОБУЧЕНИЕ И СПРАВКА ? (НА 1-М УРОВНЕ РЯДОМ С КРЕСТИКОМ, ФИОЛЕТОВАЯ)
+        val btnHelp = createBtn(VectorIconDrawer.IconType.HELP, "#A78BFA", 32, "BTN_HELP") {
+            InteractiveTutorialOverlay(
+                context = context,
+                overlayWindowManager = overlayWindowManager,
+                mode = InteractiveTutorialOverlay.TutorialMode.CONTROL_PANEL,
+                hostViewProvider = { rootView }
+            ).show()
+        }
+        mainRow.addView(btnHelp)
+
+        // 7. КРЕСТИК ЗАКРЫТИЯ X (СПРАВА СВЕРХУ)
         val btnClose = createBtn(VectorIconDrawer.IconType.CLOSE, "#F04438", 32, "BTN_CLOSE") { listener.onCloseClicked() }
         mainRow.addView(btnClose)
 
@@ -421,19 +432,10 @@ class ControlPanelOverlay(
         val btnLock = createBtn(VectorIconDrawer.IconType.LOCK, "#94A3B8", 30, "BTN_LOCK") { listener.onScreenLockClicked() }
         val btnClear = createBtn(VectorIconDrawer.IconType.CLEAR, "#F04438", 30, "BTN_CLEAR") { listener.onClearAllClicked() }
         val btnScripts = createBtn(VectorIconDrawer.IconType.SCRIPTS, "#38BDF8", 30, "BTN_SCRIPTS") { listener.onScriptsClicked() }
-        val btnHelp = createBtn(VectorIconDrawer.IconType.HELP, "#9CA3AF", 30, "BTN_HELP") {
-            InteractiveTutorialOverlay(
-                context = context,
-                overlayWindowManager = overlayWindowManager,
-                mode = InteractiveTutorialOverlay.TutorialMode.CONTROL_PANEL,
-                hostViewProvider = { rootView }
-            ).show()
-        }
 
         subRow.addView(btnLock)
         subRow.addView(btnClear)
         subRow.addView(btnScripts)
-        subRow.addView(btnHelp)
 
         rootLinear.addView(subRow)
 
@@ -474,17 +476,17 @@ class ControlPanelOverlay(
         rootMenu.addView(tvTitle)
 
         val types = listOf(
-            com.example.autotap.domain.model.ActionType.CLICK to "КЛИК",
-            com.example.autotap.domain.model.ActionType.LONG_PRESS to "УДЕРЖАНИЕ",
-            com.example.autotap.domain.model.ActionType.SWIPE to "СВАЙП",
-            com.example.autotap.domain.model.ActionType.PATH to "ПУТЬ",
-            com.example.autotap.domain.model.ActionType.TRIGGER to "ИИ ТРИГГЕР",
-            com.example.autotap.domain.model.ActionType.OCR to "OCR ТЕКСТ",
-            com.example.autotap.domain.model.ActionType.COLOR_CHECK to "ЦВЕТ",
-            com.example.autotap.domain.model.ActionType.SUBROUTINE to "ПОДПРОГРАММА",
-            com.example.autotap.domain.model.ActionType.DELAY to "ЗАДЕРЖКА",
-            com.example.autotap.domain.model.ActionType.GLOBAL_BACK to "НАЗАД",
-            com.example.autotap.domain.model.ActionType.GLOBAL_HOME to "ДОМОЙ"
+            Triple(com.example.autotap.domain.model.ActionType.CLICK, "КЛИК", VectorIconDrawer.IconType.ACTION_CLICK),
+            Triple(com.example.autotap.domain.model.ActionType.LONG_PRESS, "ЗАЖАТИЕ", VectorIconDrawer.IconType.ACTION_LONG_PRESS),
+            Triple(com.example.autotap.domain.model.ActionType.SWIPE, "СВАЙП", VectorIconDrawer.IconType.ACTION_SWIPE),
+            Triple(com.example.autotap.domain.model.ActionType.PATH, "ПУТЬ", VectorIconDrawer.IconType.ACTION_PATH),
+            Triple(com.example.autotap.domain.model.ActionType.TRIGGER, "ИИ ТРИГГЕР", VectorIconDrawer.IconType.ACTION_TRIGGER),
+            Triple(com.example.autotap.domain.model.ActionType.OCR, "OCR ТЕКСТ", VectorIconDrawer.IconType.ACTION_OCR),
+            Triple(com.example.autotap.domain.model.ActionType.COLOR_CHECK, "ЦВЕТ", VectorIconDrawer.IconType.ACTION_COLOR),
+            Triple(com.example.autotap.domain.model.ActionType.SUBROUTINE, "ПОДПРОГРАММА", VectorIconDrawer.IconType.ACTION_SUBROUTINE),
+            Triple(com.example.autotap.domain.model.ActionType.DELAY, "ЗАДЕРЖКА", VectorIconDrawer.IconType.SETTINGS),
+            Triple(com.example.autotap.domain.model.ActionType.GLOBAL_BACK, "НАЗАД", VectorIconDrawer.IconType.STEP_PREV),
+            Triple(com.example.autotap.domain.model.ActionType.GLOBAL_HOME, "ДОМОЙ", VectorIconDrawer.IconType.JOYSTICK)
         )
 
         types.chunked(3).forEach { rowTypes ->
@@ -493,32 +495,51 @@ class ControlPanelOverlay(
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, dp(2), 0, dp(2))
             }
-            rowTypes.forEach { (type, label) ->
-                val btn = android.widget.Button(context).apply {
-                    text = label
-                    textSize = 8f
-                    typeface = android.graphics.Typeface.DEFAULT_BOLD
-                    includeFontPadding = false
-                    setTextColor(Color.WHITE)
+            rowTypes.forEach { (type, label, icon) ->
+                val card = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER
                     background = GradientDrawable().apply {
-                        setColor(Color.parseColor("#21262D"))
-                        cornerRadius = dpF(4f)
-                        setStroke(dp(1), Color.parseColor("#30363D"))
+                        setColor("#161B22".toColorInt())
+                        cornerRadius = dpF(6f)
+                        setStroke(dp(1), "#30363D".toColorInt())
                     }
-                    minHeight = 0; minimumHeight = 0
-                    setPadding(dp(4), dp(4), dp(4), dp(4))
+                    isClickable = true
+                    isFocusable = true
+                    setPadding(dp(4), dp(3), dp(4), dp(3))
                     setOnClickListener {
                         actionTypeMenu?.visibility = View.GONE
                         applyDisplayMode(currentMode)
                         listener.onAddActionSelected(type)
                     }
+
+                    val iconView = CanvasIconButton(context).apply {
+                        iconType = icon
+                        iconColor = "#38BDF8".toColorInt()
+                        bgColorStart = Color.TRANSPARENT
+                        bgColorEnd = Color.TRANSPARENT
+                        strokeWidthPx = 0f
+                        iconPaddingPx = dpF(2f)
+                        val s = dp(18)
+                        layoutParams = LinearLayout.LayoutParams(s, s).apply { marginEnd = dp(4) }
+                    }
+                    addView(iconView)
+
+                    val tvLabel = android.widget.TextView(context).apply {
+                        text = label
+                        textSize = 8f
+                        typeface = android.graphics.Typeface.DEFAULT_BOLD
+                        includeFontPadding = false
+                        setTextColor(Color.WHITE)
+                    }
+                    addView(tvLabel)
                 }
-                row.addView(btn, LinearLayout.LayoutParams(0, dp(26), 1f).apply { marginEnd = dp(4) })
+                row.addView(card, LinearLayout.LayoutParams(0, dp(28), 1f).apply { marginEnd = dp(4) })
             }
             if (rowTypes.size < 3) {
                 val diff = 3 - rowTypes.size
                 repeat(diff) {
-                    row.addView(View(context), LinearLayout.LayoutParams(0, dp(26), 1f).apply { marginEnd = dp(4) })
+                    row.addView(View(context), LinearLayout.LayoutParams(0, dp(28), 1f).apply { marginEnd = dp(4) })
                 }
             }
             rootMenu.addView(row)
@@ -531,10 +552,10 @@ class ControlPanelOverlay(
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(Color.parseColor("#161B22"), Color.parseColor("#0D1117"))
+                intArrayOf("#161B22".toColorInt(), "#0D1117".toColorInt())
             ).apply {
                 cornerRadius = dpF(12f)
-                setStroke(dp(1), Color.parseColor("#F43F5E"))
+                setStroke(dp(1), "#F43F5E".toColorInt())
             }
             val p = dp(6)
             setPadding(p, p, p, p)
@@ -548,52 +569,90 @@ class ControlPanelOverlay(
             text = "ВЫБОР РЕЖИМА ЗАПИСИ:"
             textSize = 9f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setTextColor(Color.parseColor("#F43F5E"))
+            setTextColor("#F43F5E".toColorInt())
             setPadding(0, 0, 0, dp(4))
         }
         rootMenu.addView(tvTitle)
 
-        val btnSmart = android.widget.Button(context).apply {
-            text = "УМНАЯ ЗАПИСЬ (ИИ-шаблоны)"
-            textSize = 9f
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-            includeFontPadding = false
-            setTextColor(Color.parseColor("#86EFAC"))
+        val btnSmart = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
             background = GradientDrawable().apply {
-                setColor(Color.parseColor("#12201A"))
+                setColor("#12201A".toColorInt())
                 cornerRadius = dpF(6f)
-                setStroke(dp(1), Color.parseColor("#1E3E30"))
+                setStroke(dp(1), "#1E3E30".toColorInt())
             }
-            minHeight = 0; minimumHeight = 0
+            isClickable = true
+            isFocusable = true
             setPadding(dp(8), dp(4), dp(8), dp(4))
             setOnClickListener {
                 recordModeMenu?.visibility = View.GONE
                 applyDisplayMode(currentMode)
                 listener.onSmartRecordClicked()
             }
-        }
-        rootMenu.addView(btnSmart, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(28)).apply { bottomMargin = dp(4) })
 
-        val btnNormal = android.widget.Button(context).apply {
-            text = "ОБЫЧНАЯ ЗАПИСЬ (Живые жесты)"
-            textSize = 9f
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-            includeFontPadding = false
-            setTextColor(Color.parseColor("#C4B5FD"))
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor("#22183D"))
-                cornerRadius = dpF(6f)
-                setStroke(dp(1), Color.parseColor("#3E2B6B"))
+            val iconView = CanvasIconButton(context).apply {
+                iconType = VectorIconDrawer.IconType.WAND
+                iconColor = "#86EFAC".toColorInt()
+                bgColorStart = Color.TRANSPARENT
+                bgColorEnd = Color.TRANSPARENT
+                strokeWidthPx = 0f
+                iconPaddingPx = dpF(2f)
+                val s = dp(20)
+                layoutParams = LinearLayout.LayoutParams(s, s).apply { marginEnd = dp(6) }
             }
-            minHeight = 0; minimumHeight = 0
+            addView(iconView)
+
+            val tvLabel = android.widget.TextView(context).apply {
+                text = "УМНАЯ ЗАПИСЬ (ИИ-шаблоны)"
+                textSize = 9f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                includeFontPadding = false
+                setTextColor("#86EFAC".toColorInt())
+            }
+            addView(tvLabel)
+        }
+        rootMenu.addView(btnSmart, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(30)).apply { bottomMargin = dp(4) })
+
+        val btnNormal = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor("#22183D".toColorInt())
+                cornerRadius = dpF(6f)
+                setStroke(dp(1), "#3E2B6B".toColorInt())
+            }
+            isClickable = true
+            isFocusable = true
             setPadding(dp(8), dp(4), dp(8), dp(4))
             setOnClickListener {
                 recordModeMenu?.visibility = View.GONE
                 applyDisplayMode(currentMode)
                 listener.onRecordClicked()
             }
+
+            val iconView = CanvasIconButton(context).apply {
+                iconType = VectorIconDrawer.IconType.RECORD
+                iconColor = "#C4B5FD".toColorInt()
+                bgColorStart = Color.TRANSPARENT
+                bgColorEnd = Color.TRANSPARENT
+                strokeWidthPx = 0f
+                iconPaddingPx = dpF(2f)
+                val s = dp(20)
+                layoutParams = LinearLayout.LayoutParams(s, s).apply { marginEnd = dp(6) }
+            }
+            addView(iconView)
+
+            val tvLabel = android.widget.TextView(context).apply {
+                text = "ОБЫЧНАЯ ЗАПИСЬ (Живые жесты)"
+                textSize = 9f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                includeFontPadding = false
+                setTextColor("#C4B5FD".toColorInt())
+            }
+            addView(tvLabel)
         }
-        rootMenu.addView(btnNormal, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(28)))
+        rootMenu.addView(btnNormal, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(30)))
 
         return rootMenu
     }

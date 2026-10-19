@@ -141,8 +141,8 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.anr.watchdog)
 
-    // LeakCanary
-    debugImplementation(libs.leakcanary.android)
+    // LeakCanary (отключен в отладочной сборке во избежание заморозки VM при дампе памяти hprof)
+    // debugImplementation(libs.leakcanary.android)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
