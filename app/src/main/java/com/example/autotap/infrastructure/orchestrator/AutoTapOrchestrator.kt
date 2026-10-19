@@ -68,6 +68,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -97,6 +99,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val appScope = CoroutineScope(Dispatchers.Main)
+    private var persistJob: Job? = null
     private val prefs by lazy { appContext.getSharedPreferences("autotap_prefs", Context.MODE_PRIVATE) }
 
     val quickRingOverlay by lazy { TargetQuickRingOverlay(appContext, overlayWindowManager) }
@@ -229,7 +232,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
     }
 
     fun hideOverlays() {
-        persistActiveSession()
+        persistActiveSession(immediate = true)
         activeEditDialog?.dismiss()
         activeEditDialog = null
         controlPanelOverlay.hide()
@@ -241,29 +244,37 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         macroEngine.stop()
     }
 
-    // [V80.0] Автоматическая фиксация активной сессии на диск при изменении или скрытии оверлея
-    fun persistActiveSession() {
+    // [V80.0] Асинхронная дебаунс-фиксация активной сессии на диск (отсекает спам при перетаскивании мишеней)
+    fun persistActiveSession(immediate: Boolean = false) {
+        persistJob?.cancel()
         val actions = targetManager.getActions()
         val dm = appContext.resources.displayMetrics
         val specs = DeviceDisplaySpecs(dm.widthPixels, dm.heightPixels, dm.densityDpi, dm.density, dm.widthPixels > dm.heightPixels)
         val scenario = MacroScenario("ActiveSession", 1, specs, actions, globalClickDurationMs, globalSwipeDurationMs)
-        scenarioRepository.saveScenario(scenario)
 
-        // [V152.0] Граф активной сессии обновляется новой сессией, удовлетворяющей условиям (наличие действий/триггеров/мультипоиска)
-        if (actions.isNotEmpty()) {
-            val hasMultiSearch = actions.any { it.multiTemplatePaths.size > 1 }
-            val hasDetection = actions.any { it.type == ActionType.TRIGGER || it.type == ActionType.OCR || it.type == ActionType.COLOR_CHECK }
-            val isEligible = actions.size >= 2 || hasMultiSearch || hasDetection
-            if (isEligible || scenarioRepository.hasGraphScenario("ActiveSession")) {
+        persistJob = appScope.launch(Dispatchers.IO) {
+            if (!immediate) {
+                delay(350L)
+            }
+            scenarioRepository.saveScenario(scenario)
+
+            // [V152.0] Граф активной сессии создается и обновляется при условии: кол-во шаблонов/шагов > 2
+            val totalTemplates = actions.sumOf { act ->
+                val mainCount = if (act.templatePath.isNotBlank()) 1 else 0
+                val multiCount = act.multiTemplatePaths.count { it.isNotBlank() }
+                if (mainCount + multiCount > 0) mainCount + multiCount else 1
+            }
+            val isGraphEligible = totalTemplates > 2 || actions.size > 2
+            if (isGraphEligible) {
                 val graph = LinearToGraphMigrator.linearToGraph(scenario)
                 scenarioRepository.saveGraphScenario(graph)
             }
-        }
 
-        appContext.getSharedPreferences("autotap_prefs", Context.MODE_PRIVATE)
-            .edit()
-            .putString("last_active_scenario_name", if (actions.isNotEmpty()) "ActiveSession" else "")
-            .apply()
+            appContext.getSharedPreferences("autotap_prefs", Context.MODE_PRIVATE)
+                .edit()
+                .putString("last_active_scenario_name", if (actions.isNotEmpty()) "ActiveSession" else "")
+                .apply()
+        }
     }
 
     override fun onGraphClicked() {
@@ -1664,12 +1675,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     screenOffMonitor.stopMonitoring()
                     runningBadgeOverlay.dismiss(); debuggerToolbarOverlay.dismiss(); screenLockOverlay.dismiss()
                     controlPanelOverlay.show(); controlPanelOverlay.setPlayState(false); targetManager.setOverlaysVisible(true); targetManager.setTargetsTouchable(true)
-                    val currentActions = targetManager.getActions()
-                    if (currentActions.isNotEmpty()) {
-                        val dm = appContext.resources.displayMetrics
-                        val specs = DeviceDisplaySpecs(dm.widthPixels, dm.heightPixels, dm.densityDpi, dm.density, dm.widthPixels > dm.heightPixels)
-                        scenarioRepository.saveScenario(MacroScenario("_last_active_session", 1, specs, currentActions, globalClickDurationMs, globalSwipeDurationMs))
-                    }
+                    persistActiveSession(immediate = true)
                 }
                 ExecutionState.Idle, is ExecutionState.Error -> {
                     wasExecutingBeforeStop = false
