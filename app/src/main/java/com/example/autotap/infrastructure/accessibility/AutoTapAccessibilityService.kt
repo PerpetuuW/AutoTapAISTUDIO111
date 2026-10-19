@@ -367,6 +367,11 @@ class AutoTapAccessibilityService : AccessibilityService() {
     }
 
     fun captureScreenshotSync(timeoutMs: Long = 1500L): Bitmap? {
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            return kotlinx.coroutines.runBlocking {
+                captureScreenshotAsync(timeoutMs)
+            }
+        }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
 
         val latch = CountDownLatch(1)

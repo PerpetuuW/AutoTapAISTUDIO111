@@ -28,6 +28,10 @@ import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.graphics.toColorInt
@@ -1683,63 +1687,59 @@ class EditActionDialog(
                 return
             }
             dismiss()
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                try {
-                    val screenshot = service.captureScreenshotSync(2500L)
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+                val screenshot = service.captureScreenshotAsync(2500L)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                     if (screenshot == null) {
                         android.widget.Toast.makeText(context, "Не удалось сделать снимок экрана", android.widget.Toast.LENGTH_SHORT).show()
                         show()
-                        return@postDelayed
-                    }
-                    val l = currentRoiLeft
-                    val r = currentRoiRight
-                    val t = currentRoiTop
-                    val b = currentRoiBottom
-                    val roi = if (l != null && r != null && t != null && b != null) android.graphics.Rect(l, t, r, b) else null
-                    val matches = com.example.autotap.infrastructure.ocr.OcrEngine.findTextOnScreen(screenshot, q, 3000L, roi)
-                    screenshot.recycle()
-
-                    if (matches.isEmpty()) {
-                        android.widget.Toast.makeText(context, "Совпадений для '$q' не обнаружено", android.widget.Toast.LENGTH_SHORT).show()
-                        show()
                     } else {
-                        activeOcrPickerDialog?.dismiss()
-                        val picker = com.example.autotap.infrastructure.overlay.dialog.OcrCandidatePickerDialog(
-                            context = context,
-                            overlayWindowManager = overlayWindowManager,
-                            candidates = matches,
-                            onRescanRequested = {
-                                performOcrScreenScan()
-                            },
-                            onDismiss = {
-                                show()
+                        val l = currentRoiLeft
+                        val r = currentRoiRight
+                        val t = currentRoiTop
+                        val b = currentRoiBottom
+                        val roi = if (l != null && r != null && t != null && b != null) android.graphics.Rect(l, t, r, b) else null
+                        val matches = com.example.autotap.infrastructure.ocr.OcrEngine.findTextOnScreen(screenshot, q, 3000L, roi)
+                        screenshot.recycle()
+
+                        if (matches.isEmpty()) {
+                            android.widget.Toast.makeText(context, "Совпадений для '$q' не обнаружено", android.widget.Toast.LENGTH_SHORT).show()
+                            show()
+                        } else {
+                            activeOcrPickerDialog?.dismiss()
+                            val picker = com.example.autotap.infrastructure.overlay.dialog.OcrCandidatePickerDialog(
+                                context = context,
+                                overlayWindowManager = overlayWindowManager,
+                                candidates = matches,
+                                onRescanRequested = {
+                                    performOcrScreenScan()
+                                },
+                                onDismiss = {
+                                    show()
+                                }
+                            ) { idx, selectedMatch ->
+                                val occurrenceIdx = matches.take(idx).count {
+                                    it.matchedText.trim().equals(selectedMatch.matchedText.trim(), ignoreCase = true)
+                                }
+                                selectedTargetOccurrenceIndex = occurrenceIdx
+                                lastRecognizedOcrText = selectedMatch.matchedText
+                                action = action.copy(
+                                    type = ActionType.OCR,
+                                    targetScriptOrQuery = selectedMatch.matchedText,
+                                    targetOccurrenceIndex = occurrenceIdx,
+                                    posX = selectedMatch.clickX.toFloat(),
+                                    posY = selectedMatch.clickY.toFloat()
+                                )
+                                selectedType = ActionType.OCR
+                                com.example.autotap.infrastructure.ocr.OcrQueryMetadataManager.saveOcrQueryToHistory(context, selectedMatch.matchedText)
+                                android.widget.Toast.makeText(context, "Выбран шаблон '${selectedMatch.matchedText}' (#${occurrenceIdx + 1})", android.widget.Toast.LENGTH_SHORT).show()
                             }
-                        ) { idx, selectedMatch ->
-                            val occurrenceIdx = matches.take(idx).count {
-                                it.matchedText.trim().equals(selectedMatch.matchedText.trim(), ignoreCase = true)
-                            }
-                            selectedTargetOccurrenceIndex = occurrenceIdx
-                            lastRecognizedOcrText = selectedMatch.matchedText
-                            action = action.copy(
-                                type = ActionType.OCR,
-                                targetScriptOrQuery = selectedMatch.matchedText,
-                                targetOccurrenceIndex = occurrenceIdx,
-                                posX = selectedMatch.clickX.toFloat(),
-                                posY = selectedMatch.clickY.toFloat()
-                            )
-                            selectedType = ActionType.OCR
-                            com.example.autotap.infrastructure.ocr.OcrQueryMetadataManager.saveOcrQueryToHistory(context, selectedMatch.matchedText)
-                            android.widget.Toast.makeText(context, "Выбран шаблон '${selectedMatch.matchedText}' (#${occurrenceIdx + 1})", android.widget.Toast.LENGTH_SHORT).show()
+                            activeOcrPickerDialog = picker
+                            picker.show()
                         }
-                        activeOcrPickerDialog = picker
-                        picker.show()
                     }
-                } catch (e: Exception) {
-                    com.example.autotap.core.logger.AppLogger.log(context, "OCR_SCAN_ERROR", "Ошибка сканирования: ${e.message}")
-                    android.widget.Toast.makeText(context, "Ошибка сканирования: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
-                    show()
                 }
-            }, 250L)
+            }
         }
 
         // Интерактивный поиск всех вариантов на текущем экране

@@ -28,6 +28,10 @@ import com.example.autotap.infrastructure.storage.TemplateRepositoryImpl
 import com.example.autotap.infrastructure.vision.PixelBufferPool
 import com.example.autotap.infrastructure.vision.TemplateMatchingEngine
 import com.example.autotap.infrastructure.visualizer.LaserScanVisualizer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.math.abs
@@ -527,58 +531,59 @@ class TargetOverlayManager(
             context = context,
             overlayWindowManager = overlayWindowManager,
             onCaptureTriggered = { cropX, cropY, cropW, cropH, isCircle ->
-                mainHandler.postDelayed({
-                    val screenshot = service.captureScreenshotSync(2000L)
-                    if (screenshot != null) {
-                        val safeW = cropW.coerceIn(8, screenshot.width)
-                        val safeH = cropH.coerceIn(8, screenshot.height)
-                        val safeX = cropX.coerceIn(0, screenshot.width - safeW)
-                        val safeY = cropY.coerceIn(0, screenshot.height - safeH)
-                        val cropped = Bitmap.createBitmap(screenshot, safeX, safeY, safeW, safeH)
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+                    val screenshot = service.captureScreenshotAsync(2500L)
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        if (screenshot != null) {
+                            val safeW = cropW.coerceIn(8, screenshot.width)
+                            val safeH = cropH.coerceIn(8, screenshot.height)
+                            val safeX = cropX.coerceIn(0, screenshot.width - safeW)
+                            val safeY = cropY.coerceIn(0, screenshot.height - safeH)
+                            val cropped = Bitmap.createBitmap(screenshot, safeX, safeY, safeW, safeH)
 
-                        val initialAnchorCandidate = MatchCandidate(safeX + safeW / 2, safeY + safeH / 2, safeX, safeY, safeX + safeW, safeY + safeH, 1.0f)
+                            val initialAnchorCandidate = MatchCandidate(safeX + safeW / 2, safeY + safeH / 2, safeX, safeY, safeX + safeW, safeY + safeH, 1.0f)
 
-                        LaserScanVisualizer.showSweepLaser(context, overlayWindowManager) {
-                            CalibrationOverlay(
-                                context = context,
-                                overlayWindowManager = overlayWindowManager,
-                                screenshot = screenshot,
-                                rawTemplateBitmap = cropped,
-                                initialCandidates = listOf(initialAnchorCandidate),
-                                existingAction = targetAction,
-                                existingTemplatePath = null,
-                                allActions = getActions(),
-                                targetStepId = targetAction.id,
-                                anchorCropX = safeX,
-                                anchorCropY = safeY,
-                                onFinished = { updatedAction, path ->
-                                    setOverlaysVisible(true)
-                                    val history = TemplateMatchingEngine.historicalSearchAnchors.getOrPut(path) { java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap()) }
-                                    history.add(Pair(updatedAction.posX.toInt(), updatedAction.posY.toInt()))
-                                    val existingMulti = targetAction.multiTemplatePaths.filter { it.isNotBlank() }.toMutableList()
-                                    if (!existingMulti.contains(path)) {
-                                        existingMulti.add(path)
+                            LaserScanVisualizer.showSweepLaser(context, overlayWindowManager) {
+                                CalibrationOverlay(
+                                    context = context,
+                                    overlayWindowManager = overlayWindowManager,
+                                    screenshot = screenshot,
+                                    rawTemplateBitmap = cropped,
+                                    initialCandidates = listOf(initialAnchorCandidate),
+                                    existingAction = targetAction,
+                                    existingTemplatePath = null,
+                                    allActions = getActions(),
+                                    targetStepId = targetAction.id,
+                                    anchorCropX = safeX,
+                                    anchorCropY = safeY,
+                                    onFinished = { updatedAction, path ->
+                                        setOverlaysVisible(true)
+                                        TemplateMatchingEngine.registerDiscoveredLocation(path, updatedAction.posX.toInt(), updatedAction.posY.toInt())
+                                        val existingMulti = targetAction.multiTemplatePaths.filter { it.isNotBlank() }.toMutableList()
+                                        if (!existingMulti.contains(path)) {
+                                            existingMulti.add(path)
+                                        }
+                                        if (targetAction.templatePath.isNotBlank() && !existingMulti.contains(targetAction.templatePath)) {
+                                            existingMulti.add(0, targetAction.templatePath)
+                                        }
+                                        val primaryPath = targetAction.templatePath.ifBlank { path }
+                                        val multiAction = updatedAction.copy(
+                                            templatePath = primaryPath,
+                                            multiTemplatePaths = existingMulti.distinct()
+                                        )
+                                        updateAction(multiAction)
+                                        Toast.makeText(context, "Шаблон добавлен к мультипоиску шага #${targetAction.id} (всего: ${existingMulti.distinct().size})", Toast.LENGTH_SHORT).show()
+                                    },
+                                    onCancelled = {
+                                        setOverlaysVisible(true)
                                     }
-                                    if (targetAction.templatePath.isNotBlank() && !existingMulti.contains(targetAction.templatePath)) {
-                                        existingMulti.add(0, targetAction.templatePath)
-                                    }
-                                    val primaryPath = targetAction.templatePath.ifBlank { path }
-                                    val multiAction = updatedAction.copy(
-                                        templatePath = primaryPath,
-                                        multiTemplatePaths = existingMulti.distinct()
-                                    )
-                                    updateAction(multiAction)
-                                    Toast.makeText(context, "Шаблон добавлен к мультипоиску шага #${targetAction.id} (всего: ${existingMulti.distinct().size})", Toast.LENGTH_SHORT).show()
-                                },
-                                onCancelled = {
-                                    setOverlaysVisible(true)
-                                }
-                            ).show()
+                                ).show()
+                            }
+                        } else {
+                            setOverlaysVisible(true)
                         }
-                    } else {
-                        setOverlaysVisible(true)
                     }
-                }, 80L)
+                }
             },
             onCancelled = {
                 setOverlaysVisible(true)

@@ -1294,44 +1294,46 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     )
                 } else null
 
-                mainHandler.postDelayed({
+                appScope.launch(Dispatchers.Default) {
                     val service = AutoTapAccessibilityService.instance
-                    val screenshot = service?.captureScreenshotSync(2000L)
-                    if (screenshot != null) {
-                        val safeW = cropW.coerceIn(8, screenshot.width); val safeH = cropH.coerceIn(8, screenshot.height)
-                        val safeX = cropX.coerceIn(0, screenshot.width - safeW); val safeY = cropY.coerceIn(0, screenshot.height - safeH)
-                        val cropped = Bitmap.createBitmap(screenshot, safeX, safeY, safeW, safeH)
-                        val anchor = MatchCandidate(safeX + safeW / 2, safeY + safeH / 2, safeX, safeY, safeX + safeW, safeY + safeH, 1.0f)
+                    val screenshot = service?.captureScreenshotAsync(2500L)
+                    withContext(Dispatchers.Main) {
+                        if (screenshot != null) {
+                            val safeW = cropW.coerceIn(8, screenshot.width); val safeH = cropH.coerceIn(8, screenshot.height)
+                            val safeX = cropX.coerceIn(0, screenshot.width - safeW); val safeY = cropY.coerceIn(0, screenshot.height - safeH)
+                            val cropped = Bitmap.createBitmap(screenshot, safeX, safeY, safeW, safeH)
+                            val anchor = MatchCandidate(safeX + safeW / 2, safeY + safeH / 2, safeX, safeY, safeX + safeW, safeY + safeH, 1.0f)
 
-                        LaserScanVisualizer.showSweepLaser(appContext, overlayWindowManager) {
-                            CalibrationOverlay(
-                                context = appContext, overlayWindowManager = overlayWindowManager, screenshot = screenshot,
-                                rawTemplateBitmap = cropped, initialCandidates = listOf(anchor),
-                                existingAction = initialAction, existingTemplatePath = initialAction?.templatePath?.takeIf { it.isNotBlank() },
-                                allActions = targetManager.getActions(), targetStepId = null,
-                                anchorCropX = safeX,
-                                anchorCropY = safeY,
-                                onFinished = { updatedAction, path ->
-                                    controlPanelOverlay.show(); targetManager.setOverlaysVisible(true)
-                                    val currentActions = targetManager.getActions()
-                                    if (currentActions.size == 1 && currentActions[0].type == ActionType.TRIGGER) {
-                                        val firstAct = currentActions[0]
-                                        val merged = updatedAction.copy(id = firstAct.id)
-                                        TemplateMatchingEngine.registerDiscoveredLocation(path, merged.posX.toInt(), merged.posY.toInt())
-                                        targetManager.updateAction(merged)
-                                    } else {
-                                        TemplateMatchingEngine.registerDiscoveredLocation(path, updatedAction.posX.toInt(), updatedAction.posY.toInt())
-                                        targetManager.addAction(updatedAction)
-                                    }
-                                    checkAndPromptGraphGeneration(updatedAction) {}
-                                },
-                                onCancelled = { controlPanelOverlay.show(); targetManager.setOverlaysVisible(true) }
-                            ).show()
+                            LaserScanVisualizer.showSweepLaser(appContext, overlayWindowManager) {
+                                CalibrationOverlay(
+                                    context = appContext, overlayWindowManager = overlayWindowManager, screenshot = screenshot,
+                                    rawTemplateBitmap = cropped, initialCandidates = listOf(anchor),
+                                    existingAction = initialAction, existingTemplatePath = initialAction?.templatePath?.takeIf { it.isNotBlank() },
+                                    allActions = targetManager.getActions(), targetStepId = null,
+                                    anchorCropX = safeX,
+                                    anchorCropY = safeY,
+                                    onFinished = { updatedAction, path ->
+                                        controlPanelOverlay.show(); targetManager.setOverlaysVisible(true)
+                                        val currentActions = targetManager.getActions()
+                                        if (currentActions.size == 1 && currentActions[0].type == ActionType.TRIGGER) {
+                                            val firstAct = currentActions[0]
+                                            val merged = updatedAction.copy(id = firstAct.id)
+                                            TemplateMatchingEngine.registerDiscoveredLocation(path, merged.posX.toInt(), merged.posY.toInt())
+                                            targetManager.updateAction(merged)
+                                        } else {
+                                            TemplateMatchingEngine.registerDiscoveredLocation(path, updatedAction.posX.toInt(), updatedAction.posY.toInt())
+                                            targetManager.addAction(updatedAction)
+                                        }
+                                        checkAndPromptGraphGeneration(updatedAction) {}
+                                    },
+                                    onCancelled = { controlPanelOverlay.show(); targetManager.setOverlaysVisible(true) }
+                                ).show()
+                            }
+                        } else {
+                            controlPanelOverlay.show(); targetManager.setOverlaysVisible(true)
                         }
-                    } else {
-                        controlPanelOverlay.show(); targetManager.setOverlaysVisible(true)
                     }
-                }, 80L)
+                }
             },
             onCancelled = { controlPanelOverlay.show(); targetManager.setOverlaysVisible(true) }
         ).apply { show() }
