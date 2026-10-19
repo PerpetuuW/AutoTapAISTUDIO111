@@ -613,7 +613,9 @@ class GraphEditorOverlay(
                 setOnClickListener {
                     val next = (currentRepeats - 1).coerceAtLeast(1)
                     val updatedActions = if (node.entryActions.isEmpty()) {
-                        listOf(com.example.autotap.domain.model.graph.NodeActionSpec(id = "act_${node.id}", type = ActionType.CLICK, x = 540f, y = 1200f, repeatCount = next))
+                        val cx = context.resources.displayMetrics.widthPixels / 2f
+                        val cy = context.resources.displayMetrics.heightPixels / 2f
+                        listOf(com.example.autotap.domain.model.graph.NodeActionSpec(id = "act_${node.id}", type = ActionType.CLICK, x = cx, y = cy, repeatCount = next))
                     } else {
                         node.entryActions.map { it.copy(repeatCount = next) }
                     }
@@ -644,7 +646,9 @@ class GraphEditorOverlay(
                 setOnClickListener {
                     val next = (currentRepeats + 1).coerceAtMost(999)
                     val updatedActions = if (node.entryActions.isEmpty()) {
-                        listOf(com.example.autotap.domain.model.graph.NodeActionSpec(id = "act_${node.id}", type = ActionType.CLICK, x = 540f, y = 1200f, repeatCount = next))
+                        val cx = context.resources.displayMetrics.widthPixels / 2f
+                        val cy = context.resources.displayMetrics.heightPixels / 2f
+                        listOf(com.example.autotap.domain.model.graph.NodeActionSpec(id = "act_${node.id}", type = ActionType.CLICK, x = cx, y = cy, repeatCount = next))
                     } else {
                         node.entryActions.map { it.copy(repeatCount = next) }
                     }

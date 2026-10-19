@@ -175,7 +175,9 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
             if (!file.exists() && graphFile.exists()) {
                 val graph = loadGraphScenario(name)
                 if (graph != null) {
-                    return LinearToGraphMigrator.graphToLinear(graph)
+                    val linear = LinearToGraphMigrator.graphToLinear(graph)
+                    saveScenario(linear)
+                    return linear
                 }
             }
 

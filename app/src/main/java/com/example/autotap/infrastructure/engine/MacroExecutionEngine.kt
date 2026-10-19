@@ -1197,7 +1197,7 @@ class MacroExecutionEngine(
     ): Boolean {
         when (trig.type) {
             ActionType.TRIGGER -> {
-                if (trig.templatePath.isEmpty()) return false
+                if (trig.templatePath.isEmpty() && trig.multiTemplatePaths.isEmpty()) return false
                 // [V12.0] Загрузка строго целевого набора масок шага (исключение глобальной свалки базы)
                 val targetPaths = mutableListOf<String>()
                 targetPaths.add(trig.templatePath)
