@@ -87,6 +87,20 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             val json = JSONObject(targetMeta.readText())
             val map = mutableMapOf<String, Any>()
             json.keys().forEach { map[it] = json.get(it) }
+
+            if (json.has("additionalSearchLocations")) {
+                val locArray = json.optJSONArray("additionalSearchLocations")
+                if (locArray != null) {
+                    for (i in 0 until locArray.length()) {
+                        val obj = locArray.optJSONObject(i)
+                        if (obj != null) {
+                            val x = obj.optInt("x")
+                            val y = obj.optInt("y")
+                            com.example.autotap.infrastructure.vision.TemplateMatchingEngine.registerDiscoveredLocation(path, x, y)
+                        }
+                    }
+                }
+            }
             map
         } catch (_: Exception) {
             null
@@ -203,6 +217,20 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             screenBmp?.let { bmp ->
                 FileOutputStream(screenFile).use { out -> bmp.compress(Bitmap.CompressFormat.JPEG, 90, out) }
             }
+            val learnedLocations = com.example.autotap.infrastructure.vision.TemplateMatchingEngine.additionalSearchLocations[tPath]
+            if (learnedLocations != null && learnedLocations.isNotEmpty()) {
+                val locArray = org.json.JSONArray()
+                synchronized(learnedLocations) {
+                    for (loc in learnedLocations) {
+                        locArray.put(JSONObject().apply {
+                            put("x", loc.first)
+                            put("y", loc.second)
+                        })
+                    }
+                }
+                metadata.put("additionalSearchLocations", locArray)
+            }
+
             FileOutputStream(metaFile).use { out -> out.write(metadata.toString().toByteArray()) }
 
             memoryCache.remove(tPath)

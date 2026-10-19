@@ -148,4 +148,27 @@ object ColorDetector {
         val db = b - targetLabB
         return sqrt((dL * dL + da * da + db * db).toDouble()).toFloat()
     }
+
+    fun computeDeltaESquaredFast(color: Int, targetLabL: Float, targetLabA: Float, targetLabB: Float): Float {
+        val rLin = SRGB_TO_LINEAR[(color ushr 16) and 0xFF]
+        val gLin = SRGB_TO_LINEAR[(color ushr 8) and 0xFF]
+        val bLin = SRGB_TO_LINEAR[color and 0xFF]
+
+        val x = (rLin * 0.4124f + gLin * 0.3576f + bLin * 0.1805f) / 0.95047f
+        val y = (rLin * 0.2126f + gLin * 0.7152f + bLin * 0.0722f) / 1.00000f
+        val z = (rLin * 0.0193f + gLin * 0.1192f + bLin * 0.9505f) / 1.08883f
+
+        val fx = fastCbrt(x)
+        val fy = fastCbrt(y)
+        val fz = fastCbrt(z)
+
+        val l = (116f * fy) - 16f
+        val a = 500f * (fx - fy)
+        val b = 200f * (fy - fz)
+
+        val dL = l - targetLabL
+        val da = a - targetLabA
+        val db = b - targetLabB
+        return (dL * dL + da * da + db * db)
+    }
 }

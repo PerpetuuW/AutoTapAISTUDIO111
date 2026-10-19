@@ -50,6 +50,7 @@ data class TemplateMetadata(
     val createdAt: Long? = null,
     val coVerificationTemplates: List<String> = emptyList(),
     val roiZones: List<RoiZone> = emptyList(),
+    val additionalSearchLocations: List<Point2D> = emptyList(),
     val isMultiScaleMode: Boolean = false,
     val isNeuralEngine: Boolean = false
 ) {

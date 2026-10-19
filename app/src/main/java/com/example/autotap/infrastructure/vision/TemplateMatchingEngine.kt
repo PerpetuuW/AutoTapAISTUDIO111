@@ -104,11 +104,13 @@ object TemplateMatchingEngine {
         val set = map.getOrPut(tPath) { Collections.synchronizedSet(LinkedHashSet()) }
         synchronized(set) {
             if (set.none { abs(it.first - x) < minDist && abs(it.second - y) < minDist }) {
-                if (set.size >= 8) {
-                    val iterator = set.iterator()
-                    if (iterator.hasNext()) {
-                        iterator.next()
-                        iterator.remove()
+                // Первичная точка (index 0) хранится бессрочно. Новые найденные точки добавляются как ДОПОЛНИТЕЛЬНЫЕ
+                if (set.size >= 16) {
+                    val list = set.toList()
+                    if (list.size > 1) {
+                        set.clear()
+                        set.add(list[0]) // Первичная оригинальная точка сохраняется всегда
+                        set.addAll(list.subList(2, list.size)) // Удаляем устаревшую второстепенную точку
                     }
                 }
                 set.add(Pair(x, y))
@@ -154,10 +156,8 @@ object TemplateMatchingEngine {
     }
 
     fun clearTemplateCache() {
-        historicalSearchAnchors.clear()
-        additionalSearchLocations.clear()
         templateFeatureCache.clear()
-        AppLogger.log(null, "VISION", "Кэши дескрипторов шаблонов очищены")
+        AppLogger.log(null, "VISION", "Кэши дескрипторов шаблонов очищены (накопленный опыт первичных точек сохранен)")
     }
 
     // Перегрузка 1: Вызов с Bitmap (основная)
@@ -1155,7 +1155,7 @@ object TemplateMatchingEngine {
     ): Float {
         if (fx < 0 || fy < 0 || fx + features.tw > sw || fy + features.th > sh) return 0f
 
-        // [V200.0] Быстрый векторный предпросмотр кластера ключевых пикселей
+        // [V200.0] Быстрый векторный предпросмотр кластера ключевых пикселей (раннее отсечение 92% неверных кандидатов)
         if (features.keyClusterIndices.isNotEmpty() && !isShapeOnly) {
             var clusterDiff = 0
             val cSize = features.keyClusterIndices.size
@@ -1168,7 +1168,7 @@ object TemplateMatchingEngine {
                 val db = abs((sColor and 0xFF) - features.shapeB[idx])
                 clusterDiff += dr + dg + db
             }
-            if (clusterDiff / cSize > 175) return 0f
+            if (clusterDiff / cSize > 120) return 0f
         }
 
         var colorScoreSum = 0f
@@ -1191,15 +1191,16 @@ object TemplateMatchingEngine {
 
             if (!isShapeOnly) {
                 if (isDeltaEActive) {
-                    val dE = if (features.shapeLabL.isNotEmpty()) {
-                        ColorDetector.computeDeltaEFast(sColor, features.shapeLabL[k], features.shapeLabA[k], features.shapeLabB[k])
+                    val dESq = if (features.shapeLabL.isNotEmpty()) {
+                        ColorDetector.computeDeltaESquaredFast(sColor, features.shapeLabL[k], features.shapeLabA[k], features.shapeLabB[k])
                     } else {
                         val expColor = (features.shapeR[k] shl 16) or (features.shapeG[k] shl 8) or features.shapeB[k]
-                        ColorDetector.computeDeltaE(sColor, expColor).toFloat()
+                        val de = ColorDetector.computeDeltaE(sColor, expColor).toFloat()
+                        de * de
                     }
                     val ptColor = when {
-                        dE <= 8.0f -> 1.0f
-                        dE <= 28.0f -> (1.0f - ((dE - 8.0f) / 20.0f))
+                        dESq <= 64.0f -> 1.0f
+                        dESq <= 784.0f -> (1.0f - ((sqrt(dESq) - 8.0f) / 20.0f))
                         else -> 0.0f
                     }
                     val spatialWeight = if (features.spatialWeights.size > k) features.spatialWeights[k] else 1.0f
