@@ -2214,8 +2214,7 @@ private val targetStepId: Int? = null,
                     customFileName = customName
                 )
                 com.example.autotap.infrastructure.vision.TemplateMatchingEngine.clearTemplateCache()
-                val history = com.example.autotap.infrastructure.vision.TemplateMatchingEngine.historicalSearchAnchors.getOrPut(tPath) { java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap()) }
-                history.add(Pair(finalCalibX, finalCalibY))
+                com.example.autotap.infrastructure.vision.TemplateMatchingEngine.registerDiscoveredLocation(tPath, finalCalibX, finalCalibY)
                 activeRoiZones.forEach { z ->
                     com.example.autotap.infrastructure.vision.TemplateMatchingEngine.registerDiscoveredLocation(tPath, z.centerX(), z.centerY())
                 }

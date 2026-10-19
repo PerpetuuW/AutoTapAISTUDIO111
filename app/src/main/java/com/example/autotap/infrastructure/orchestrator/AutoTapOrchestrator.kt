@@ -472,8 +472,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                                 onFinished = { updatedAction, path ->
                                     controlPanelOverlay.show()
                                     targetManager.setOverlaysVisible(true)
-                                    val history = TemplateMatchingEngine.historicalSearchAnchors.getOrPut(path) { java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap()) }
-                                    history.add(Pair(updatedAction.posX.toInt(), updatedAction.posY.toInt()))
+                                    TemplateMatchingEngine.registerDiscoveredLocation(path, updatedAction.posX.toInt(), updatedAction.posY.toInt())
                                     targetManager.updateAction(updatedAction)
                                     checkAndPromptGraphGeneration(updatedAction) {}
                                 },
@@ -556,8 +555,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                                 onFinished = { updatedAction, path ->
                                     controlPanelOverlay.show()
                                     targetManager.setOverlaysVisible(true)
-                                    val history = TemplateMatchingEngine.historicalSearchAnchors.getOrPut(path) { java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap()) }
-                                    history.add(Pair(updatedAction.posX.toInt(), updatedAction.posY.toInt()))
+                                    TemplateMatchingEngine.registerDiscoveredLocation(path, updatedAction.posX.toInt(), updatedAction.posY.toInt())
 
                                     val existingMulti = actionion.multiTemplatePaths.filter { it.isNotBlank() }.toMutableList()
                                     if (!existingMulti.contains(path)) {
@@ -932,8 +930,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     controlPanelOverlay.show()
                     targetManager.setOverlaysVisible(true)
                     TemplateMatchingEngine.clearTemplateCache()
-                    val history = TemplateMatchingEngine.historicalSearchAnchors.getOrPut(path) { java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap()) }
-                    history.add(Pair(updatedAction.posX.toInt(), updatedAction.posY.toInt()))
+                    TemplateMatchingEngine.registerDiscoveredLocation(path, updatedAction.posX.toInt(), updatedAction.posY.toInt())
                     targetManager.updateAction(updatedAction)
 
                     // Атомарная синхронизация сценария ActiveSession на диск
@@ -1317,14 +1314,13 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                                 onFinished = { updatedAction, path ->
                                     controlPanelOverlay.show(); targetManager.setOverlaysVisible(true)
                                     val currentActions = targetManager.getActions()
-                                    val history = TemplateMatchingEngine.historicalSearchAnchors.getOrPut(path) { java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap()) }
                                     if (currentActions.size == 1 && currentActions[0].type == ActionType.TRIGGER) {
                                         val firstAct = currentActions[0]
                                         val merged = updatedAction.copy(id = firstAct.id)
-                                        history.add(Pair(merged.posX.toInt(), merged.posY.toInt()))
+                                        TemplateMatchingEngine.registerDiscoveredLocation(path, merged.posX.toInt(), merged.posY.toInt())
                                         targetManager.updateAction(merged)
                                     } else {
-                                        history.add(Pair(updatedAction.posX.toInt(), updatedAction.posY.toInt()))
+                                        TemplateMatchingEngine.registerDiscoveredLocation(path, updatedAction.posX.toInt(), updatedAction.posY.toInt())
                                         targetManager.addAction(updatedAction)
                                     }
                                     checkAndPromptGraphGeneration(updatedAction) {}
