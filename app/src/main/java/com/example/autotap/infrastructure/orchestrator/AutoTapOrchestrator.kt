@@ -1204,7 +1204,6 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
     override fun onAddActionSelected(type: com.example.autotap.domain.model.ActionType, isNeural: Boolean) {
         val cx = appContext.resources.displayMetrics.widthPixels / 2f
         val cy = appContext.resources.displayMetrics.heightPixels / 2f
-        // [V180.0] Дифференциация таймингов: 1000мс для шаблонов (стабилизация UI), 100мс для обычных шагов
         val defaultDelay = if (type == ActionType.TRIGGER || type == ActionType.COLOR_CHECK || type == ActionType.OCR) 1000L else 100L
         when (type) {
             ActionType.TRIGGER -> {
@@ -1223,6 +1222,9 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 targetManager.getActions().lastOrNull()?.let { newAction ->
                     showEditDialog(newAction)
                 }
+            }
+            ActionType.CLICK, ActionType.LONG_PRESS, ActionType.SWIPE, ActionType.DELAY, ActionType.GLOBAL_BACK, ActionType.GLOBAL_HOME -> {
+                targetManager.addActionAt(cx, cy, type, delayMs = defaultDelay)
             }
             else -> {
                 targetManager.addActionAt(cx, cy, type, delayMs = defaultDelay)

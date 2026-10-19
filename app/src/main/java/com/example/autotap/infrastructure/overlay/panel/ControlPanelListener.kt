@@ -4,12 +4,12 @@ interface ControlPanelListener {
     fun onPlayClicked()
     fun onPlayLongClicked()
     fun onAddClicked()
-    fun onAddActionSelected(type: com.example.autotap.domain.model.ActionType) { onAddClicked() }
-    fun onAddActionSelected(type: com.example.autotap.domain.model.ActionType, isNeural: Boolean) { onAddActionSelected(type) }
+    fun onAddActionSelected(type: com.example.autotap.domain.model.ActionType)
+    fun onAddActionSelected(type: com.example.autotap.domain.model.ActionType, isNeural: Boolean)
     fun onRecordClicked()
-    fun onSmartRecordClicked() { onRecordClicked() }
+    fun onSmartRecordClicked()
     fun onCaptureClicked()
-    fun onSaveClicked() {}
+    fun onSaveClicked()
     fun onScriptsClicked()
     fun onSettingsClicked()
     fun onJoystickClicked()
@@ -17,7 +17,7 @@ interface ControlPanelListener {
     fun onClearAllClicked()
     fun onToggleNumbersClicked()
     fun onHelpClicked()
-    fun onLogsClicked() { onHelpClicked() }
+    fun onLogsClicked()
     fun onCloseClicked()
     fun onGraphClicked()
 }
