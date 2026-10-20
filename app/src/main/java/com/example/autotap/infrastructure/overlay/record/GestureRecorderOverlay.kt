@@ -116,16 +116,33 @@ class GestureRecorderOverlay(
     private val dm = context.resources.displayMetrics
     private fun dp(v: Int): Int = (v * dm.density).toInt()
     private fun dpF(v: Float): Float = v * dm.density
-    private fun restoreTouchAfter(delayMs: Long) {
-        restoreTouchRunnable?.let { mainHandler.removeCallbacks(it) }
-        val restoreTask = Runnable {
-            isDispatchingSyntheticClick = false
-            val layer = canvasLayer
-            val params = canvasParams ?: (layer?.layoutParams as? WindowManager.LayoutParams)
-            if (layer != null && params != null) {
-                params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+    private fun setOverlayTouchable(touchable: Boolean) {
+        val updateTask = Runnable {
+            isDispatchingSyntheticClick = !touchable
+            val layer = canvasLayer ?: return@Runnable
+            val params = canvasParams ?: (layer.layoutParams as? WindowManager.LayoutParams) ?: return@Runnable
+            val newFlags = if (touchable) {
+                params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+            } else {
+                params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            }
+            if (params.flags != newFlags) {
+                params.flags = newFlags
                 overlayWindowManager.updateViewSafe(layer, params)
             }
+            layer.alpha = if (touchable) 1f else 0f
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            updateTask.run()
+        } else {
+            mainHandler.post(updateTask)
+        }
+    }
+
+    private fun restoreTouchAfter(delayMs: Long = 35L) {
+        restoreTouchRunnable?.let { mainHandler.removeCallbacks(it) }
+        val restoreTask = Runnable {
+            setOverlayTouchable(true)
         }
         restoreTouchRunnable = restoreTask
         mainHandler.postDelayed(restoreTask, delayMs)
@@ -173,7 +190,6 @@ class GestureRecorderOverlay(
 
         canvas.setOnTouchListener { _, event ->
             if (isDispatchingSyntheticClick) {
-                com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "Синтетический тач не перехватывается оверлеем (passthrough=true, action=${event.actionMasked})")
                 return@setOnTouchListener false
             }
 
@@ -182,91 +198,65 @@ class GestureRecorderOverlay(
 
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "ACTION_DOWN: x=$curX, y=$curY")
+                    AppLogger.log(context, "RECORDER", "ACTION_DOWN: x=$curX, y=$curY")
                     touchDownX = curX
                     touchDownY = curY
                     touchStartTime = System.currentTimeMillis()
                     currentTouchPoints.clear()
-                    currentTouchPoints.add(Point2D(curX, curY))
-                    liveLastPointX = curX
-                    liveLastPointY = curY
-                    isLiveStreamingActive = true
-                    AutoTapAccessibilityService.instance?.gestureDispatcher?.sendLivePathStart(curX, curY)
+                    currentTouchPoints.add(Point2D(curX, curY, 0L))
                     canvas.invalidate()
                     true
                 }
 
                 MotionEvent.ACTION_MOVE -> {
-                    // [Live Motion Streaming] Потоковая передача движения
                     val lastPt = currentTouchPoints.lastOrNull()
                     val dist = hypot((curX - (lastPt?.x ?: curX)).toDouble(), (curY - (lastPt?.y ?: curY)).toDouble())
                     if (lastPt == null || dist > 3.0) {
-                        currentTouchPoints.add(Point2D(curX, curY, System.currentTimeMillis() - touchStartTime))
-                        if (isLiveStreamingActive && dist > 3.0) {
-                            AutoTapAccessibilityService.instance?.gestureDispatcher?.sendLivePathUpdate(liveLastPointX, liveLastPointY, curX, curY)
-                            liveLastPointX = curX
-                            liveLastPointY = curY
-                        }
+                        val offsetMs = (System.currentTimeMillis() - touchStartTime).coerceAtLeast(1L)
+                        currentTouchPoints.add(Point2D(curX, curY, offsetMs))
                         canvas.invalidate()
                     }
                     true
                 }
+
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    val wasStreaming = isLiveStreamingActive
-                    if (isLiveStreamingActive) {
-                        AutoTapAccessibilityService.instance?.gestureDispatcher?.sendLivePathFinish(curX, curY)
-                        isLiveStreamingActive = false
-                    }
-                    val duration = (System.currentTimeMillis() - touchStartTime).coerceAtLeast(30L)
-                    val actualDelay = if (lastRecordEventTime > 0L) (touchStartTime - lastRecordEventTime).coerceIn(20L, 60000L) else 200L
-                    lastRecordEventTime = System.currentTimeMillis()
-                    val startPt = currentTouchPoints.firstOrNull() ?: Point2D(curX, curY)
-                    val endPt = Point2D(curX, curY)
+                    val now = System.currentTimeMillis()
+                    val duration = (now - touchStartTime).coerceAtLeast(30L)
+                    val actualDelay = if (lastRecordEventTime > 0L) {
+                        (touchStartTime - lastRecordEventTime).coerceIn(20L, 60000L)
+                    } else 200L
+
+                    val startPt = currentTouchPoints.firstOrNull() ?: Point2D(curX, curY, 0L)
+                    val endPt = Point2D(curX, curY, duration)
                     val totalDistance = hypot((endPt.x - startPt.x).toDouble(), (endPt.y - startPt.y).toDouble()).toFloat()
 
                     val nextId = recordedActions.size + 1
-                    val dispatcher = AutoTapAccessibilityService.instance?.gestureDispatcher
+                    val service = AutoTapAccessibilityService.instance
+                    val dispatcher = service?.gestureDispatcher
 
-                    canvasParams.flags = canvasParams.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                    overlayWindowManager.updateViewSafe(canvasLayer, canvasParams)
-                    com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "ACTION_UP: Оверлей переведен в passthrough (FLAG_NOT_TOUCHABLE), totalDist=%.1f, duration=${duration}ms".format(totalDistance))
+                    // Очищаем линию на холсте и переводим оверлей в passthrough (FLAG_NOT_TOUCHABLE)
+                    val capturedPoints = currentTouchPoints.toList()
+                    currentTouchPoints.clear()
+                    canvas.invalidate()
+                    setOverlayTouchable(false)
 
-                    val gestureDuration: Long
-
+                    // 1. КОРОТКИЙ КЛИК (TAP)
                     if (totalDistance < dpF(12f) && duration < 350L) {
                         if (isDebouncedDuplicate(startPt.x, startPt.y)) {
-                            restoreTouchAfter(40L)
-                            currentTouchPoints.clear()
-                            canvas.invalidate()
+                            restoreTouchAfter(30L)
                             return@setOnTouchListener true
                         }
-                        gestureDuration = duration.coerceIn(30L, 120L)
-                        isDispatchingSyntheticClick = true
-                        // VSYNC Flush: очистка холста и мгновенная инжекция клика без блокировки UI
-                        currentTouchPoints.clear()
-                        canvas.alpha = 0f
-                        canvas.invalidate()
+                        lastRecordEventTime = System.currentTimeMillis()
+                        val gestureDuration = duration.coerceIn(30L, 120L)
 
                         if (isSmartTemplateMode) {
-                            // Оффлоад тяжелой задачи в фоновый поток (Zero Main Thread Block)
                             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                                val service = AutoTapAccessibilityService.instance
-                                com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "SmartRecord IO: Запуск захвата скриншота...")
-
-                                // [V12.0] Активация экрана перед захватом
-                                val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as? android.os.PowerManager
-                                @Suppress("DEPRECATION")
-                                val wakeLock = pm?.newWakeLock(android.os.PowerManager.SCREEN_BRIGHT_WAKE_LOCK or android.os.PowerManager.ACQUIRE_CAUSES_WAKEUP, "AutoTap:SmartRecord")
-                                wakeLock?.acquire(3000L)
-
-                                // Делаем скриншот ДО инжекции жеста (чистый кадр без кружка нажатия)
+                                // Снимаем ЧИСТЫЙ скриншот до того, как клик уйдет в игру
                                 val screenshot = service?.captureScreenshotSync(1200L)
 
-                                kotlinx.coroutines.delay(60L) // Пауза для синхронизации WindowManager в System Server
-                                com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "SmartRecord IO: Вызов performClick в (${startPt.x}, ${startPt.y})...")
-                                val clickDispatched = service?.gestureDispatcher?.performClick(startPt.x, startPt.y, gestureDuration) ?: false
-                                com.example.autotap.core.logger.AppLogger.log(context, "RECORDER", "SmartRecord IO: performClick результат=$clickDispatched")
-                                kotlinx.coroutines.delay(120L)
+                                // Отправляем клик в игру и ждем его завершения
+                                dispatcher?.performClickSync(startPt.x, startPt.y, gestureDuration, 1500L)
+                                lastRecordEventTime = System.currentTimeMillis()
 
                                 if (screenshot != null && !screenshot.isRecycled) {
                                     try {
@@ -276,34 +266,33 @@ class GestureRecorderOverlay(
                                         val safeY = (startPt.y.toInt() - half).coerceIn(0, screenshot.height - cropSize)
                                         val cropped = android.graphics.Bitmap.createBitmap(screenshot, safeX, safeY, cropSize, cropSize)
 
-                                        // Прогоняем сырой квадрат через SmartMaskEngine для выжигания фона
                                         val sw = cropped.width
                                         val sh = cropped.height
                                         val sPixels = com.example.autotap.infrastructure.vision.PixelBufferPool.obtain(sw * sh)
-                                        cropped.getPixels(sPixels, 0, sw, 0, 0, sw, sh)
-
-                                        val opt = com.example.autotap.infrastructure.vision.SmartMaskEngine.autoOptimizeGlyphSegmentationFast(
-                                            rawTemplate = cropped,
-                                            screenshotPixels = sPixels,
-                                            sw = sw,
-                                            sh = sh,
-                                            anchorX = sw / 2,
-                                            anchorY = sh / 2,
-                                            isCircle = false,
-                                            isShapeOnly = false
-                                        )
-                                        com.example.autotap.infrastructure.vision.PixelBufferPool.release(sPixels)
+                                        val opt = try {
+                                            cropped.getPixels(sPixels, 0, sw, 0, 0, sw, sh)
+                                            com.example.autotap.infrastructure.vision.SmartMaskEngine.autoOptimizeGlyphSegmentationFast(
+                                                rawTemplate = cropped,
+                                                screenshotPixels = sPixels,
+                                                sw = sw,
+                                                sh = sh,
+                                                anchorX = sw / 2,
+                                                anchorY = sh / 2,
+                                                isCircle = false,
+                                                isShapeOnly = false
+                                            )
+                                        } finally {
+                                            com.example.autotap.infrastructure.vision.PixelBufferPool.release(sPixels)
+                                        }
 
                                         val finalMask = opt.bestMask
                                         val morph = com.example.autotap.infrastructure.vision.TemplateMorphologyClassifier.analyze(finalMask)
 
-                                        // [V16.0] Центрирование относительно обнаруженного объекта + точный оффсет клика
                                         val objCenterX = safeX + opt.cropOffsetX + (finalMask.width / 2f)
                                         val objCenterY = safeY + opt.cropOffsetY + (finalMask.height / 2f)
                                         val clickOffX = startPt.x - objCenterX
                                         val clickOffY = startPt.y - objCenterY
 
-                                        // Вырезаем согласованный сырой фрагмент точно под размер маски
                                         val rawCropped = try {
                                             val rx = opt.cropOffsetX.coerceIn(0, (cropped.width - finalMask.width).coerceAtLeast(0))
                                             val ry = opt.cropOffsetY.coerceIn(0, (cropped.height - finalMask.height).coerceAtLeast(0))
@@ -329,7 +318,7 @@ class GestureRecorderOverlay(
                                             put("cropHeight", finalMask.height)
                                             put("optimalGridStep", calculatedGridStep)
                                             put("cropSize", maxOf(finalMask.width, finalMask.height))
-                                            put("useCustomClickOffset", kotlin.math.abs(clickOffX) > 1.5f || kotlin.math.abs(clickOffY) > 1.5f)
+                                            put("useCustomClickOffset", abs(clickOffX) > 1.5f || abs(clickOffY) > 1.5f)
                                             put("clickOffsetX", clickOffX)
                                             put("clickOffsetY", clickOffY)
                                             put("calibratedX", objCenterX.toInt())
@@ -337,91 +326,113 @@ class GestureRecorderOverlay(
                                             put("createdAt", System.currentTimeMillis())
                                         }
 
-                                        // Сохраняем маску, синхронный кроп и полный экран для последующей калибровки
-                                        val repoImpl = templateRepo as? com.example.autotap.infrastructure.storage.TemplateRepositoryImpl
-                                        val tPath = if (repoImpl != null) {
-                                            repoImpl.saveTemplateWithScreen("smart_record", null, finalMask, rawCropped, screenshot, meta)
-                                            } else {
-                                            templateRepo.saveTemplate("smart_record", null, finalMask, rawCropped, meta)
-                                            }
+                                        val tPath = templateRepo.saveTemplateWithScreen("smart_record", null, finalMask, rawCropped, screenshot, meta)
 
-                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                            recordedActions.add(MacroAction(
-                                                id = nextId,
-                                                type = ActionType.TRIGGER,
-                                                posX = objCenterX,
-                                                posY = objCenterY,
-                                                templatePath = tPath,
-                                                similarityPercent = opt.bestSimilarity.coerceAtLeast(80),
-                                                isShapeOnlyMode = morph.isShapeOnlyRecommended,
-                                                clickAiTarget = true,
-                                                useCustomClickOffset = kotlin.math.abs(clickOffX) > 1.5f || kotlin.math.abs(clickOffY) > 1.5f,
-                                                clickOffsetX = clickOffX,
-                                                clickOffsetY = clickOffY,
-                                                holdDurationMs = gestureDuration,
-                                                delayMs = actualDelay
-                                            ))
+                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                            recordedActions.add(
+                                                MacroAction(
+                                                    id = nextId,
+                                                    type = ActionType.TRIGGER,
+                                                    posX = objCenterX,
+                                                    posY = objCenterY,
+                                                    templatePath = tPath,
+                                                    similarityPercent = opt.bestSimilarity.coerceAtLeast(80),
+                                                    isShapeOnlyMode = morph.isShapeOnlyRecommended,
+                                                    clickAiTarget = true,
+                                                    useCustomClickOffset = abs(clickOffX) > 1.5f || abs(clickOffY) > 1.5f,
+                                                    clickOffsetX = clickOffX,
+                                                    clickOffsetY = clickOffY,
+                                                    holdDurationMs = gestureDuration,
+                                                    delayMs = actualDelay
+                                                )
+                                            )
                                             tvRecordCount?.text = "REC: ${recordedActions.size}"
-                                            Toast.makeText(context, "Шаблон #${nextId} захвачен", Toast.LENGTH_SHORT).show()
-                                            canvas.alpha = 1f
-                                            restoreTouchAfter(40L)
-                                            }
-                                            } catch (_: Exception) {}
-                                            finally {
-                                            screenshot.recycle()
-                                            }
-                                            } else {
-                                            // Фолбэк на обычный клик, если скриншот не удался
-                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                            recordedActions.add(MacroAction(id = nextId, type = ActionType.CLICK, posX = startPt.x, posY = startPt.y, holdDurationMs = gestureDuration, delayMs = actualDelay))
-                                            tvRecordCount?.text = "REC: ${recordedActions.size}"
-                                            canvas.alpha = 1f
-                                            restoreTouchAfter(40L)
-                                            }
-                                            }
-                                            }
-                                            } else {
-                                            // Режим обычных жестов: жест транслируется ВЖИВУЮ в реальном времени
-                                            recordedActions.add(MacroAction(id = nextId, type = ActionType.CLICK, posX = startPt.x, posY = startPt.y, holdDurationMs = gestureDuration, delayMs = actualDelay))
-                                            canvas.alpha = 1f
-                                            restoreTouchAfter(40L)
-                                            }
-                                             } else if (totalDistance < dpF(12f) && duration >= 350L) {
-                        val gestureDuration = duration.coerceAtLeast(350L)
-                        recordedActions.add(MacroAction(id = nextId, type = ActionType.LONG_PRESS, posX = startPt.x, posY = startPt.y, holdDurationMs = gestureDuration, delayMs = actualDelay))
-                        restoreTouchAfter(60L)
-                    } else {
-                        // [Умный классификатор жестов]: разделение на СВАЙП (SWIPE) и ПУТЬ (PATH) по отклонению от прямой
-                        val maxDev = computeMaxDeviation(currentTouchPoints, startPt, endPt)
-                        val defaultPathDur = com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(context).globalPathDurationMs
-                        val recordedHoldDuration = if (duration > 30L) duration else defaultPathDur
-
-                        if (maxDev < dpF(18f)) {
-                            // Прямолинейный жест -> СВАЙП (ActionType.SWIPE)
-                            recordedActions.add(MacroAction(
+                                            Toast.makeText(context, "Шаблон #$nextId захвачен", Toast.LENGTH_SHORT).show()
+                                            restoreTouchAfter(35L)
+                                        }
+                                    } catch (e: Exception) {
+                                        AppLogger.logError(context, "RECORDER_SMART", e)
+                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                            restoreTouchAfter(35L)
+                                        }
+                                    } finally {
+                                        if (!screenshot.isRecycled) screenshot.recycle()
+                                    }
+                                } else {
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                        recordedActions.add(MacroAction(id = nextId, type = ActionType.CLICK, posX = startPt.x, posY = startPt.y, holdDurationMs = gestureDuration, delayMs = actualDelay))
+                                        tvRecordCount?.text = "REC: ${recordedActions.size}"
+                                        restoreTouchAfter(35L)
+                                    }
+                                }
+                            }
+                        } else {
+                            // Обычный клик: записываем и пробрасываем в игру ровно 1 раз
+                            recordedActions.add(
+                                MacroAction(
+                                    id = nextId,
+                                    type = ActionType.CLICK,
+                                    posX = startPt.x,
+                                    posY = startPt.y,
+                                    holdDurationMs = gestureDuration,
+                                    delayMs = actualDelay
+                                )
+                            )
+                            tvRecordCount?.text = "REC: ${recordedActions.size}"
+                            if (dispatcher != null) {
+                                dispatcher.performClickAsync(startPt.x, startPt.y, gestureDuration) {
+                                    lastRecordEventTime = System.currentTimeMillis()
+                                    restoreTouchAfter(30L)
+                                }
+                            } else {
+                                restoreTouchAfter(30L)
+                            }
+                        }
+                    }
+                    // 2. ДОЛГОЕ УДЕРЖАНИЕ (LONG PRESS)
+                    else if (totalDistance < dpF(12f) && duration >= 350L) {
+                        lastRecordEventTime = System.currentTimeMillis()
+                        val holdDur = duration.coerceIn(350L, 10000L)
+                        recordedActions.add(
+                            MacroAction(
                                 id = nextId,
-                                type = ActionType.SWIPE,
+                                type = ActionType.LONG_PRESS,
                                 posX = startPt.x,
                                 posY = startPt.y,
-                                endX = endPt.x,
-                                endY = endPt.y,
-                                holdDurationMs = recordedHoldDuration,
+                                holdDurationMs = holdDur,
                                 delayMs = actualDelay
-                            ))
-                        } else {
-                            // Дугообразный/сложный жест -> ПУТЬ (ActionType.PATH)
-                            val compressedPoints = PathCompressionEngine.compressRecordedPath(currentTouchPoints.toList(), maxPoints = 60)
-                            val finalPathPoints = if (compressedPoints.size < 3) {
-                                val p0 = compressedPoints.firstOrNull() ?: startPt
-                                val p1 = compressedPoints.lastOrNull() ?: endPt
-                                val midX = (p0.x + p1.x) / 2f
-                                val midY = (p0.y + p1.y) / 2f
-                                val midTime = (p0.timeOffsetMs + p1.timeOffsetMs) / 2L
-                                listOf(p0, Point2D(midX, midY, midTime), p1)
-                            } else {
-                                compressedPoints
+                            )
+                        )
+                        tvRecordCount?.text = "REC: ${recordedActions.size}"
+                        if (dispatcher != null) {
+                            dispatcher.performClickAsync(startPt.x, startPt.y, holdDur) {
+                                lastRecordEventTime = System.currentTimeMillis()
+                                restoreTouchAfter(35L)
                             }
-                            recordedActions.add(MacroAction(
+                        } else {
+                            restoreTouchAfter(35L)
+                        }
+                    }
+                    // 3. ТРАЕКТОРИЯ / СВАЙП (PATH)
+                    else {
+                        lastRecordEventTime = System.currentTimeMillis()
+                        val compressedPoints = PathCompressionEngine.compressPath(capturedPoints, maxPoints = 80)
+                        val defaultPathDur = com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(context).globalPathDurationMs
+                        val recordedHoldDuration = if (duration > 30L) duration.coerceAtMost(10000L) else defaultPathDur
+
+                        val finalPathPoints = if (compressedPoints.size < 3) {
+                            val p0 = compressedPoints.firstOrNull() ?: startPt
+                            val p1 = compressedPoints.lastOrNull() ?: endPt
+                            val midX = (p0.x + p1.x) / 2f
+                            val midY = (p0.y + p1.y) / 2f
+                            val midTime = (p0.timeOffsetMs + p1.timeOffsetMs) / 2L
+                            listOf(p0, Point2D(midX, midY, midTime), p1)
+                        } else {
+                            compressedPoints
+                        }
+
+                        recordedActions.add(
+                            MacroAction(
                                 id = nextId,
                                 type = ActionType.PATH,
                                 posX = startPt.x,
@@ -431,23 +442,22 @@ class GestureRecorderOverlay(
                                 holdDurationMs = recordedHoldDuration,
                                 delayMs = actualDelay,
                                 pathPoints = finalPathPoints
-                            ))
-                        }
-                        restoreTouchAfter(60L)
-                    }
-                    val lastAct = recordedActions.lastOrNull()
-                    if (lastAct != null) {
-                        com.example.autotap.core.logger.AppLogger.log(
-                            context,
-                            "GESTURE_RECORDER",
-                            "Записан жест #${lastAct.id} [${lastAct.type}]: start=(${startPt.x.toInt()}, ${startPt.y.toInt()}), end=(${endPt.x.toInt()}, ${endPt.y.toInt()}), dist=%.1fpx, dur=${duration}ms, delay=${actualDelay}ms".format(totalDistance)
+                            )
                         )
+                        tvRecordCount?.text = "REC: ${recordedActions.size}"
+
+                        // Проигрываем траекторию в игру и возвращаем перехват ТОЛЬКО по завершении жеста
+                        if (dispatcher != null) {
+                            dispatcher.performPathAsync(finalPathPoints, recordedHoldDuration) {
+                                lastRecordEventTime = System.currentTimeMillis()
+                                restoreTouchAfter(35L)
+                            }
+                        } else {
+                            restoreTouchAfter(35L)
+                        }
                     }
-                    currentTouchPoints.clear()
-                    tvRecordCount?.text = "REC: ${recordedActions.size}"
-                    canvas.invalidate()
                     true
-                    }
+                }
                 else -> false
             }
         }
