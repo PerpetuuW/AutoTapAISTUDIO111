@@ -121,7 +121,6 @@ class ScreenLockOverlay(
             width = realW,
             height = realH,
             flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                     WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             gravity = Gravity.TOP or Gravity.START
