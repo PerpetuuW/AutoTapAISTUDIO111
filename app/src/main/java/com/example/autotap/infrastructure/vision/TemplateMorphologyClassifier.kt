@@ -44,7 +44,7 @@ object TemplateMorphologyClassifier {
     }
 
     fun analyze(pixels: IntArray, w: Int, h: Int): TemplateAnalysisResult {
-        if (pixels.isEmpty() || w <= 0 || h <= 0) {
+        if (pixels.size < w * h || w <= 0 || h <= 0) {
             return TemplateAnalysisResult(
                 morphology = TemplateMorphology.MICRO,
                 archetype = TemplateArchetype.MONOCHROME_SILHOUETTE,
@@ -112,7 +112,7 @@ object TemplateMorphologyClassifier {
     }
 
     private fun isMonochromaticSilhouette(pixels: IntArray, w: Int, h: Int): Boolean {
-        if (pixels.isEmpty() || w <= 0 || h <= 0) return false
+        if (pixels.size < w * h || w <= 0 || h <= 0) return false
         val total = w * h
         var satSum = 0L
         var rSum = 0L

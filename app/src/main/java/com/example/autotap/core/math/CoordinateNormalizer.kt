@@ -39,7 +39,7 @@ object CoordinateNormalizer {
     fun mapPoint(point: Point2D, transform: ScaleTransform, boundsW: Int, boundsH: Int): Point2D {
         val mappedX = (point.x * transform.scale + transform.offsetX).coerceIn(0f, boundsW.toFloat())
         val mappedY = (point.y * transform.scale + transform.offsetY).coerceIn(0f, boundsH.toFloat())
-        return Point2D(mappedX, mappedY)
+        return Point2D(mappedX, mappedY, point.timeOffsetMs)
     }
 
     fun mapRect(left: Int, top: Int, right: Int, bottom: Int, transform: ScaleTransform, boundsW: Int, boundsH: Int): IntArray {

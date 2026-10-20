@@ -47,7 +47,8 @@ class GesturePathPlayer(
             }
         }
 
-        val duration = effectivePoints.last().timeOffsetMs.coerceAtLeast(30L)
+        val lastTime = effectivePoints.last().timeOffsetMs
+        val duration = if (lastTime > 0L) lastTime.coerceAtLeast(30L) else action.holdDurationMs.coerceAtLeast(30L)
         val stroke = GestureDescription.StrokeDescription(androidPath, 0L, duration)
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
 

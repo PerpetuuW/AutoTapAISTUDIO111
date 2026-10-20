@@ -6,6 +6,7 @@ object ExpressionEvaluator {
 
     private val OPERATORS = listOf("<=", ">=", "!=", "==", "<", ">")
     private val NUMBER_REGEX = Regex("""[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?[kmbKMBкКмМбБ]?""")
+    private val THOUSANDS_SEPARATOR_REGEX = Regex("""(?<=\d),(?=\d{3}(?:[^\d]|$))""")
 
     fun cleanToken(raw: String): String {
         var s = raw.trim()
@@ -21,7 +22,9 @@ object ExpressionEvaluator {
     }
 
     fun parseGameNumber(raw: String): Double? {
-        val clean = cleanToken(raw).replace(" ", "").replace(",", "").lowercase()
+        var clean = cleanToken(raw).replace(" ", "").lowercase()
+        clean = THOUSANDS_SEPARATOR_REGEX.replace(clean, "")
+        clean = clean.replace(",", ".")
         val match = NUMBER_REGEX.find(clean)?.value ?: return clean.toDoubleOrNull()
         return when {
             match.endsWith("k") || match.endsWith("к") -> {
@@ -52,8 +55,8 @@ object ExpressionEvaluator {
             val leftKey = cleanToken(parts[0])
             val rightKey = cleanToken(parts[1])
 
-            val leftVal = variables[leftKey] ?: parts[0]
-            val rightVal = variables[rightKey] ?: parts[1]
+            val leftVal = variables[leftKey] ?: variables[leftKey.lowercase()] ?: parts[0]
+            val rightVal = variables[rightKey] ?: variables[rightKey.lowercase()] ?: parts[1]
 
             val leftNum = parseGameNumber(leftVal)
             val rightNum = parseGameNumber(rightVal)

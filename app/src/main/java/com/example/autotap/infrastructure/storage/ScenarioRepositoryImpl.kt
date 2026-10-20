@@ -137,6 +137,7 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                             pArr.put(JSONObject().apply {
                                 put("x", pt.x.toDouble())
                                 put("y", pt.y.toDouble())
+                                put("t", pt.timeOffsetMs)
                             })
                         }
                         put("pathPoints", pArr)
@@ -251,7 +252,7 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                     val pArr = obj.getJSONArray("pathPoints")
                     for (k in 0 until pArr.length()) {
                         val ptObj = pArr.getJSONObject(k)
-                        pList.add(CoordinateNormalizer.mapPoint(Point2D(ptObj.getDouble("x").toFloat(), ptObj.getDouble("y").toFloat()), transform, curSpecs.screenWidth, curSpecs.screenHeight))
+                        pList.add(CoordinateNormalizer.mapPoint(Point2D(ptObj.getDouble("x").toFloat(), ptObj.getDouble("y").toFloat(), ptObj.optLong("t", 0L)), transform, curSpecs.screenWidth, curSpecs.screenHeight))
                     }
                 }
 
@@ -435,6 +436,7 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                                     ptsArr.put(JSONObject().apply {
                                         put("x", pt.x.toDouble())
                                         put("y", pt.y.toDouble())
+                                        put("t", pt.timeOffsetMs)
                                     })
                                 }
                                 put("pathPoints", ptsArr)
@@ -633,7 +635,7 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                 if (ptsArr != null) {
                     for (p in 0 until ptsArr.length()) {
                         val ptObj = ptsArr.getJSONObject(p)
-                        pathPts.add(CoordinateNormalizer.mapPoint(Point2D(ptObj.getDouble("x").toFloat(), ptObj.getDouble("y").toFloat()), transform, curSpecs.screenWidth, curSpecs.screenHeight))
+                        pathPts.add(CoordinateNormalizer.mapPoint(Point2D(ptObj.getDouble("x").toFloat(), ptObj.getDouble("y").toFloat(), ptObj.optLong("t", 0L)), transform, curSpecs.screenWidth, curSpecs.screenHeight))
                     }
                 }
 

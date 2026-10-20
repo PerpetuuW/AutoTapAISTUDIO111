@@ -15,7 +15,12 @@ data class MatchCandidate(
     val clickOffsetY: Float = 0f,
     val isShapeOnly: Boolean = false
 ) {
-    val templateName: String get() = if (templatePath.isNotEmpty()) File(templatePath).nameWithoutExtension else ""
+    val templateName: String
+        get() = when {
+            templatePath.isEmpty() -> ""
+            templatePath.startsWith("ocr:") -> templatePath.removePrefix("ocr:")
+            else -> File(templatePath).nameWithoutExtension
+        }
     val width: Int get() = (rectRight - rectLeft).coerceAtLeast(1)
     val height: Int get() = (rectBottom - rectTop).coerceAtLeast(1)
 }
