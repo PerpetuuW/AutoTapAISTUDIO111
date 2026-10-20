@@ -845,15 +845,9 @@ object TemplateMatchingEngine {
 
         // =========================================================================
         // ЭТАП 2: Адаптивное регулярное сеточное сканирование (TIER 2 Grid Scan)
-        // Запускается ТОЛЬКО для масок, не найденных на опорных точках!
+        // Запускается ТОЛЬКО для масок, еще не найденных на опорных точках!
         // =========================================================================
-        val contextsForGridScan = if (findAllMatches) {
-            preparedContexts.filter { !matchedTemplates.contains(it.tPath) }
-        } else if (allCandidates.isEmpty()) {
-            preparedContexts
-        } else {
-            emptyList()
-        }
+        val contextsForGridScan = preparedContexts.filter { !matchedTemplates.contains(it.tPath) }
 
         for (ctx in contextsForGridScan) {
             if (isCancelled()) break

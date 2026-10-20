@@ -67,10 +67,7 @@ class ScreenLockOverlay(
     fun isShowing(): Boolean = bgLockContainer != null
 
     fun setTemporarilyTransparent(transparent: Boolean) {
-        mainHandler.post {
-            bgLockContainer?.setBackgroundColor(if (transparent) Color.TRANSPARENT else currentBgColor)
-            uiLockContainer?.alpha = 1f
-        }
+        // [V25.0] Без переключения цвета заднего слоя во время поиска, чтобы исключить вспышки яркости
     }
 
 
