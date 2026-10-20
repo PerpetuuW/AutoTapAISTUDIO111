@@ -413,7 +413,7 @@ class InteractiveTutorialOverlay(
             tvDesc.text = desc
             btnNext.text = if (currentStep == steps.size - 1) "ГОТОВО" else "ДАЛЕЕ"
 
-            val isSubRowStep = tagKey in listOf("BTN_SCRIPTS", "BTN_SETTINGS", "BTN_HIDE", "BTN_LOCK", "BTN_CLEAR", "BTN_GRAPH", "BTN_LOGS")
+            val isSubRowStep = tagKey in listOf("BTN_SCRIPTS", "BTN_SETTINGS", "BTN_HIDE", "BTN_LOCK", "BTN_CLEAR", "BTN_GRAPH", "BTN_LOGS", "BTN_TUTORIAL")
             if (isSubRowStep) {
                 try {
                     val host = hostViewProvider?.invoke()

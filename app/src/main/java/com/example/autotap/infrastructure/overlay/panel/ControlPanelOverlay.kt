@@ -391,40 +391,14 @@ class ControlPanelOverlay(
         }
         mainRow.addView(btnToggle)
 
-        // 6. ПРАВЫЙ СТОЛБЕЦ ДЕЙСТВИЙ: ЗАКРЫТЬ X (СВЕРХУ) + СПРАВКА ? (СНИЗУ)
-        val rightActionColumn = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                val m = dp(1)
-                setMargins(m, m, m, m)
-            }
-        }
-
-        // КРЕСТИК ЗАКРЫТИЯ X (СПРАВА СВЕРХУ)
-        val btnClose = createBtn(VectorIconDrawer.IconType.CLOSE, "#F04438", 26, "BTN_CLOSE") { listener.onCloseClicked() }
-        rightActionColumn.addView(btnClose)
-
-        // ОБУЧЕНИЕ И СПРАВКА ? (СТРОГО ПОД КРЕСТИКОМ СНИЗУ, ФИОЛЕТОВАЯ)
-        val btnHelp = createBtn(VectorIconDrawer.IconType.HELP, "#A78BFA", 26, "BTN_TUTORIAL") {
-            InteractiveTutorialOverlay(
-                context = context,
-                overlayWindowManager = overlayWindowManager,
-                mode = InteractiveTutorialOverlay.TutorialMode.CONTROL_PANEL,
-                hostViewProvider = { rootView }
-            ).show()
-        }
-        rightActionColumn.addView(btnHelp)
-
-        mainRow.addView(rightActionColumn)
+        // 6. КРЕСТИК ЗАКРЫТИЯ X (НА 1-М УРОВНЕ СПРАВА)
+        val btnClose = createBtn(VectorIconDrawer.IconType.CLOSE, "#F04438", 32, "BTN_CLOSE") { listener.onCloseClicked() }
+        mainRow.addView(btnClose)
 
         rootLinear.addView(mainRow)
 
         // =========================================================================
-        // РЯД 2: ОБТЕКАЕМАЯ ШТОРКА ИНСТРУМЕНТОВ (БЕЗ ПУСТЫХ УГЛОВ)
+        // РЯД 2: ОБТЕКАЕМАЯ ШТОРКА ИНСТРУМЕНТОВ (С ВОПРОСОМ ? СПРАВА)
         // =========================================================================
         val subRow = LinearLayout(context).apply {
             tag = "SUB_ROW"
@@ -467,6 +441,17 @@ class ControlPanelOverlay(
         // 5. Очистить все (корзина)
         val btnClear = createBtn(VectorIconDrawer.IconType.CLEAR, "#F04438", 30, "BTN_CLEAR") { listener.onClearAllClicked() }
         subRow.addView(btnClear)
+
+        // 6. ОБУЧЕНИЕ И СПРАВКА ? (НА 2-М УРОВНЕ СПРАВА)
+        val btnHelp = createBtn(VectorIconDrawer.IconType.HELP, "#818CF8", 30, "BTN_TUTORIAL") {
+            InteractiveTutorialOverlay(
+                context = context,
+                overlayWindowManager = overlayWindowManager,
+                mode = InteractiveTutorialOverlay.TutorialMode.CONTROL_PANEL,
+                hostViewProvider = { rootView }
+            ).show()
+        }
+        subRow.addView(btnHelp)
 
         rootLinear.addView(subRow)
 
