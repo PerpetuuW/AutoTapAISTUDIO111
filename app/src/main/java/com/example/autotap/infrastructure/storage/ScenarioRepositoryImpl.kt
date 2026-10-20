@@ -252,7 +252,12 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                     val pArr = obj.getJSONArray("pathPoints")
                     for (k in 0 until pArr.length()) {
                         val ptObj = pArr.getJSONObject(k)
-                        pList.add(CoordinateNormalizer.mapPoint(Point2D(ptObj.getDouble("x").toFloat(), ptObj.getDouble("y").toFloat(), ptObj.optLong("t", 0L)), transform, curSpecs.screenWidth, curSpecs.screenHeight))
+                        val px = ptObj.getDouble("x").toFloat()
+                        val py = ptObj.getDouble("y").toFloat()
+                        val ptTime = ptObj.optLong("t", 0L)
+
+                        val rawPt = Point2D(px, py, ptTime)
+                        pList.add(CoordinateNormalizer.mapPoint(rawPt, transform, curSpecs.screenWidth, curSpecs.screenHeight))
                     }
                 }
 
