@@ -155,6 +155,21 @@ class InteractiveRoboticArmDemoDialog(
             private val pointerCorePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
             private val pointerGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
             private val generalItemBg = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+            private val gloveArrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.FILL
+                color = "#FCD34D".toColorInt()
+            }
+            private val gloveBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                strokeWidth = dpF(2f)
+                color = "#B45309".toColorInt()
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+            }
+            private val gloveShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.FILL
+                color = "#600F172A".toColorInt()
+            }
             private val reusablePath = Path()
             private val iconBounds = RectF()
 
@@ -511,18 +526,6 @@ class InteractiveRoboticArmDemoDialog(
                 val tailEndX = tx - cosA * (len * 1.35f)
                 val tailEndY = ty - sinA * (len * 1.35f)
 
-                val arrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    style = Paint.Style.FILL
-                    color = "#FCD34D".toColorInt()
-                }
-                val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    style = Paint.Style.STROKE
-                    strokeWidth = dpF(2f)
-                    color = "#B45309".toColorInt()
-                    strokeCap = Paint.Cap.ROUND
-                    strokeJoin = Paint.Join.ROUND
-                }
-
                 reusablePath.rewind()
                 reusablePath.moveTo(tx, ty)
                 reusablePath.lineTo(leftX, leftY)
@@ -537,15 +540,11 @@ class InteractiveRoboticArmDemoDialog(
                 // Отрисовка тени
                 canvas.save()
                 canvas.translate(dpF(2.5f), dpF(2.5f))
-                val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    style = Paint.Style.FILL
-                    color = "#600F172A".toColorInt()
-                }
-                canvas.drawPath(reusablePath, shadowPaint)
+                canvas.drawPath(reusablePath, gloveShadowPaint)
                 canvas.restore()
 
-                canvas.drawPath(reusablePath, arrowPaint)
-                canvas.drawPath(reusablePath, borderPaint)
+                canvas.drawPath(reusablePath, gloveArrowPaint)
+                canvas.drawPath(reusablePath, gloveBorderPaint)
 
                 // Неоновый импульс касания на кончике стрелки
                 val glowRadius = if (isTapping) dpF(16f) else dpF(10f)
@@ -669,6 +668,7 @@ class InteractiveRoboticArmDemoDialog(
                             setStroke(dp(1), Color.parseColor(if (active) "#A78BFA" else "#2E2250"))
                         }
                     }
+                    demoCanvasView.invalidate()
                 }
             }
             chipButtons.add(chip)

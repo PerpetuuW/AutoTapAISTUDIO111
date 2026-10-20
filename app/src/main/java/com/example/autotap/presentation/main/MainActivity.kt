@@ -92,6 +92,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        isPanelActive = orchestrator.controlPanelOverlay.containerView != null
         updateStatus()
         checkIntentForImport(intent)
     }
@@ -174,10 +175,6 @@ class MainActivity : AppCompatActivity() {
 
         btnMainImport.setOnClickListener {
             importZipLauncher.launch("application/zip")
-        }
-
-        tvTopShieldStatus.setOnClickListener {
-            showSecurityInfoDialog()
         }
 
                 findViewById<TextView>(R.id.tab_demo)?.setOnClickListener {
@@ -388,17 +385,17 @@ class MainActivity : AppCompatActivity() {
         // так как Accessibility Service умеет рисовать окна сам.
 
         if (isPanelActive) {
-            orchestrator.controlPanelOverlay.hide()
+            orchestrator.hideOverlays()
             isPanelActive = false
             tvHeroSubtitle.text = "Нажмите для запуска пульта"
             btnHeroPower.alpha = 1.0f
         } else {
-            orchestrator.controlPanelOverlay.show()
+            orchestrator.showOverlays()
             isPanelActive = true
             tvHeroSubtitle.text = "Пульт управления активен"
             btnHeroPower.alpha = 0.88f
-            }
-            }
+        }
+    }
 
             // [V130.0] Диалог монетизации в главном меню (Подписка 50 руб/мес и 5 роликов = 12 часов)
             private fun showMonetizationDialog() {
@@ -700,7 +697,7 @@ class MainActivity : AppCompatActivity() {
         val msg = """
 Служба спец. возможностей (Accessibility Service) требуется ИСКЛЮЧИТЕЛЬНО для выполнения кликов и жестов по вашим сценариям.
 
-• Полный офлайн: у приложения нет разрешения на выход в интернет.
+• Локальная безопасность: все сценарии и графические макросы на 100% обрабатываются локально.
 • Конфиденциальность: приложение не считывает пароли и банковские данные.
 
 В открывшемся окне найдите «AutoTap» и включите переключатель.
@@ -721,9 +718,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun showSecurityInfoDialog() {
         val msg = """
-• Полная автономность: у приложения отсутствует сетевое разрешение (android.permission.INTERNET).
+• Локальное хранение: все сценарии, макросы и шаблоны хранятся и обрабатываются на 100% локально на вашем устройстве и никогда не передаются на внешние серверы.
 
-• Локальное хранение: все сценарии, макросы и шаблоны хранятся исключительно в изолированной памяти вашего устройства.
+• Использование сети: доступ в интернет используется исключительно для проверки подписки через RuStore и показа рекламы.
 
 • Назначение службы: служба спец. возможностей используется только для программных кликов и жестов по вашему сценарию.
 
@@ -818,7 +815,5 @@ class MainActivity : AppCompatActivity() {
             btnPermStream.setBackgroundResource(R.drawable.bg_badge_action)
             btnPermStream.setTextColor(Color.parseColor("#C4B5FD"))
         }
-
-        tvTopShieldStatus.text = "БЕЗОПАСНОСТЬ"
     }
 }

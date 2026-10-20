@@ -53,8 +53,9 @@ class KeepAliveDaemonService : Service() {
                 if (hasSpecialUsePerm) {
                     startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
                 } else {
-                    AppLogger.log(this, "DAEMON", "Запуск FGS без специального типа из-за отсутствия FOREGROUND_SERVICE_SPECIAL_USE")
-                    startForeground(NOTIF_ID, notification)
+                    AppLogger.log(this, "DAEMON", "Отмена FGS на Android 14+ из-за отсутствия разрешения FOREGROUND_SERVICE_SPECIAL_USE")
+                    stopSelf()
+                    return START_NOT_STICKY
                 }
             } else {
                 startForeground(NOTIF_ID, notification)

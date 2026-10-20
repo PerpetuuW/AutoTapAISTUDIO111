@@ -59,7 +59,11 @@ class MagicWandEditorOverlay(
     private fun dpF(v: Float): Float = v * dm.density
 
     private fun safeReplaceCurrentMask(newMask: Bitmap) {
+        val oldMask = currentMask
         currentMask = newMask
+        if (oldMask != newMask && !oldMask.isRecycled && !undoStack.contains(oldMask)) {
+            try { oldMask.recycle() } catch (_: Throwable) {}
+        }
     }
 
     fun show() {
