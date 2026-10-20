@@ -21,6 +21,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.graphics.toColorInt
 import com.example.autotap.infrastructure.overlay.OverlayWindowManager
+import com.example.autotap.infrastructure.overlay.model.PanelDisplayMode
+import com.example.autotap.infrastructure.overlay.panel.ControlPanelOverlay
 import kotlin.math.sin
 
 @SuppressLint("SetTextI18n", "ClickableViewAccessibility")
@@ -406,10 +408,23 @@ class InteractiveTutorialOverlay(
         }
 
         fun updateStepVisuals() {
-            val (title, desc, _) = steps[currentStep]
+            val (title, desc, tagKey) = steps[currentStep]
             tvTitle.text = "[${currentStep + 1}/${steps.size}] $title"
             tvDesc.text = desc
             btnNext.text = if (currentStep == steps.size - 1) "ГОТОВО" else "ДАЛЕЕ"
+
+            val isSubRowStep = tagKey in listOf("BTN_SCRIPTS", "BTN_SETTINGS", "BTN_HIDE", "BTN_LOCK", "BTN_CLEAR", "BTN_GRAPH", "BTN_LOGS")
+            if (isSubRowStep) {
+                try {
+                    val host = hostViewProvider?.invoke()
+                    if (host is ControlPanelOverlay) {
+                        host.applyDisplayMode(PanelDisplayMode.EXPANDED)
+                    } else {
+                        val orchestrator = com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(context)
+                        orchestrator.controlPanelOverlay.applyDisplayMode(PanelDisplayMode.EXPANDED)
+                    }
+                } catch (_: Throwable) {}
+            }
 
             val targetRect = resolveHighlightRect()
             spotlightView?.currentHighlightRect = targetRect

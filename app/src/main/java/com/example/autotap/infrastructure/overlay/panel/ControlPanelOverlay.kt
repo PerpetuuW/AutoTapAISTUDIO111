@@ -391,8 +391,25 @@ class ControlPanelOverlay(
         }
         mainRow.addView(btnToggle)
 
-        // 6. ОБУЧЕНИЕ И СПРАВКА ? (НА 1-М УРОВНЕ РЯДОМ С КРЕСТИКОМ, ФИОЛЕТОВАЯ)
-        val btnHelp = createBtn(VectorIconDrawer.IconType.HELP, "#A78BFA", 32, "BTN_TUTORIAL") {
+        // 6. ПРАВЫЙ СТОЛБЕЦ ДЕЙСТВИЙ: ЗАКРЫТЬ X (СВЕРХУ) + СПРАВКА ? (СНИЗУ)
+        val rightActionColumn = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                val m = dp(1)
+                setMargins(m, m, m, m)
+            }
+        }
+
+        // КРЕСТИК ЗАКРЫТИЯ X (СПРАВА СВЕРХУ)
+        val btnClose = createBtn(VectorIconDrawer.IconType.CLOSE, "#F04438", 26, "BTN_CLOSE") { listener.onCloseClicked() }
+        rightActionColumn.addView(btnClose)
+
+        // ОБУЧЕНИЕ И СПРАВКА ? (СТРОГО ПОД КРЕСТИКОМ СНИЗУ, ФИОЛЕТОВАЯ)
+        val btnHelp = createBtn(VectorIconDrawer.IconType.HELP, "#A78BFA", 26, "BTN_TUTORIAL") {
             InteractiveTutorialOverlay(
                 context = context,
                 overlayWindowManager = overlayWindowManager,
@@ -400,11 +417,9 @@ class ControlPanelOverlay(
                 hostViewProvider = { rootView }
             ).show()
         }
-        mainRow.addView(btnHelp)
+        rightActionColumn.addView(btnHelp)
 
-        // 7. КРЕСТИК ЗАКРЫТИЯ X (СПРАВА СВЕРХУ)
-        val btnClose = createBtn(VectorIconDrawer.IconType.CLOSE, "#F04438", 32, "BTN_CLOSE") { listener.onCloseClicked() }
-        mainRow.addView(btnClose)
+        mainRow.addView(rightActionColumn)
 
         rootLinear.addView(mainRow)
 
@@ -476,7 +491,8 @@ class ControlPanelOverlay(
             }
             val p = dp(6)
             setPadding(p, p, p, p)
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
                 topMargin = dp(6)
             }
             visibility = View.GONE
@@ -522,7 +538,7 @@ class ControlPanelOverlay(
                     }
                     isClickable = true
                     isFocusable = true
-                    setPadding(dp(4), dp(3), dp(4), dp(3))
+                    setPadding(dp(6), dp(3), dp(6), dp(3))
                     setOnClickListener {
                         actionTypeMenu?.visibility = View.GONE
                         applyDisplayMode(currentMode)
@@ -550,7 +566,9 @@ class ControlPanelOverlay(
                     }
                     addView(tvLabel)
                 }
-                row.addView(card, LinearLayout.LayoutParams(0, dp(28), 1f).apply { marginEnd = dp(4) })
+                row.addView(card, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(28)).apply {
+                    setMargins(dp(3), dp(2), dp(3), dp(2))
+                })
             }
             if (rowTypes.size < 3) {
                 val diff = 3 - rowTypes.size
