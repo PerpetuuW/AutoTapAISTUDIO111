@@ -127,7 +127,7 @@ class ScreenLockOverlay(
         ).apply {
             x = 0
             y = 0
-            screenBrightness = if (initialProgress == 0) 0.01f else (initialProgress / 100f).coerceIn(0.01f, 1.0f)
+            screenBrightness = if (initialProgress <= 5) 0.01f else (initialProgress / 100f).coerceIn(0.01f, 1.0f)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
