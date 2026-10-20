@@ -409,33 +409,49 @@ class ControlPanelOverlay(
         rootLinear.addView(mainRow)
 
         // =========================================================================
-        // РЯД 2: ВЫДВИЖНАЯ ШТОРКА ИНСТРУМЕНТОВ
+        // РЯД 2: ОБТЕКАЕМАЯ ШТОРКА ИНСТРУМЕНТОВ (БЕЗ ПУСТЫХ УГЛОВ)
         // =========================================================================
         val subRow = LinearLayout(context).apply {
             tag = "SUB_ROW"
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(0, dp(4), 0, 0)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#121824"))
+                cornerRadius = dpF(12f)
+                setStroke(dp(1), Color.parseColor("#1E293B"))
+            }
+            setPadding(dp(6), dp(3), dp(6), dp(3))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                topMargin = dp(4)
+            }
         }
 
-        // Глаз скрытия меток
+        // 1. Менеджер сценариев
+        val btnScripts = createBtn(VectorIconDrawer.IconType.SCRIPTS, "#38BDF8", 30, "BTN_SCRIPTS") { listener.onScriptsClicked() }
+        subRow.addView(btnScripts)
+
+        // 2. Настройки
+        val btnSettings = createBtn(VectorIconDrawer.IconType.SETTINGS, "#9CA3AF", 30, "BTN_SETTINGS") { listener.onSettingsClicked() }
+        subRow.addView(btnSettings)
+
+        // 3. Глаз скрытия меток
         val btnHide = createBtn(VectorIconDrawer.IconType.VISIBILITY, if (isNumbersHiddenState) "#FBBF24" else "#38BDF8", 30, "BTN_HIDE") {
             listener.onToggleNumbersClicked()
         }
         btnHideRef = btnHide
         subRow.addView(btnHide)
 
-        // Настройки
-        val btnSettings = createBtn(VectorIconDrawer.IconType.SETTINGS, "#9CA3AF", 30, "BTN_SETTINGS") { listener.onSettingsClicked() }
-        subRow.addView(btnSettings)
-
+        // 4. AFK замок
         val btnLock = createBtn(VectorIconDrawer.IconType.LOCK, "#94A3B8", 30, "BTN_LOCK") { listener.onScreenLockClicked() }
-        val btnClear = createBtn(VectorIconDrawer.IconType.CLEAR, "#F04438", 30, "BTN_CLEAR") { listener.onClearAllClicked() }
-        val btnScripts = createBtn(VectorIconDrawer.IconType.SCRIPTS, "#38BDF8", 30, "BTN_SCRIPTS") { listener.onScriptsClicked() }
-
         subRow.addView(btnLock)
+
+        // 5. Очистить все (корзина)
+        val btnClear = createBtn(VectorIconDrawer.IconType.CLEAR, "#F04438", 30, "BTN_CLEAR") { listener.onClearAllClicked() }
         subRow.addView(btnClear)
-        subRow.addView(btnScripts)
 
         rootLinear.addView(subRow)
 
