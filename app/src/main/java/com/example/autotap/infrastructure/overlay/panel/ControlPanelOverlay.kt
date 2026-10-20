@@ -551,15 +551,9 @@ class ControlPanelOverlay(
                     }
                     addView(tvLabel)
                 }
-                row.addView(card, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(28)).apply {
-                    setMargins(dp(3), dp(2), dp(3), dp(2))
+                row.addView(card, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(26)).apply {
+                    setMargins(dp(2), dp(1), dp(2), dp(1))
                 })
-            }
-            if (rowTypes.size < 3) {
-                val diff = 3 - rowTypes.size
-                repeat(diff) {
-                    row.addView(View(context), LinearLayout.LayoutParams(0, dp(28), 1f).apply { marginEnd = dp(4) })
-                }
             }
             rootMenu.addView(row)
         }
