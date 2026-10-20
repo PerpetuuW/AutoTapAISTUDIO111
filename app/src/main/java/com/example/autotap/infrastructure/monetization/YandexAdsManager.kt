@@ -29,9 +29,6 @@ object YandexAdsManager {
     // Тестовый официальный блок Yandex Mobile Ads
     const val DEMO_REWARDED_AD_UNIT_ID = "demo-rewarded-yandex"
 
-    // Минимальное время просмотра рекламного ролика (10 секунд) для защиты от преждевременного выхода
-    private const val MIN_WATCH_DURATION_MS = 10_000L
-
     private const val PREFS_NAME = "autotap_ads_prefs"
     private const val KEY_TEST_DEVICE_MODE = "pref_test_device_mode"
 
@@ -142,25 +139,17 @@ object YandexAdsManager {
                         isAdLoading.set(false)
                         val durationMs = if (adStartTimestamp > 0L) System.currentTimeMillis() - adStartTimestamp else 0L
                         AppLogger.log(null, "YANDEX_ADS", "Пользователь закрыл рекламный ролик (время просмотра: ${durationMs}мс)")
-                        if (adStartTimestamp > 0L && durationMs < MIN_WATCH_DURATION_MS && !rewardClaimed.get()) {
-                            onStatusMessage("Просмотр завершен слишком рано (${durationMs / 1000}с < 10с). Награда не зачислена.")
+                        if (!rewardClaimed.get()) {
+                            onStatusMessage("Просмотр завершен до начисления вознаграждения Yandex SDK.")
                         }
                     }
 
                     override fun onRewarded(reward: Reward) {
-                        val durationMs = if (adStartTimestamp > 0L) System.currentTimeMillis() - adStartTimestamp else MIN_WATCH_DURATION_MS
-                        AppLogger.log(null, "YANDEX_ADS", "Событие SDK onRewarded: время просмотра ${durationMs}мс")
-
-                        if (adStartTimestamp > 0L && durationMs < MIN_WATCH_DURATION_MS) {
-                            AppLogger.log(null, "YANDEX_ADS", "Защита 10с: Награда отклонена (просмотрено всего ${durationMs / 1000}с)")
-                            onStatusMessage("Просмотр завершен раньше 10 секунд! Награда не зачислена.")
-                            isAdShowing.set(false)
-                            isAdLoading.set(false)
-                            return
-                        }
+                        val durationMs = if (adStartTimestamp > 0L) System.currentTimeMillis() - adStartTimestamp else 0L
+                        AppLogger.log(null, "YANDEX_ADS", "Событие Yandex SDK onRewarded: вознаграждение подтверждено SDK (${durationMs / 1000}с, type=${reward.type}, amount=${reward.amount})")
 
                         if (rewardClaimed.compareAndSet(false, true)) {
-                            AppLogger.log(null, "YANDEX_ADS", "Вознаграждение зачислено (1 ролик, ${durationMs / 1000}с): type=${reward.type}, amount=${reward.amount}")
+                            AppLogger.log(null, "YANDEX_ADS", "Вознаграждение зачислено по событию Yandex SDK (1 ролик, ${durationMs / 1000}с)")
                             isAdShowing.set(false)
                             isAdLoading.set(false)
                             onRewarded()
