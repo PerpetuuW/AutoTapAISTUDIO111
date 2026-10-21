@@ -183,8 +183,6 @@ object LinearToGraphMigrator {
                         val trigId = "trig_${action.id}_${idx + 1}"
                         val matchPortId = "out_match_$trigId"
 
-                        var tplCalibX: Float? = null
-                        var tplCalibY: Float? = null
                         var tplSimPct = action.similarityPercent
                         var tplShapeOnly = action.isShapeOnlyMode
                         var tplColorDeltaE = action.colorDeltaEMode
@@ -196,8 +194,6 @@ object LinearToGraphMigrator {
                             val metaFile = File(templateFile.parentFile, "${templateFile.nameWithoutExtension}.json")
                             if (metaFile.exists()) {
                                 val json = JSONObject(metaFile.readText())
-                                if (json.has("calibratedX")) tplCalibX = json.getDouble("calibratedX").toFloat()
-                                if (json.has("calibratedY")) tplCalibY = json.getDouble("calibratedY").toFloat()
                                 if (json.has("similarityPercent")) tplSimPct = json.getInt("similarityPercent")
                                 if (json.has("isShapeOnlyMode")) tplShapeOnly = json.getBoolean("isShapeOnlyMode")
                                 if (json.has("colorDeltaEMode")) tplColorDeltaE = json.getBoolean("colorDeltaEMode")
@@ -223,15 +219,8 @@ object LinearToGraphMigrator {
                         )
                         triggerSpecs.add(trigSpec)
 
-                        val branchClickX = (tplCalibX ?: action.posX) + if (tplUseCustomOff) tplClickOffX else 0f
-                        val branchClickY = (tplCalibY ?: action.posY) + if (tplUseCustomOff) tplClickOffY else 0f
-
                         val branchNodeId = "node_${action.id}_branch_${idx + 1}"
-                        val branchActionSpec = if (action.clickAiTarget) {
-                            NodeActionSpec(id = "act_${action.id}_${idx + 1}", type = ActionType.CLICK, x = branchClickX, y = branchClickY, holdDurationMs = action.holdDurationMs.coerceAtLeast(30L), delayAfterMs = action.delayMs)
-                        } else {
-                            NodeActionSpec(id = "act_${action.id}_${idx + 1}", type = ActionType.DELAY, delayAfterMs = action.delayMs)
-                        }
+                        val branchActionSpec = NodeActionSpec(id = "act_${action.id}_${idx + 1}", type = ActionType.DELAY, delayAfterMs = action.delayMs)
 
                         val branchCanvasY = posY + (idx * 130f) - ((allTemplatePaths.size - 1) * 65f)
                         val branchNode = ScenarioNode(
