@@ -221,7 +221,8 @@ class GestureDispatcher(
         val safeX = x.coerceIn(0f, (dm.widthPixels - 1).toFloat())
         val safeY = y.coerceIn(0f, (dm.heightPixels - 1).toFloat())
 
-        visualizerManager.showClickVisualizer(safeX, safeY)
+        val isMacroRunning = com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(service).macroEngine.executionState.value is com.example.autotap.domain.model.ExecutionState.Running
+        visualizerManager.showClickVisualizer(safeX, safeY, isMacroRunning)
         AppLogger.log(service, "GESTURE", "Запуск клика: ($safeX, $safeY), длительность ${durationMs}мс")
 
         val path = Path().apply {
@@ -301,7 +302,8 @@ class GestureDispatcher(
             return
         }
         val dm: DisplayMetrics = getRealDisplayMetrics(service)
-        visualizerManager.showSwipeVisualizer(startX, startY, endX, endY, durationMs)
+        val isMacroRunning = com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(service).macroEngine.executionState.value is com.example.autotap.domain.model.ExecutionState.Running
+        visualizerManager.showSwipeVisualizer(startX, startY, endX, endY, durationMs, isMacroRunning)
         AppLogger.log(service, "GESTURE", "Запуск свайпа: ($startX, $startY) -> ($endX, $endY), длительность ${durationMs}мс")
 
         val humanGesture = HumanGestureEngine.buildHumanSwipeGesture(startX, startY, endX, endY, durationMs, dm.widthPixels, dm.heightPixels)

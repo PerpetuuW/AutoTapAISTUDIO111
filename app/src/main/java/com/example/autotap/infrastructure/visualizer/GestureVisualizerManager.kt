@@ -28,11 +28,13 @@ class GestureVisualizerManager(private val context: Context) {
             WindowManager.LayoutParams.TYPE_PHONE
         }
 
-    fun showClickVisualizer(x: Float, y: Float) {
+    fun showClickVisualizer(x: Float, y: Float, isMacroRunning: Boolean = false) {
         mainHandler.post {
             try {
                 val sizePx = (84 * context.resources.displayMetrics.density).toInt()
-                val pulseView = ClickPulseView(context)
+                val pulseView = ClickPulseView(context).apply {
+                    this.isMacroRunning = isMacroRunning
+                }
                 val params = WindowManager.LayoutParams(
                     sizePx, sizePx, getOverlayType(),
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -59,7 +61,7 @@ class GestureVisualizerManager(private val context: Context) {
         }
     }
 
-    fun showSwipeVisualizer(startX: Float, startY: Float, endX: Float, endY: Float, durationMs: Long) {
+    fun showSwipeVisualizer(startX: Float, startY: Float, endX: Float, endY: Float, durationMs: Long, isMacroRunning: Boolean = false) {
         mainHandler.post {
             try {
                 val trailView = SwipeTrailView(context).apply {
@@ -68,6 +70,7 @@ class GestureVisualizerManager(private val context: Context) {
                     this.endX = endX
                     this.endY = endY
                     this.durationMs = durationMs
+                    this.isMacroRunning = isMacroRunning
                 }
                 val params = WindowManager.LayoutParams(
                     WindowManager.LayoutParams.MATCH_PARENT,

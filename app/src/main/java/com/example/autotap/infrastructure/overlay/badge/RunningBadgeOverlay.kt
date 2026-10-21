@@ -23,7 +23,7 @@ import com.example.autotap.infrastructure.overlay.ui.VectorIconDrawer
 import kotlin.math.hypot
 
 /**
- * Высокопроизводительный нативный Kotlin Canvas оверлей бейджа исполнения (60 FPS / 16.6ms).
+ * Высокопроизводительный нативный Kotlin Canvas оверлей бейджа исполнения (Адаптивный 30 FPS во время боя).
  * Мгновенная реакция кнопки СТОП и энергоэффективный прогресс-бар на Canvas.
  */
 @SuppressLint("ClickableViewAccessibility", "SetTextI18n")

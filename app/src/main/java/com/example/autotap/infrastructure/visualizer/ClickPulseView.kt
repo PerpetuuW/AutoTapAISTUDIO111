@@ -40,6 +40,7 @@ class ClickPulseView(context: Context) : View(context) {
     private val durationMs = 420f
     private val mainHandler = Handler(Looper.getMainLooper())
     private var finishRunnable: Runnable? = null
+    var isMacroRunning: Boolean = false
 
     init {
         setWillNotDraw(false)
@@ -120,7 +121,8 @@ class ClickPulseView(context: Context) : View(context) {
             canvas.drawLine(cx + rayDist, cy, cx + rayDist + rayLen, cy, rayPaint)
         }
 
-        if (progress < 1f) postInvalidateDelayed(16L)
+        val frameStepMs = if (isMacroRunning) 33L else 16L
+        if (progress < 1f) postInvalidateDelayed(frameStepMs)
     }
 
     fun clearPulses() {
