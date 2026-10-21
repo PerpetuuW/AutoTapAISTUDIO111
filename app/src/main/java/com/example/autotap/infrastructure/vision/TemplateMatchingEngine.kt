@@ -197,8 +197,18 @@ object TemplateMatchingEngine {
     ): TemplateFeatures? {
         if (tPixels.isEmpty() || tw <= 0 || th <= 0) return null
 
-        val dynamicKey = if (cacheKey.isNotEmpty()) "${cacheKey}_${tw}x${th}_$defaultSim"
-        else "dyn_${tw}x${th}_$defaultSim"
+        val metaLastMod = if (tPath.isNotEmpty()) {
+            try {
+                val mf = File(tPath)
+                val jf = File(mf.parentFile, "${mf.nameWithoutExtension}.json")
+                if (jf.exists()) jf.lastModified() else 0L
+            } catch (_: Exception) {
+                0L
+            }
+        } else 0L
+
+        val dynamicKey = if (cacheKey.isNotEmpty()) "${cacheKey}_${tw}x${th}_${defaultSim}_${metaLastMod}"
+        else "dyn_${tw}x${th}_${defaultSim}"
 
         val cached = templateFeatureCache[dynamicKey]
         if (cached != null && cached.tw == tw && cached.th == th) return cached
@@ -733,7 +743,6 @@ object TemplateMatchingEngine {
         // =========================================================================
         for (ctx in preparedContexts) {
             if (isCancelled()) break
-            if (!findAllMatches && allCandidates.isNotEmpty()) break
 
             val tPath = ctx.tPath
             val features = ctx.features
@@ -856,7 +865,6 @@ object TemplateMatchingEngine {
 
         for (ctx in contextsForGridScan) {
             if (isCancelled()) break
-            if (!findAllMatches && allCandidates.isNotEmpty()) break
 
             val tPath = ctx.tPath
             val features = ctx.features
@@ -1169,7 +1177,7 @@ object TemplateMatchingEngine {
                 val db = abs((sColor and 0xFF) - features.shapeB[idx])
                 clusterDiff += dr + dg + db
             }
-            if (clusterDiff / cSize > 120) return 0f
+            if (clusterDiff / cSize > 200) return 0f
         }
 
         var colorScoreSum = 0f
