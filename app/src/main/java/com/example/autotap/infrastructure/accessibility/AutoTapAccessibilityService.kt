@@ -322,9 +322,11 @@ class AutoTapAccessibilityService : AccessibilityService() {
         val handler = android.os.Handler(android.os.Looper.getMainLooper())
         val isResumed = AtomicBoolean(false)
 
+        val isMacroRunning = orchestrator.macroEngine.executionState.value is com.example.autotap.domain.model.ExecutionState.Running
+
         handler.post {
             if (lockScreenShowing) orchestrator.screenLockOverlay.setTemporarilyTransparent(true)
-            if (badgeShowing) orchestrator.runningBadgeOverlay.setTemporarilyTransparent(true)
+            if (badgeShowing && !isMacroRunning) orchestrator.runningBadgeOverlay.setTemporarilyTransparent(true)
             if (highlightsShowing) com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.setTemporarilyTransparent(true)
         }
 
@@ -332,7 +334,7 @@ class AutoTapAccessibilityService : AccessibilityService() {
             if (isResumed.compareAndSet(false, true)) {
                 handler.post {
                     if (lockScreenShowing) orchestrator.screenLockOverlay.setTemporarilyTransparent(false)
-                    if (badgeShowing) orchestrator.runningBadgeOverlay.setTemporarilyTransparent(false)
+                    if (badgeShowing && !isMacroRunning) orchestrator.runningBadgeOverlay.setTemporarilyTransparent(false)
                     if (highlightsShowing) com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.setTemporarilyTransparent(false)
                 }
                 isScreenshotInProgress.set(false)

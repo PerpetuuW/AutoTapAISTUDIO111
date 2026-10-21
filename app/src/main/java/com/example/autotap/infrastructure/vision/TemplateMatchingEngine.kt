@@ -1023,9 +1023,9 @@ object TemplateMatchingEngine {
 
             val isSmall = features.isMicroIcon || features.isThinLine
             val safeCoarseThreshold = if (isSmall) {
-                (templateThreshold * 0.45f).coerceIn(0.35f, 0.55f)
+                (templateThreshold * 0.20f).coerceIn(0.12f, 0.26f)
             } else {
-                (templateThreshold * 0.55f).coerceIn(0.45f, 0.65f)
+                (templateThreshold * 0.22f).coerceIn(0.15f, 0.28f)
             }
 
             val metaStep = features.optimalGridStepFromMeta
@@ -1158,6 +1158,7 @@ object TemplateMatchingEngine {
             }
 
             statL1Sectors += spatialSectors.size
+            val sectorLimit = if (findAllMatches) 48 else maxOf(16, templates.size * 3)
             val sectorsToScan = if (selectedRoiZones.isNotEmpty() || selectedAnchors.isNotEmpty()) {
                 spatialSectors.values.sortedByDescending { spot ->
                     val sX = spot.first + features.centroidX
@@ -1180,11 +1181,9 @@ object TemplateMatchingEngine {
                     }
                     val distWeight = if (inside) 1.25f else (1.0f - (minDist / (sw * 0.75f)).coerceIn(0f, 0.40f))
                     spot.third * distWeight
-                }.take(if (findAllMatches) 24 else 8)
-            } else if (findAllMatches) {
-                spatialSectors.values.sortedByDescending { it.third }.take(24)
+                }.take(sectorLimit)
             } else {
-                spatialSectors.values.sortedByDescending { it.third }.take(8)
+                spatialSectors.values.sortedByDescending { it.third }.take(sectorLimit)
             }
 
             val searchRadius = minOf(coarseStep, 8)
