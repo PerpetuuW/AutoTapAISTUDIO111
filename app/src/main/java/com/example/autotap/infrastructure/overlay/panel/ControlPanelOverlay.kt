@@ -24,7 +24,7 @@ import com.example.autotap.infrastructure.overlay.ui.VectorIconDrawer
 import kotlin.math.hypot
 
 /**
- * Высокопроизводительный нативный Kotlin Canvas оверлей панели управления (120 FPS).
+ * Высокопроизводительный нативный Kotlin Canvas оверлей панели управления (60 FPS Native Canvas).
  * Нулевые аллокации в цикле рендеринга, мгновенный отклик и 100% стабильная геометрия.
  */
 @SuppressLint("ClickableViewAccessibility", "SetTextI18n")
@@ -176,7 +176,7 @@ class ControlPanelOverlay(
         overlayWindowManager.addViewSafe(container, layoutParams)
         applyDisplayMode(currentMode)
         updateVisibilityMode(visibilityModeState)
-        AppLogger.log(context, "PANEL", "Плавающая панель управления открыта (120 FPS Native Canvas)")
+        AppLogger.log(context, "PANEL", "Плавающая панель управления открыта (60 FPS Native Canvas)")
     }
 
     fun hide() {

@@ -120,7 +120,7 @@ class ClickPulseView(context: Context) : View(context) {
             canvas.drawLine(cx + rayDist, cy, cx + rayDist + rayLen, cy, rayPaint)
         }
 
-        if (progress < 1f) postInvalidateOnAnimation()
+        if (progress < 1f) postInvalidateDelayed(16L)
     }
 
     fun clearPulses() {

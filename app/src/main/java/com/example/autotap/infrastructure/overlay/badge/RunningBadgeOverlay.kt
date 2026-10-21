@@ -23,8 +23,8 @@ import com.example.autotap.infrastructure.overlay.ui.VectorIconDrawer
 import kotlin.math.hypot
 
 /**
- * Высокопроизводительный нативный Kotlin Canvas оверлей бейджа исполнения (120 FPS).
- * Мгновенная реакция кнопки СТОП и плавный прогресс-бар на Canvas.
+ * Высокопроизводительный нативный Kotlin Canvas оверлей бейджа исполнения (60 FPS / 16.6ms).
+ * Мгновенная реакция кнопки СТОП и энергоэффективный прогресс-бар на Canvas.
  */
 @SuppressLint("ClickableViewAccessibility", "SetTextI18n")
 class RunningBadgeOverlay(

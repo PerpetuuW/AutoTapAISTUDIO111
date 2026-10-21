@@ -67,6 +67,6 @@ class SwipeTrailView(context: Context) : View(context) {
         linePaint.alpha = ((1f - progress * 0.4f) * 255).toInt().coerceIn(0, 255)
         canvas.drawLine(startX, startY, curX, curY, linePaint)
         canvas.drawCircle(curX, curY, 14f, headPaint)
-        if (progress < 1f) postInvalidateOnAnimation()
+        if (progress < 1f) postInvalidateDelayed(16L)
     }
 }
