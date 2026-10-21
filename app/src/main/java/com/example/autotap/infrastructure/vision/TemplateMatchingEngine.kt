@@ -167,8 +167,6 @@ object TemplateMatchingEngine {
 
         val tw = template.width
         val th = template.height
-        val tPixels = IntArray(tw * th)
-        template.getPixels(tPixels, 0, tw, 0, 0, tw, th)
 
         val metaLastMod = if (tPath.isNotEmpty()) {
             try {
@@ -180,8 +178,14 @@ object TemplateMatchingEngine {
             }
         } else 0L
 
-        val dynamicKey = if (cacheKey.isNotEmpty()) "${cacheKey}_${tw}x${th}_${template.generationId}_$metaLastMod"
-        else "dyn_${tw}x${th}_${template.generationId}_$metaLastMod"
+        val key = if (cacheKey.isNotEmpty()) cacheKey else if (tPath.isNotEmpty()) tPath else "dyn_bmp"
+        val dynamicKey = "${key}_${tw}x${th}_${metaLastMod}"
+
+        val cached = templateFeatureCache[dynamicKey]
+        if (cached != null && cached.tw == tw && cached.th == th) return cached
+
+        val tPixels = IntArray(tw * th)
+        template.getPixels(tPixels, 0, tw, 0, 0, tw, th)
 
         return extractFeatures(tPixels, tw, th, dynamicKey, defaultSim, tPath, false)
     }
@@ -208,8 +212,8 @@ object TemplateMatchingEngine {
             }
         } else 0L
 
-        val dynamicKey = if (cacheKey.isNotEmpty()) "${cacheKey}_${tw}x${th}_${defaultSim}_${metaLastMod}"
-        else "dyn_${tw}x${th}_${defaultSim}"
+        val key = if (cacheKey.isNotEmpty()) cacheKey else if (tPath.isNotEmpty()) tPath else "dyn_pixels"
+        val dynamicKey = if (key.endsWith("_$metaLastMod")) key else "${key}_${tw}x${th}_${metaLastMod}"
 
         val cached = templateFeatureCache[dynamicKey]
         if (cached != null && cached.tw == tw && cached.th == th) return cached
