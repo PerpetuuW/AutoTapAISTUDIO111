@@ -85,7 +85,7 @@ class ScreenLockOverlay(
         }
     }
 
-    fun show() {
+    fun show(actions: List<com.example.autotap.domain.model.MacroAction> = emptyList()) {
         if (isShowing()) return
         AppLogger.log(context, "LOCK", "Активация AFK защиты экрана (AMOLED Burn-in Guard)")
         sessionStartTime = System.currentTimeMillis()
@@ -148,6 +148,56 @@ class ScreenLockOverlay(
             elevation = dpF(24f)
         }
         uiLockContainer = anchorCard
+
+        // [V210.0] Ручка свободного перетаскивания карточки разблокировки
+        val headerDragBar = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(6))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
+        val dragHandleView = View(context).apply {
+            background = GradientDrawable().apply {
+                setColor("#38BDF8".toColorInt())
+                cornerRadius = dpF(3f)
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(38), dp(4))
+        }
+        headerDragBar.addView(dragHandleView)
+        anchorCard.addView(headerDragBar)
+
+        var dragTouchX = 0f
+        var dragTouchY = 0f
+        var dragInitX = 0
+        var dragInitY = 0
+
+        headerDragBar.setOnTouchListener { _, event ->
+            val p = uiWindowParams ?: return@setOnTouchListener false
+            val card = uiLockContainer ?: return@setOnTouchListener false
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    dragTouchX = event.rawX
+                    dragTouchY = event.rawY
+                    dragInitX = p.x
+                    dragInitY = p.y
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = (event.rawX - dragTouchX).toInt()
+                    val dy = (event.rawY - dragTouchY).toInt()
+                    p.x = dragInitX + dx
+                    val isBottom = (p.gravity and Gravity.BOTTOM) == Gravity.BOTTOM
+                    p.y = if (isBottom) (dragInitY - dy).coerceAtLeast(dp(20)) else (dragInitY + dy).coerceAtLeast(dp(20))
+                    overlayWindowManager.updateViewSafe(card, p)
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    prefs.edit().putInt("custom_ui_x", p.x).putInt("custom_ui_y", p.y).putInt("custom_ui_gravity", p.gravity).apply()
+                    true
+                }
+                else -> false
+            }
+        }
 
         val unlockTouchArea = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -340,15 +390,49 @@ class ScreenLockOverlay(
             }
         }
 
+        // [V210.0] Расчет автоматической безопасной позиции карточки замка от коллизий точек
+        val hasCustomPos = prefs.contains("custom_ui_y")
+        val cardGravity: Int
+        val initialY: Int
+        val initialX: Int
+
+        if (hasCustomPos) {
+            cardGravity = prefs.getInt("custom_ui_gravity", Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
+            initialY = prefs.getInt("custom_ui_y", dp(60))
+            initialX = prefs.getInt("custom_ui_x", 0)
+        } else {
+            initialX = 0
+            val bottomThresholdY = realH * 0.55f
+            val pointsInBottom = actions.count { act ->
+                val mainBottom = act.posY > bottomThresholdY
+                val anchorBottom = act.primaryAnchorPoints.any { it.y > bottomThresholdY }
+                mainBottom || anchorBottom
+            }
+            val pointsInTop = actions.count { act ->
+                val mainTop = act.posY <= bottomThresholdY
+                val anchorTop = act.primaryAnchorPoints.any { it.y <= bottomThresholdY }
+                mainTop || anchorTop
+            }
+
+            if (pointsInBottom > pointsInTop) {
+                cardGravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                initialY = dp(60)
+            } else {
+                cardGravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+                initialY = dp(60)
+            }
+        }
+
         val uiParams = overlayWindowManager.createLayoutParams(
             width = dp(260),
             height = WindowManager.LayoutParams.WRAP_CONTENT,
             flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            gravity = cardGravity
         ).apply {
-            y = dp(60)
+            x = initialX
+            y = initialY
         }
         uiWindowParams = uiParams
         overlayWindowManager.addViewSafe(anchorCard, uiParams)

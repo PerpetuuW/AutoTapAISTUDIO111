@@ -1447,7 +1447,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         com.example.autotap.infrastructure.accessibility.AutoTapAccessibilityService.instance?.gestureDispatcher?.onGesturePassthroughToggle = { isPassthrough, rect ->
             screenLockOverlay.setPassthroughEnabled(isPassthrough, rect)
         }
-        screenLockOverlay.show()
+        screenLockOverlay.show(targetManager.getActions())
     }
     override fun onClearAllClicked() {
         targetManager.clearAll()

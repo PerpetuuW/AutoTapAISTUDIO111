@@ -661,7 +661,7 @@ object TemplateMatchingEngine {
             }
 
             val rawThreshold = if (findAllMatches) (defaultSim / 100f) else features.individualThreshold
-            val templateThreshold = (rawThreshold - 0.05f).coerceIn(0.55f, 0.98f)
+            val templateThreshold = rawThreshold.coerceIn(0.55f, 0.98f)
             val isShapeDriven = if (findAllMatches && actionOverride != null) actionOverride.isShapeOnlyMode else ((actionOverride?.isShapeOnlyMode == true) || features.isShapeOnlyFromMeta)
 
             val scanLimitX = (roiMaxX - features.tw).coerceAtLeast(roiMinX)
