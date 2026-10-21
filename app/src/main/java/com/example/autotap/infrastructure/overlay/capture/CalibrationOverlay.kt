@@ -2120,6 +2120,10 @@ private val targetStepId: Int? = null,
                     put("cropTop", anchorCropY + currentCropOffsetY)
                     put("cropWidth", finalMask.width)
                     put("cropHeight", finalMask.height)
+                    put("tightCropX", 0)
+                    put("tightCropY", 0)
+                    put("tightCropW", finalMask.width)
+                    put("tightCropH", finalMask.height)
                     put("updatedAt", System.currentTimeMillis())
                     val verifArr = org.json.JSONArray()
                     coVerificationTemplates.forEach { verifArr.put(it) }

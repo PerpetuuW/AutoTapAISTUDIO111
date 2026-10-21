@@ -358,6 +358,24 @@ object TemplateMatchingEngine {
                 System.arraycopy(tPixels, srcRow + cropMinX, effPixels, dstRow, effTw)
                 System.arraycopy(colorSourcePixels, srcRow + cropMinX, effColorPixels, dstRow, effTw)
             }
+
+            // [V210.0] Автоматическая дозапись кадрированных габаритов в .json метаданные на диске для старых масок
+            if (tPath.isNotEmpty()) {
+                try {
+                    val maskFile = File(tPath)
+                    val metaFile = File(maskFile.parentFile, "${maskFile.nameWithoutExtension}.json")
+                    if (metaFile.exists()) {
+                        val metaJson = JSONObject(metaFile.readText())
+                        if (!metaJson.has("tightCropW")) {
+                            metaJson.put("tightCropX", cropShiftX)
+                            metaJson.put("tightCropY", cropShiftY)
+                            metaJson.put("tightCropW", effTw)
+                            metaJson.put("tightCropH", effTh)
+                            metaFile.writeText(metaJson.toString(4))
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
         } else {
             effPixels = tPixels
             effColorPixels = colorSourcePixels
