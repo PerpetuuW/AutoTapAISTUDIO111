@@ -221,7 +221,7 @@ object TemplateMatchingEngine {
                 val metaFile = File(maskFile.parentFile, "${maskFile.nameWithoutExtension}.json")
                 if (metaFile.exists()) {
                     val meta = JSONObject(metaFile.readText())
-                    val rawSim = meta.optInt("similarityPercent", defaultSim)
+                    val rawSim = if (meta.has("similarityPercent")) meta.getInt("similarityPercent") else 75
                     templateSim = rawSim.coerceIn(60, 98)
                     metaShapeOnly = meta.optBoolean("isShapeOnlyMode", false)
                     metaSmartColor = meta.optBoolean("colorDeltaEMode", false) || meta.optBoolean("isSmartColorMode", false)

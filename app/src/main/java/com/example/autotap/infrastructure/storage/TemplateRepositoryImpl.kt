@@ -395,7 +395,7 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             if (!maskFile.exists()) return null
 
             val parentDir = maskFile.parentFile ?: baseTemplatesDir
-            val cleanNewName = newName.trim().replace(Regex("[^a-zA-Z0-9_-]"), "_").removePrefix("mask_")
+            val cleanNewName = newName.trim().replace(Regex("""[^a-zA-Z0-9_\\-\\s\\u0400-\\u04FF]"""), "_").removePrefix("mask_").trim()
             if (cleanNewName.isEmpty()) return null
 
             val oldBase = maskFile.nameWithoutExtension.removePrefix("mask_")
@@ -407,6 +407,15 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             if (targetMask.exists()) targetMask.delete()
             val renamed = maskFile.renameTo(targetMask)
             if (!renamed) return null
+
+            try {
+                val jsonFile = File(parentDir, "mask_$cleanNewName.json")
+                if (jsonFile.exists()) {
+                    val json = JSONObject(jsonFile.readText())
+                    json.put("displayName", newName.trim())
+                    FileOutputStream(jsonFile).use { it.write(json.toString(4).toByteArray()) }
+                }
+            } catch (_: Exception) {}
 
             memoryCache.remove(oldPath)
             AppLogger.log(context, "STORAGE", "Шаблон переименован: $oldBase -> $cleanNewName")
