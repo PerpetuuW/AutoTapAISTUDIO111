@@ -88,14 +88,19 @@ class TargetQuickRingOverlay(
 
         val buttonsConfig = mutableListOf(
             Triple(VectorIconDrawer.IconType.SETTINGS, Pair("#1F6FEB", "#38BDF8")) { dismiss(); onEdit(action) },
+            Triple(VectorIconDrawer.IconType.SCRIPTS, Pair("#0D2E3A", "#38BDF8")) {
+                dismiss()
+                if (onScripts != null) {
+                    onScripts(action)
+                } else {
+                    com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(context).onScriptsClicked()
+                }
+            },
             Triple(VectorIconDrawer.IconType.TEMPLATE_ADD, Pair("#1E293B", "#34D399")) { dismiss(); onAddTemplate(action) },
             Triple(VectorIconDrawer.IconType.CALIBRATE, Pair("#1E293B", "#A78BFA")) { dismiss(); onCalibrate(action) },
             Triple(VectorIconDrawer.IconType.PLUS, Pair("#21262D", "#58A6FF")) { dismiss(); onClone(action) },
             Triple(VectorIconDrawer.IconType.DELETE, Pair("#2A0E0C", "#F04438")) { dismiss(); onDelete(action) }
         )
-        if (onScripts != null) {
-            buttonsConfig.add(Triple(VectorIconDrawer.IconType.SCRIPTS, Pair("#0D2E3A", "#38BDF8")) { dismiss(); onScripts(action) })
-        }
 
         val count = buttonsConfig.size
         val angleStep = 360.0 / count
