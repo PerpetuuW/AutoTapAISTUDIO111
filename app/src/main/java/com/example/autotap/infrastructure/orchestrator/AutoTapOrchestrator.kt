@@ -314,6 +314,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             templateRepository.getTemplate(realPath)?.let { bmp ->
                 templatesMap[realPath] = bmp
                 if (path != realPath) templatesMap[path] = bmp
+                com.example.autotap.infrastructure.vision.TemplateMatchingEngine.extractFeatures(bmp, realPath, realPath)
             }
         }
         return templatesMap
