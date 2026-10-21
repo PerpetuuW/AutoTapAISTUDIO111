@@ -182,7 +182,7 @@ object TemplateMatchingEngine {
         val dynamicKey = "${key}_${tw}x${th}_${metaLastMod}"
 
         val cached = templateFeatureCache[dynamicKey]
-        if (cached != null && cached.tw == tw && cached.th == th) return cached
+        if (cached != null) return cached
 
         val tPixels = IntArray(tw * th)
         template.getPixels(tPixels, 0, tw, 0, 0, tw, th)
@@ -216,7 +216,7 @@ object TemplateMatchingEngine {
         val dynamicKey = if (key.endsWith("_$metaLastMod")) key else "${key}_${tw}x${th}_${metaLastMod}"
 
         val cached = templateFeatureCache[dynamicKey]
-        if (cached != null && cached.tw == tw && cached.th == th) return cached
+        if (cached != null) return cached
 
         var templateSim = defaultSim
         var metaShapeOnly = false
