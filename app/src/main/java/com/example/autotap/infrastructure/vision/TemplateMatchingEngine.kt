@@ -229,6 +229,8 @@ object TemplateMatchingEngine {
         var metaUseOffset = false
         var metaCalibX: Int? = null
         var metaCalibY: Int? = null
+        var metaCropLeft: Int? = null
+        var metaCropTop: Int? = null
         var metaGridStep = 0
         var metaDownscaleFactor = 1
         val metaAnchors = mutableListOf<com.example.autotap.domain.model.Point2D>()
@@ -247,12 +249,11 @@ object TemplateMatchingEngine {
                     metaClickX = meta.optDouble("clickOffsetX", 0.0).toFloat()
                     metaClickY = meta.optDouble("clickOffsetY", 0.0).toFloat()
                     metaUseOffset = meta.optBoolean("useCustomClickOffset", false)
+                    if (meta.has("cropLeft")) metaCropLeft = meta.getInt("cropLeft")
+                    if (meta.has("cropTop")) metaCropTop = meta.getInt("cropTop")
                     if (meta.has("calibratedX")) metaCalibX = meta.getInt("calibratedX")
-                    else if (meta.has("cropLeft")) metaCalibX = meta.getInt("cropLeft") + tw / 2
                     else if (meta.has("originalX")) metaCalibX = meta.getInt("originalX")
-
                     if (meta.has("calibratedY")) metaCalibY = meta.getInt("calibratedY")
-                    else if (meta.has("cropTop")) metaCalibY = meta.getInt("cropTop") + th / 2
                     else if (meta.has("originalY")) metaCalibY = meta.getInt("originalY")
 
                     if (meta.has("discoveredLocations")) {
@@ -638,8 +639,8 @@ object TemplateMatchingEngine {
             clickOffsetXFromMeta = metaClickX,
             clickOffsetYFromMeta = metaClickY,
             useCustomOffsetFromMeta = metaUseOffset,
-            calibratedX = metaCalibX,
-            calibratedY = metaCalibY,
+            calibratedX = if (metaCropLeft != null) metaCropLeft!! + cX + cropShiftX else metaCalibX,
+            calibratedY = if (metaCropTop != null) metaCropTop!! + cY + cropShiftY else metaCalibY,
             optimalGridStepFromMeta = metaGridStep,
             optimalDownscaleFactorFromMeta = calculatedDownscale,
             optimalDownscaleScaleFromMeta = 1.0f / calculatedDownscale.toFloat(),
