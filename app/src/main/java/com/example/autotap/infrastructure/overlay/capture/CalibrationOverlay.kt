@@ -197,7 +197,7 @@ private val targetStepId: Int? = null,
                     )
                     currentShapeExpansion = opt.optimalExpansion
                     currentPaddingOffset = opt.optimalPadding
-                    currentSimilarity = opt.bestSimilarity
+                    currentSimilarity = (opt.bestSimilarity - 5).coerceIn(55, 95)
                     isAutoContourMode = opt.useContourMode
                 } finally {
                     PixelBufferPool.release(sPixels)
