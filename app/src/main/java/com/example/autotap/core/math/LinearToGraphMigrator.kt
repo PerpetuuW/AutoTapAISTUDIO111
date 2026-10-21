@@ -16,6 +16,40 @@ import org.json.JSONObject
 
 object LinearToGraphMigrator {
 
+    /**
+     * Точечно обновляет узел графа на основе измененного MacroAction,
+     * сохраняя его положение на холсте (canvasX, canvasY) и все связи (edges).
+     */
+    fun updateNodeForAction(graph: GraphMacroScenario, action: MacroAction): GraphMacroScenario {
+        val nodeId = "node_${action.id}"
+        val existingNode = graph.nodes[nodeId] ?: return graph
+
+        val tempScenario = MacroScenario(
+            name = graph.name,
+            version = graph.version,
+            deviceSpecs = graph.deviceSpecs,
+            actions = listOf(action),
+            globalClickDurationMs = graph.globalClickDurationMs,
+            globalSwipeDurationMs = graph.globalSwipeDurationMs
+        )
+        val tempGraph = linearToGraph(tempScenario)
+        val newNodeSpec = tempGraph.nodes[nodeId] ?: return graph
+
+        val preservedNode = newNodeSpec.copy(
+            canvasX = existingNode.canvasX,
+            canvasY = existingNode.canvasY,
+            standardPorts = existingNode.standardPorts.ifEmpty { newNodeSpec.standardPorts }
+        )
+
+        val updatedNodes = graph.nodes.toMutableMap()
+        updatedNodes[nodeId] = preservedNode
+
+        return graph.copy(
+            nodes = updatedNodes,
+            modifiedAt = System.currentTimeMillis()
+        )
+    }
+
     fun linearToGraph(scenario: MacroScenario): GraphMacroScenario {
         if (scenario.actions.isEmpty()) {
             val startNode = ScenarioNode(

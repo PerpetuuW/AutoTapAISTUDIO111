@@ -258,16 +258,25 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             }
             scenarioRepository.saveScenario(scenario)
 
-            // [V152.0] Граф активной сессии создается и обновляется при условии: кол-во шаблонов/шагов > 2
+            // [V152.0] Граф активной сессии обновляется точечно без сброса связей при числе шаблонов/шагов >= 2
             val totalTemplates = actions.sumOf { act ->
-                val mainCount = if (act.templatePath.isNotBlank()) 1 else 0
-                val multiCount = act.multiTemplatePaths.count { it.isNotBlank() }
-                if (mainCount + multiCount > 0) mainCount + multiCount else 1
+                (listOf(act.templatePath) + act.multiTemplatePaths).filter { it.isNotBlank() && !it.startsWith("ocr:") }.distinct().size
             }
-            val isGraphEligible = totalTemplates > 2 || actions.size > 2
+            val isGraphEligible = totalTemplates >= 2 || actions.size >= 2
             if (isGraphEligible) {
-                val graph = LinearToGraphMigrator.linearToGraph(scenario)
-                scenarioRepository.saveGraphScenario(graph)
+                val currentScenarioName = appContext.getSharedPreferences("autotap_prefs", Context.MODE_PRIVATE)
+                    .getString("last_active_scenario_name", "ActiveSession") ?: "ActiveSession"
+                val existingGraph = scenarioRepository.loadGraphScenario(currentScenarioName)
+                val updatedGraph = if (existingGraph != null) {
+                    var updatedNodeGraph: com.example.autotap.domain.model.graph.GraphMacroScenario = existingGraph
+                    for (act in actions) {
+                        updatedNodeGraph = LinearToGraphMigrator.updateNodeForAction(updatedNodeGraph, act)
+                    }
+                    updatedNodeGraph
+                } else {
+                    LinearToGraphMigrator.linearToGraph(scenario)
+                }
+                scenarioRepository.saveGraphScenario(updatedGraph)
             }
 
             appContext.getSharedPreferences("autotap_prefs", Context.MODE_PRIVATE)
@@ -334,14 +343,14 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             onCompleted()
             return
         }
-        val sessionHash = allActions.map { "${it.id}_${it.type}_${it.posX.toInt()}_${it.posY.toInt()}" }.hashCode()
+        val sessionHash = allActions.map { "${it.id}_${it.type}_${it.posX.toInt()}_${it.posY.toInt()}_${it.templatePath}_${it.multiTemplatePaths.size}" }.hashCode()
         val lastPromptedHash = prefs.getInt("LAST_PROMPTED_GRAPH_SESSION_HASH", 0)
         if (lastPromptedHash == sessionHash) {
             onCompleted()
             return
         }
 
-        val currentScenarioName = prefs.getString("LAST_ACTIVE_SCRIPT", "ActiveSession") ?: "ActiveSession"
+        val currentScenarioName = prefs.getString("last_active_scenario_name", "ActiveSession") ?: "ActiveSession"
         val hasGraph = scenarioRepository.hasGraphScenario(currentScenarioName)
         val dm = appContext.resources.displayMetrics
         val dp = { v: Int -> (v * dm.density).toInt() }
@@ -386,7 +395,8 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 setOnClickListener {
                     if (cbDontAsk.isChecked) prefs.edit().putBoolean("PREF_PROMPT_AUTO_GRAPH", false).apply()
                     dismissPrompt()
-                    val linearScenario = scenarioRepository.loadScenario(currentScenarioName) ?: com.example.autotap.domain.model.MacroScenario(currentScenarioName, 1, com.example.autotap.domain.model.DeviceDisplaySpecs(1080, 2400, 480, 3f, false), allActions, globalClickDurationMs, globalSwipeDurationMs)
+                    val specs = DeviceDisplaySpecs(dm.widthPixels, dm.heightPixels, dm.densityDpi, dm.density, dm.widthPixels > dm.heightPixels)
+                    val linearScenario = MacroScenario(currentScenarioName, 1, specs, allActions, globalClickDurationMs, globalSwipeDurationMs)
                     val graph = com.example.autotap.core.math.LinearToGraphMigrator.linearToGraph(linearScenario)
                     scenarioRepository.saveGraphScenario(graph)
                     openGraphEditor(currentScenarioName)
@@ -415,9 +425,19 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             overlayWindowManager.addViewSafe(root, lp)
         } else {
             // [V152.0] Если граф сценария уже существует и сессия удовлетворяет условиям,
-            // актуализируем граф активной сессии новой конфигурацией шагов
-            val linearScenario = scenarioRepository.loadScenario(currentScenarioName) ?: com.example.autotap.domain.model.MacroScenario(currentScenarioName, 1, com.example.autotap.domain.model.DeviceDisplaySpecs(1080, 2400, 480, 3f, false), allActions, globalClickDurationMs, globalSwipeDurationMs)
-            val updatedGraph = com.example.autotap.core.math.LinearToGraphMigrator.linearToGraph(linearScenario)
+            // актуализируем узел активной сессии без перезаписи топологии связей
+            val specs = DeviceDisplaySpecs(dm.widthPixels, dm.heightPixels, dm.densityDpi, dm.density, dm.widthPixels > dm.heightPixels)
+            val linearScenario = MacroScenario(currentScenarioName, 1, specs, allActions, globalClickDurationMs, globalSwipeDurationMs)
+            val existingGraph = scenarioRepository.loadGraphScenario(currentScenarioName)
+            val updatedGraph = if (existingGraph != null) {
+                var updatedNodeGraph: com.example.autotap.domain.model.graph.GraphMacroScenario = existingGraph
+                for (act in allActions) {
+                    updatedNodeGraph = LinearToGraphMigrator.updateNodeForAction(updatedNodeGraph, act)
+                }
+                updatedNodeGraph
+            } else {
+                LinearToGraphMigrator.linearToGraph(linearScenario)
+            }
             scenarioRepository.saveGraphScenario(updatedGraph)
             prefs.edit().putInt("LAST_PROMPTED_GRAPH_SESSION_HASH", sessionHash).apply()
             onCompleted()
