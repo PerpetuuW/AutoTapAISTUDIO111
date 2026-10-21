@@ -876,10 +876,35 @@ object TemplateMatchingEngine {
                     tier0Found = true
                     statL0Hits++
                     matchedTemplates.add(tPath)
-                    if (!findAllMatches && templates.size == 1 && candidate.score >= 0.95f) {
+                    if (!findAllMatches) {
+                        val searchRoi = if (hasRoi) Rect(roiMinX, roiMinY, roiMaxX, roiMaxY) else null
+                        val downscaleTag = if (lastUsedDownscale > 1) " [Сжатие: ${lastUsedDownscale}x]" else " [Сжатие: 1:1]"
+                        val elapsed = System.currentTimeMillis() - perfStartTime
+                        lastDiagnostics = SearchDiagnostics(
+                            roi = searchRoi,
+                            bestCandidate = candidate,
+                            rejectedCandidates = emptyList(),
+                            thresholdPct = defaultSim,
+                            methodName = ((if (isDeltaEMode) "ГИБРИД + УМНЫЙ ЦВЕТ (ΔE)" else if (actionOverride?.isShapeOnlyMode == true) "ФОРМА / КОНТУР" else "ГИБРИД CV") + downscaleTag),
+                            downscaleFactor = lastUsedDownscale,
+                            elapsedMs = elapsed
+                        )
+                        AppLogger.log(
+                            null,
+                            "CV_PROFILER",
+                            String.format(
+                                java.util.Locale.US,
+                                "Мультипоиск [%d масок]: %dms [Дескрипторы=%dms, L0=%d, L1=0, L2=0] | Результат: 1 целей (Победитель: %s - %.1f%%)",
+                                templates.size,
+                                elapsed,
+                                featExtractMs,
+                                statL0Hits,
+                                candidate.templateName,
+                                candidate.score * 100f
+                            )
+                        )
                         return listOf(candidate)
                     }
-                    if (!findAllMatches) break
                 }
             }
             if (tier0Found && !findAllMatches) continue
@@ -943,6 +968,39 @@ object TemplateMatchingEngine {
                 }
             }
             if (tier1Found && !findAllMatches) continue
+        }
+
+        if (!findAllMatches && allCandidates.isNotEmpty()) {
+            val finalMatches = nmsFilter(allCandidates.toSet())
+            val topWinner = finalMatches.firstOrNull()
+            val elapsed = System.currentTimeMillis() - perfStartTime
+            val searchRoi = if (hasRoi) Rect(roiMinX, roiMinY, roiMaxX, roiMaxY) else null
+            val downscaleTag = if (lastUsedDownscale > 1) " [Сжатие: ${lastUsedDownscale}x]" else " [Сжатие: 1:1]"
+            lastDiagnostics = SearchDiagnostics(
+                roi = searchRoi,
+                bestCandidate = topWinner,
+                rejectedCandidates = emptyList(),
+                thresholdPct = defaultSim,
+                methodName = ((if (isDeltaEMode) "ГИБРИД + УМНЫЙ ЦВЕТ (ΔE)" else if (actionOverride?.isShapeOnlyMode == true) "ФОРМА / КОНТУР" else "ГИБРИД CV") + downscaleTag),
+                downscaleFactor = lastUsedDownscale,
+                elapsedMs = elapsed
+            )
+            AppLogger.log(
+                null,
+                "CV_PROFILER",
+                String.format(
+                    java.util.Locale.US,
+                    "Мультипоиск [%d масок]: %dms [Дескрипторы=%dms, L0=%d, L1=%d, L2=0] | Результат: %d целей (%s)",
+                    templates.size,
+                    elapsed,
+                    featExtractMs,
+                    statL0Hits,
+                    statL1Sectors,
+                    finalMatches.size,
+                    if (topWinner != null) String.format(java.util.Locale.US, "Победитель: %s - %.1f%%", topWinner.templateName, topWinner.score * 100f) else "Не найдено"
+                )
+            )
+            return finalMatches
         }
 
         // =========================================================================
