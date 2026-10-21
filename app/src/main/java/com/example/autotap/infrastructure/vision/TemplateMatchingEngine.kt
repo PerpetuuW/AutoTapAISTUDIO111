@@ -163,31 +163,36 @@ object TemplateMatchingEngine {
 
     // Перегрузка 1: Вызов с Bitmap (основная)
     fun extractFeatures(template: Bitmap, cacheKey: String, tPath: String = "", defaultSim: Int = 80): TemplateFeatures? {
-        if (template.isRecycled || template.width <= 0 || template.height <= 0) return null
+        return try {
+            if (template.isRecycled || template.width <= 0 || template.height <= 0) return null
 
-        val tw = template.width
-        val th = template.height
+            val tw = template.width
+            val th = template.height
 
-        val metaLastMod = if (tPath.isNotEmpty()) {
-            try {
-                val mf = File(tPath)
-                val jf = File(mf.parentFile, "${mf.nameWithoutExtension}.json")
-                if (jf.exists()) jf.lastModified() else 0L
-            } catch (_: Exception) {
-                0L
-            }
-        } else 0L
+            val metaLastMod = if (tPath.isNotEmpty()) {
+                try {
+                    val mf = File(tPath)
+                    val jf = File(mf.parentFile, "${mf.nameWithoutExtension}.json")
+                    if (jf.exists()) jf.lastModified() else 0L
+                } catch (_: Exception) {
+                    0L
+                }
+            } else 0L
 
-        val key = if (cacheKey.isNotEmpty()) cacheKey else if (tPath.isNotEmpty()) tPath else "dyn_bmp"
-        val dynamicKey = "${key}_${tw}x${th}_${metaLastMod}"
+            val key = if (cacheKey.isNotEmpty()) cacheKey else if (tPath.isNotEmpty()) tPath else "dyn_bmp"
+            val dynamicKey = "${key}_${tw}x${th}_${metaLastMod}"
 
-        val cached = templateFeatureCache[dynamicKey]
-        if (cached != null) return cached
+            val cached = templateFeatureCache[dynamicKey]
+            if (cached != null) return cached
 
-        val tPixels = IntArray(tw * th)
-        template.getPixels(tPixels, 0, tw, 0, 0, tw, th)
+            val tPixels = IntArray(tw * th)
+            template.getPixels(tPixels, 0, tw, 0, 0, tw, th)
 
-        return extractFeatures(tPixels, tw, th, dynamicKey, defaultSim, tPath, false)
+            extractFeatures(tPixels, tw, th, dynamicKey, defaultSim, tPath, false)
+        } catch (t: Throwable) {
+            AppLogger.logError(null, "CV_EXTRACT", t)
+            null
+        }
     }
 
     // Перегрузка 2: Вызов с IntArray (для SmartMaskEngine и Unit тестов)
@@ -200,7 +205,8 @@ object TemplateMatchingEngine {
         tPath: String = "",
         isRawPixelsParam: Boolean = false
     ): TemplateFeatures? {
-        if (tPixels.isEmpty() || tw <= 0 || th <= 0) return null
+        return try {
+            if (tPixels.isEmpty() || tw <= 0 || th <= 0) return null
 
         val metaLastMod = if (tPath.isNotEmpty()) {
             try {
@@ -652,7 +658,11 @@ object TemplateMatchingEngine {
             keyClusterIndices = keyClusterIndices
         )
         templateFeatureCache[dynamicKey] = features
-        return features
+        features
+        } catch (t: Throwable) {
+            AppLogger.logError(null, "CV_EXTRACT", t)
+            null
+        }
     }
 
     fun findTemplateFastCascade(
@@ -684,7 +694,8 @@ object TemplateMatchingEngine {
         enableL0Cache: Boolean = true, findAllMatches: Boolean = false,
         isCancelled: () -> Boolean = { false }
     ): List<MatchCandidate> {
-        if (templates.isEmpty() || sPixels.isEmpty() || sw <= 0 || sh <= 0) return emptyList()
+        return try {
+            if (templates.isEmpty() || sPixels.isEmpty() || sw <= 0 || sh <= 0) return emptyList()
 
         val perfStartTime = System.currentTimeMillis()
         var statL0Hits = 0
@@ -1238,7 +1249,11 @@ object TemplateMatchingEngine {
             )
         )
 
-        return finalMatches
+        finalMatches
+        } catch (t: Throwable) {
+            AppLogger.logError(null, "CV_SEARCH", t)
+            emptyList()
+        }
     }
 
     private fun nmsFilter(candidates: Set<MatchCandidate>): List<MatchCandidate> {

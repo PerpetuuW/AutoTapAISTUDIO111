@@ -6,7 +6,6 @@ material = "1.12.0"
 activityKtx = "1.9.3"
 coroutines = "1.9.0"
 onnx = "1.30.0"
-mediapipe = "0.10.29"
 yandexAds = "7.10.0"
 rustorePay = "11.1.0"
 junit = "4.13.2"
@@ -21,8 +20,6 @@ detekt = "1.23.6"
 lifecycle = "2.8.4"
 kotlinxSerialization = "1.6.3"
 anrWatchdog = "1.4.0"
-coil = "2.6.0"
-datastore = "1.1.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -33,7 +30,6 @@ kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 onnxruntime-android = { group = "com.microsoft.onnxruntime", name = "onnxruntime-android", version.ref = "onnx" }
-mediapipe-tasks-vision = { group = "com.google.mediapipe", name = "tasks-vision", version.ref = "mediapipe" }
 yandex-mobileads = { group = "com.yandex.android", name = "mobileads", version.ref = "yandexAds" }
 rustore-pay = { group = "ru.rustore.sdk", name = "pay", version.ref = "rustorePay" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -54,9 +50,6 @@ leakcanary-android = { group = "com.squareup.leakcanary", name = "leakcanary-and
 
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 anr-watchdog = { group = "com.github.anrwatchdog", name = "anrwatchdog", version.ref = "anrWatchdog" }
-coil = { group = "io.coil-kt", name = "coil", version.ref = "coil" }
-coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
-androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -117,7 +117,6 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.onnxruntime.android) // onnxruntime-android:1.30.0 (16 KB Aligned)
-    implementation(libs.mediapipe.tasks.vision)
     implementation(libs.yandex.mobileads)
     implementation(libs.rustore.pay)
 
@@ -132,13 +131,8 @@ dependencies {
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.viewmodel.compose)
     
-    // Serialization & Preferences
+    // Serialization & Telemetry
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.androidx.datastore.preferences)
-
-    // Images & Telemetry
-    implementation(libs.coil)
-    implementation(libs.coil.compose)
     implementation(libs.anr.watchdog)
 
     // LeakCanary (отключен в отладочной сборке во избежание заморозки VM при дампе памяти hprof)
