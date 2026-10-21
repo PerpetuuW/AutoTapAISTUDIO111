@@ -1197,190 +1197,176 @@ class MacroExecutionEngine(
     ): Boolean {
         when (trig.type) {
             ActionType.TRIGGER -> {
-                if (trig.templatePath.isEmpty() && trig.multiTemplatePaths.isEmpty()) return false
-                // [V12.0] Загрузка строго целевого набора масок шага (исключение глобальной свалки базы)
-                val targetPaths = mutableListOf<String>()
-                targetPaths.add(trig.templatePath)
-                targetPaths.addAll(trig.multiTemplatePaths.filter { it.isNotBlank() && it != trig.templatePath })
+                val rawPaths = (listOf(trig.templatePath) + trig.multiTemplatePaths)
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                if (rawPaths.isEmpty()) return false
 
+                val ocrQueries = rawPaths.filter { it.startsWith("ocr:") }.map { it.removePrefix("ocr:") }
+                val imagePaths = rawPaths.filterNot { it.startsWith("ocr:") }
+
+                // 1. Точечное разрешение реальных путей и Bitmap без потери .json метаданных
                 val stepTemplates = LinkedHashMap<String, Bitmap>()
-                for (p in targetPaths) {
+                for (p in imagePaths) {
                     val pName = File(p).name
-                    val b = templates[p]
-                        ?: templates.entries.firstOrNull { File(it.key).name == pName }?.value
-                        ?: templateRepository.getTemplate(p)
-                    if (b != null && !b.isRecycled) {
-                        stepTemplates[p] = b
+                    val cachedEntry = templates[p]?.let { p to it }
+                        ?: templates.entries.firstOrNull { File(it.key).name == pName }?.let { it.key to it.value }
+
+                    val realPath = cachedEntry?.first ?: templateRepository.resolveTemplatePath(p)
+                    if (stepTemplates.containsKey(realPath)) continue
+
+                    val b = cachedEntry?.second?.takeIf { !it.isRecycled }
+                        ?: templateRepository.getTemplate(realPath)?.takeIf { !it.isRecycled }
+
+                    if (b != null) {
+                        stepTemplates[realPath] = b
                     }
                 }
-                if (stepTemplates.isEmpty()) {
-                    AppLogger.log(null, "GRAPH_TRIGGER", "Шаблон не найден для пути '${trig.templatePath}'")
+
+                if (stepTemplates.isEmpty() && ocrQueries.isEmpty()) {
+                    AppLogger.log(null, "GRAPH_TRIGGER", "Шаблоны не найдены для триггера '${trig.name}'")
                     return false
                 }
-                val tBmp = stepTemplates[trig.templatePath] ?: stepTemplates.values.first()
 
-                // Локальный исполнитель проверки заданного региона экрана (ROI)
-                fun queryCandidateRoi(
-                    rLeft: Int?,
-                    rTop: Int?,
-                    rRight: Int?,
-                    rBottom: Int?
-                ): List<com.example.autotap.domain.model.MatchCandidate> {
-                    val roiAction = MacroAction(
-                        id = 1,
-                        similarityPercent = trig.similarityThreshold,
-                        isContourMode = trig.isContourMode,
-                        isShapeOnlyMode = trig.isShapeOnlyMode,
-                        isMultiScaleMode = trig.isMultiScaleMode,
-                        colorDeltaEMode = trig.colorDeltaEMode,
-                        shapeExpansion = trig.shapeExpansion,
-                        paddingOffsetPx = trig.paddingOffsetPx,
-                        isCircleShape = trig.isCircleShape,
-                        roiLeft = rLeft,
-                        roiTop = rTop,
-                        roiRight = rRight,
-                        roiBottom = rBottom
-                    )
-                    val stepTemplatesList = stepTemplates.map { Pair(it.key, it.value) }
-                    return if (sPixels != null) {
-                        if (stepTemplatesList.size > 1) {
-                            TemplateMatchingEngine.findMultiTemplatesFastCascade(
-                                sPixels = sPixels, sw = sw, sh = sh,
-                                templates = stepTemplatesList,
-                                minSimilarityPercent = trig.similarityThreshold,
-                                actionOverride = roiAction,
-                                enableL0Cache = true
-                            )
-                        } else {
-                            TemplateMatchingEngine.findTemplateFastCascade(
-                                sPixels = sPixels, sw = sw, sh = sh,
-                                template = tBmp,
-                                minSimilarityPercent = trig.similarityThreshold,
-                                templatePath = trig.templatePath,
-                                actionOverride = roiAction,
-                                enableL0Cache = true
-                            )
-                        }
-                    } else if (screenshot != null) {
-                        if (screenshot.isRecycled) emptyList()
-                        else if (stepTemplatesList.size > 1) {
-                            visionGateway.findMultiTemplateMatches(
-                                screenshot = screenshot,
-                                templates = stepTemplatesList,
-                                minSimilarityPercent = trig.similarityThreshold,
-                                actionOverride = roiAction
-                            )
-                        } else {
-                            visionGateway.findTemplateMatches(
-                                screenshot = screenshot,
-                                template = tBmp,
-                                minSimilarityPercent = trig.similarityThreshold,
-                                actionOverride = roiAction
-                            )
-                        }
-                    } else emptyList()
-                }
+                val stepTemplatesList = stepTemplates.map { Pair(it.key, it.value) }
+                val primaryRealPath = stepTemplatesList.firstOrNull()?.first ?: trig.templatePath
+                val isMulti = stepTemplatesList.size > 1
 
-                // Этап 1: Опрос известных локаций (первичная метка + динамический пул additionalSearchLocations)
-                var resolvedMatches: List<com.example.autotap.domain.model.MatchCandidate> = emptyList()
+                // 2. Формируем actionOverride: передаем реальный templatePath и собственные якоря триггера
+                val evalAction = MacroAction(
+                    id = 1,
+                    templatePath = primaryRealPath,
+                    multiTemplatePaths = stepTemplatesList.map { it.first },
+                    similarityPercent = trig.similarityThreshold,
+                    isContourMode = trig.isContourMode,
+                    isShapeOnlyMode = trig.isShapeOnlyMode,
+                    isMultiScaleMode = trig.isMultiScaleMode,
+                    colorDeltaEMode = trig.colorDeltaEMode,
+                    shapeExpansion = trig.shapeExpansion,
+                    paddingOffsetPx = trig.paddingOffsetPx,
+                    isCircleShape = trig.isCircleShape,
+                    // Если это мультипоиск, не зажимаем весь экран в один общий ROI
+                    roiLeft = if (isMulti) null else trig.roiLeft,
+                    roiTop = if (isMulti) null else trig.roiTop,
+                    roiRight = if (isMulti) null else trig.roiRight,
+                    roiBottom = if (isMulti) null else trig.roiBottom,
+                    primaryAnchorPoints = trig.additionalSearchLocations.toList()
+                )
 
-                // 1.1 Проверка исходного ROI метки
-                if (trig.roiLeft != null && trig.roiTop != null && trig.roiRight != null && trig.roiBottom != null) {
-                    val primaryMatches = queryCandidateRoi(trig.roiLeft, trig.roiTop, trig.roiRight, trig.roiBottom)
-                    if (primaryMatches.isNotEmpty()) {
-                        resolvedMatches = primaryMatches
-                    }
-                }
+                val candidateList = mutableListOf<com.example.autotap.domain.model.MatchCandidate>()
 
-                // 1.2 Проверка накопленных дополнительных точек первоначального поиска
-                if (resolvedMatches.isEmpty() && trig.additionalSearchLocations.isNotEmpty()) {
-                    val pad = trig.paddingOffsetPx.coerceAtLeast(32)
-                    for (anchor in trig.additionalSearchLocations) {
-                        val aLeft = (anchor.x.toInt() - tBmp.width / 2 - pad).coerceIn(0, sw - 1)
-                        val aTop = (anchor.y.toInt() - tBmp.height / 2 - pad).coerceIn(0, sh - 1)
-                        val aRight = (anchor.x.toInt() + tBmp.width / 2 + pad).coerceIn(aLeft + 1, sw)
-                        val aBottom = (anchor.y.toInt() + tBmp.height / 2 + pad).coerceIn(aTop + 1, sh)
-                        val anchorMatches = queryCandidateRoi(aLeft, aTop, aRight, aBottom)
-                        if (anchorMatches.isNotEmpty()) {
-                            resolvedMatches = anchorMatches
-                            break
-                        }
-                    }
-                }
-
-                // Этап 2: Полноэкранный поиск (позиция метки не должна ограничивать ИИ триггеры)
-                if (resolvedMatches.isEmpty()) {
-                    val globalMatches = queryCandidateRoi(null, null, null, null)
-                    if (globalMatches.isNotEmpty()) {
-                        resolvedMatches = globalMatches
-                    }
-                }
-
-                if (resolvedMatches.isEmpty()) {
-                    AppLogger.log(accessibilityServiceProvider(), "GRAPH_CV_EXECUTION", "Триггер-шаблон '${File(trig.templatePath).nameWithoutExtension}' НЕ НАЙДЕН. Порог: ${trig.similarityThreshold}%, ROI: ${if (trig.roiLeft != null) "ЗАДАН" else "ВЕСЬ ЭКРАН"}")
-                }
-
-                if (resolvedMatches.isNotEmpty()) {
-                    // Исключение совпадений, попавших в превью или интерфейс пульта
-                    val validMatches = resolvedMatches.filterNot { cand ->
-                        // Если совпадение попало в зарегистрированную зону оверлея/превью - бракуем его
-                        isMatchInsideUiPreview(cand.clickX, cand.clickY)
-                    }
-
-                    if (validMatches.isEmpty()) {
-                        return false
-                    }
-
-                    val best = validMatches.first()
-                    // Фиксация обнаруженного места в пул первоначального поиска (строго вне зон UI/превью)
-                    val discoveredPoint = com.example.autotap.domain.model.Point2D(best.clickX.toFloat(), best.clickY.toFloat())
-                    trig.registerDiscoveredLocation(discoveredPoint)
-
-                    AppLogger.log(
-                        accessibilityServiceProvider(),
-                        "GRAPH_CV_EXECUTION",
-                        String.format(
-                            Locale.US,
-                            "Триггер '%s' УСПЕШНО НАЙДЕН на (%.0f, %.0f) со сходимостью %.1f%%. Пул локаций: %d",
-                            File(trig.templatePath).nameWithoutExtension,
-                            discoveredPoint.x,
-                            discoveredPoint.y,
-                            best.score * 100f,
-                            trig.additionalSearchLocations.size
+                // 3. Единый вызов каскадного поиска (Tier 0 -> Tier 1 -> Tier 2 уже внутри движка!)
+                if (stepTemplatesList.isNotEmpty()) {
+                    val imageMatches = if (sPixels != null) {
+                        TemplateMatchingEngine.findMultiTemplatesFastCascade(
+                            sPixels = sPixels,
+                            sw = sw,
+                            sh = sh,
+                            templates = stepTemplatesList,
+                            minSimilarityPercent = trig.similarityThreshold,
+                            actionOverride = evalAction,
+                            enableL0Cache = true
                         )
-                    )
+                    } else if (screenshot != null && !screenshot.isRecycled) {
+                        visionGateway.findMultiTemplateMatches(
+                            screenshot = screenshot,
+                            templates = stepTemplatesList,
+                            minSimilarityPercent = trig.similarityThreshold,
+                            actionOverride = evalAction
+                        )
+                    } else emptyList()
 
-                    if (trig.autoClickTarget) {
-                        val offX = if (trig.useCustomClick) trig.clickOffset.x else best.clickOffsetX
-                        val offY = if (trig.useCustomClick) trig.clickOffset.y else best.clickOffsetY
-                        val clickX = best.clickX + offX
-                        val clickY = best.clickY + offY
+                    candidateList.addAll(imageMatches)
+                }
 
-                        // Режим обучения ИИ в графе
-                        if (isStepByStepDebug) {
-                            isPaused = true
-                            _executionState.value = ExecutionState.Paused(PauseReason.USER_MANUAL)
-                            val rect = android.graphics.Rect(best.rectLeft, best.rectTop, best.rectRight, best.rectBottom)
-                            withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                val ctx = accessibilityServiceProvider()?.applicationContext
-                                if (ctx != null) {
-                                    com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showTrainingHighlight(ctx, getOverlayWindowManager(ctx), rect)
+                // 4. Поддержка OCR-целей в мультипоиске графа
+                if (ocrQueries.isNotEmpty() && candidateList.isEmpty()) {
+                    val bmp = screenshot ?: (if (sPixels != null) Bitmap.createBitmap(sPixels, sw, sh, Bitmap.Config.ARGB_8888) else null)
+                    if (bmp != null) {
+                        try {
+                            val roi = if (trig.roiLeft != null && trig.roiRight != null) {
+                                Rect(trig.roiLeft, trig.roiTop ?: 0, trig.roiRight, trig.roiBottom ?: 0)
+                            } else null
+                            for (q in ocrQueries) {
+                                val ocrRes = OcrEngine.findTextOnScreen(bmp, q, 1000L, roi, variableContext)
+                                for (res in ocrRes) {
+                                    candidateList.add(
+                                        com.example.autotap.domain.model.MatchCandidate(
+                                            clickX = res.clickX,
+                                            clickY = res.clickY,
+                                            rectLeft = res.rectLeft,
+                                            rectTop = res.rectTop,
+                                            rectRight = res.rectRight,
+                                            rectBottom = res.rectBottom,
+                                            score = 0.95f,
+                                            templatePath = "ocr:$q"
+                                        )
+                                    )
                                 }
                             }
-                            while (isPaused) { kotlinx.coroutines.delay(100L) }
-                            withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                val ctx = accessibilityServiceProvider()?.applicationContext
-                                if (ctx != null) com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hideTrainingHighlight(getOverlayWindowManager(ctx))
-                            }
-                        }
-
-                        withContext(Dispatchers.IO) {
-                            gestureGateway.performClick(clickX, clickY, 60L)
+                        } finally {
+                            if (bmp != screenshot && !bmp.isRecycled) bmp.recycle()
                         }
                     }
-                    return true
                 }
-                return false
+
+                val validMatches = candidateList
+                    .filterNot { cand -> isMatchInsideUiPreview(cand.clickX, cand.clickY) }
+                    .sortedByDescending { it.score }
+
+                if (validMatches.isEmpty()) {
+                    AppLogger.log(accessibilityServiceProvider(), "GRAPH_CV_EXECUTION", "Триггер '${trig.name}' НЕ НАЙДЕН (масок: ${stepTemplatesList.size}, порог: ${trig.similarityThreshold}%)")
+                    return false
+                }
+
+                val best = validMatches.first()
+                val discoveredPoint = Point2D(best.clickX.toFloat(), best.clickY.toFloat())
+                trig.registerDiscoveredLocation(discoveredPoint)
+                if (best.templatePath.isNotBlank() && !best.templatePath.startsWith("ocr:")) {
+                    TemplateMatchingEngine.registerDiscoveredLocation(best.templatePath, best.clickX, best.clickY)
+                }
+
+                AppLogger.log(
+                    accessibilityServiceProvider(),
+                    "GRAPH_CV_EXECUTION",
+                    String.format(
+                        Locale.US,
+                        "Триггер '%s' УСПЕШНО НАЙДЕН на (%.0f, %.0f) со сходимостью %.1f%%",
+                        best.templateName,
+                        discoveredPoint.x,
+                        discoveredPoint.y,
+                        best.score * 100f
+                    )
+                )
+
+                if (trig.autoClickTarget) {
+                    val offX = if (isMulti) best.clickOffsetX else if (trig.useCustomClick) trig.clickOffset.x else best.clickOffsetX
+                    val offY = if (isMulti) best.clickOffsetY else if (trig.useCustomClick) trig.clickOffset.y else best.clickOffsetY
+                    val clickX = best.clickX + offX
+                    val clickY = best.clickY + offY
+
+                    if (isStepByStepDebug) {
+                        isPaused = true
+                        _executionState.value = ExecutionState.Paused(PauseReason.USER_MANUAL)
+                        val rect = Rect(best.rectLeft, best.rectTop, best.rectRight, best.rectBottom)
+                        withContext(Dispatchers.Main) {
+                            val ctx = accessibilityServiceProvider()?.applicationContext
+                            if (ctx != null) {
+                                com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.showTrainingHighlight(ctx, getOverlayWindowManager(ctx), rect)
+                            }
+                        }
+                        while (isPaused) { delay(100L) }
+                        withContext(Dispatchers.Main) {
+                            val ctx = accessibilityServiceProvider()?.applicationContext
+                            if (ctx != null) com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hideTrainingHighlight(getOverlayWindowManager(ctx))
+                        }
+                    }
+
+                    withContext(Dispatchers.IO) {
+                        gestureGateway.performClick(clickX, clickY, 60L)
+                    }
+                }
+                return true
             }
             ActionType.OCR -> {
                 val bmp = screenshot ?: (if (sPixels != null) {
@@ -1442,36 +1428,53 @@ class MacroExecutionEngine(
         action: MacroAction,
         cachedTemplates: Map<String, Bitmap>
     ): List<Pair<String, Bitmap>> {
-
         val result = mutableListOf<Pair<String, Bitmap>>()
-        val allFromDisk = templateRepository.loadAllTemplates()
 
-        if (action.multiTemplatePaths.isNotEmpty()) {
-        for (path in action.multiTemplatePaths) {
-        if (path.isNotBlank()) {
-        val matched = allFromDisk.firstOrNull { File(it.first).name == File(path).name }
-        // [V13.1] Нормализация пути: гарантия считывания .json метаданных для каждого мультишаблона
-        val realPath = matched?.first ?: path
-        val bmp = matched?.second ?: cachedTemplates[path] ?: templateRepository.getTemplate(realPath)
-        if (bmp != null && !bmp.isRecycled && result.none { it.first == realPath }) {
-        result.add(Pair(realPath, bmp))
-        }
-        }
-        }
-        }
+        // Вспомогательная функция точечного поиска 1 шаблона без загрузки всей базы с диска
+        fun resolveSingle(path: String) {
+            if (path.isBlank() || path.startsWith("ocr:")) return
 
-        if (action.templatePath.isNotBlank() && !action.templatePath.startsWith("ocr:") && result.none { it.first == action.templatePath }) {
-            val directFile = File(action.templatePath)
-            val matched = allFromDisk.firstOrNull { File(it.first).name == directFile.name }
-            val realPath = matched?.first ?: action.templatePath
-            val bmp = matched?.second ?: cachedTemplates[action.templatePath] ?: templateRepository.getTemplate(realPath)
-            if (bmp != null && !bmp.isRecycled) {
-                result.add(Pair(realPath, bmp))
+            val fileName = File(path).name
+            // 1. Сначала ищем в уже переданной мапе сессии (по полному пути или по имени файла)
+            val matched = cachedTemplates[path]?.let { path to it }
+                ?: cachedTemplates.entries.firstOrNull { File(it.key).name == fileName }?.let { it.key to it.value }
+
+            val realPath = matched?.first ?: path
+            val finalPath = if (File(realPath).exists()) realPath else templateRepository.resolveTemplatePath(path)
+            if (result.any { it.first == finalPath }) return
+
+            // 2. Берем живой Bitmap из мапы или точечно через LruCache репозитория (1 файл)
+            val bmp = matched?.second?.takeIf { !it.isRecycled }
+                ?: templateRepository.getTemplate(finalPath)?.takeIf { !it.isRecycled }
+
+            if (bmp != null) {
+                result.add(Pair(finalPath, bmp))
             }
         }
 
+        // 1. Собираем все шаблоны мультипоиска
+        if (action.multiTemplatePaths.isNotEmpty()) {
+            for (path in action.multiTemplatePaths) {
+                resolveSingle(path)
+            }
+        }
+
+        // 2. Добавляем основной шаблон шага, если его еще нет в списке
+        if (action.templatePath.isNotBlank()) {
+            resolveSingle(action.templatePath)
+        }
+
+        // 3. Фолбэк только на случай, если пути в шаге вообще не заданы
         val hasOnlyOcrTargets = action.multiTemplatePaths.isNotEmpty() && action.multiTemplatePaths.all { it.startsWith("ocr:") }
-        return if (hasOnlyOcrTargets) result else result.ifEmpty { allFromDisk.take(1) }
+        if (!hasOnlyOcrTargets && result.isEmpty()) {
+            val fallback = cachedTemplates.entries.firstOrNull { !it.value.isRecycled }?.let { it.key to it.value }
+                ?: templateRepository.loadAllTemplates().firstOrNull()
+            if (fallback != null) {
+                result.add(fallback)
+            }
+        }
+
+        return result
     }
 
     override fun stop() {

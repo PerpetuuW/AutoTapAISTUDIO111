@@ -14,5 +14,6 @@ interface ITemplateRepository {
     fun purgeExpiredTrash(maxAgeDays: Int = 7)
     fun listTrash(): List<File>
     fun renameTemplate(oldPath: String, newName: String): String?
+    fun resolveTemplatePath(path: String): String = path
     fun clearCache()
 }

@@ -293,10 +293,29 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         graphEditorOverlay.show(name)
     }
 
+    private fun loadScenarioTemplates(actions: List<MacroAction>): Map<String, Bitmap> {
+        val templatesMap = LinkedHashMap<String, Bitmap>()
+        val usedPaths = actions
+            .flatMap { listOf(it.templatePath) + it.multiTemplatePaths }
+            .filter { it.isNotBlank() && !it.startsWith("ocr:") }
+            .distinct()
+
+        for (path in usedPaths) {
+            val realPath = templateRepository.resolveTemplatePath(path)
+            templateRepository.getTemplate(realPath)?.let { bmp ->
+                templatesMap[realPath] = bmp
+                if (path != realPath) templatesMap[path] = bmp
+            }
+        }
+        return templatesMap
+    }
+
     fun startGraphScenarioExecution(graph: GraphMacroScenario) {
         templateRepository.clearCache()
-        val templatesMap = LinkedHashMap<String, Bitmap>()
-        templateRepository.loadAllTemplates().forEach { (path, bmp) -> templatesMap[path] = bmp }
+        val allGraphTriggers = graph.nodes.values.flatMap { node ->
+            node.triggers.map { t -> MacroAction(id = 1, templatePath = t.templatePath, multiTemplatePaths = t.multiTemplatePaths) }
+        }
+        val templatesMap = loadScenarioTemplates(allGraphTriggers)
         macroEngine.startGraph(graph, templatesMap, isDebug = false)
     }
 
@@ -1165,9 +1184,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         val scenario = MacroScenario("ActiveSession", 1, specs, actions, globalClickDurationMs, globalSwipeDurationMs)
 
         templateRepository.clearCache()
-        TemplateMatchingEngine.clearTemplateCache()
-        val templatesMap = LinkedHashMap<String, Bitmap>()
-        templateRepository.loadAllTemplates().forEach { (path, bmp) -> templatesMap[path] = bmp }
+        val templatesMap = loadScenarioTemplates(actions)
         macroEngine.start(scenario, templatesMap, isDebug = false)
     }
 
@@ -1183,9 +1200,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         val scenario = MacroScenario("DebugSession", 1, specs, actions, globalClickDurationMs, globalSwipeDurationMs)
 
         templateRepository.clearCache()
-        TemplateMatchingEngine.clearTemplateCache()
-        val templatesMap = LinkedHashMap<String, Bitmap>()
-        templateRepository.loadAllTemplates().forEach { (path, bmp) -> templatesMap[path] = bmp }
+        val templatesMap = loadScenarioTemplates(actions)
         macroEngine.start(scenario, templatesMap, isDebug = true)
         debuggerToolbarOverlay.show(onStepNext = { macroEngine.stepDebugNext() }, onStop = { macroEngine.stop() })
     }

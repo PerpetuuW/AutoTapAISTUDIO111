@@ -52,6 +52,14 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
         return result
     }
 
+    override fun resolveTemplatePath(path: String): String {
+        if (path.isBlank() || path.startsWith("ocr:")) return path
+        val file = File(path)
+        if (file.exists()) return file.absolutePath
+        val found = baseTemplatesDir.walkTopDown().firstOrNull { it.isFile && it.name == file.name }
+        return found?.absolutePath ?: path
+    }
+
     override fun getTemplate(path: String): Bitmap? {
         if (path.isBlank()) return null
         getCachedBitmap(path)?.let { return it }
