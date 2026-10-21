@@ -2136,9 +2136,10 @@ class EditActionDialog(
     private fun createTextActionButton(label: String, bgHex: String, textHex: String, onClick: () -> Unit): View {
         return Button(context).apply {
             text = label
-            textSize = 8f
+            textSize = 8.5f
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
+            gravity = Gravity.CENTER
             setTextColor(textHex.toColorInt())
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
@@ -2148,7 +2149,7 @@ class EditActionDialog(
                 setStroke(dp(1), textHex.toColorInt())
             }
             minHeight = 0; minimumHeight = 0
-            setPadding(dp(2), 0, dp(2), 0)
+            setPadding(dp(8), dp(4), dp(8), dp(4))
             setOnClickListener { onClick() }
         }
     }

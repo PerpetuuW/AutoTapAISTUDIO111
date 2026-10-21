@@ -648,6 +648,7 @@ object TemplateMatchingEngine {
         var lastUsedDownscale = override?.downscaleFactor?.takeIf { it in 1..4 } ?: 1
 
         val preparedContexts = mutableListOf<PreparedTemplateContext>()
+        val featStartTime = System.currentTimeMillis()
 
         for ((rawPath, tBmp) in templates) {
             if (isCancelled() || tBmp.isRecycled) continue
@@ -1144,7 +1145,23 @@ object TemplateMatchingEngine {
             downscaleFactor = lastUsedDownscale,
             elapsedMs = elapsed
         )
-        AppLogger.log(null, "CV_PROFILER", "Мультипоиск [${templates.size} масок]: ${elapsed}ms | L0=$statL0Hits, L1=$statL1Sectors, L2=$statL2Evals | Результат: ${finalMatches.size} целей")
+        val featExtractMs = System.currentTimeMillis() - featStartTime
+        AppLogger.log(
+            null,
+            "CV_PROFILER",
+            String.format(
+                java.util.Locale.US,
+                "Мультипоиск [%d масок]: %dms [Дескрипторы=%dms, L0=%d, L1=%d, L2=%d] | Результат: %d целей (%s)",
+                templates.size,
+                elapsed,
+                featExtractMs,
+                statL0Hits,
+                statL1Sectors,
+                statL2Evals,
+                finalMatches.size,
+                if (topWinner != null) String.format(java.util.Locale.US, "Победитель: %s - %.1f%%", topWinner.templateName, topWinner.score * 100f) else "Не найдено"
+            )
+        )
 
         return finalMatches
     }

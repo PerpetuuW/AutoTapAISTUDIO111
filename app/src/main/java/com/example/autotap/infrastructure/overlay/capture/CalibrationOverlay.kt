@@ -2280,8 +2280,10 @@ private val targetStepId: Int? = null,
 
         val btnCancel = Button(context).apply {
             text = "ОТМЕНА"
-            textSize = 9f
+            textSize = 9.5f
             typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            includeFontPadding = false
             setTextColor("#F04438".toColorInt())
             background = GradientDrawable().apply {
                 setColor("#21262D".toColorInt())
@@ -2289,7 +2291,7 @@ private val targetStepId: Int? = null,
                 setStroke(dp(1), "#F04438".toColorInt())
             }
             minHeight = 0; minimumHeight = 0
-            setPadding(dp(8), dp(6), dp(8), dp(6))
+            setPadding(dp(12), dp(4), dp(12), dp(4))
             setOnClickListener {
                 onCancelled()
                 dismiss()
