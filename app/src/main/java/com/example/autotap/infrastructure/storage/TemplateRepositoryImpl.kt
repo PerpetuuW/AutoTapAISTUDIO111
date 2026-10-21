@@ -18,8 +18,8 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
     private val trashDir: File
         get() = File(context.filesDir, "trash_templates").apply { mkdirs() }
 
-    // Потокобезопасный LruCache с лимитом 16 МБ (размер считается в килобайтах)
-    private val maxCacheSizeKb = 16 * 1024
+    // Потокобезопасный LruCache с лимитом 64 МБ (размер считается в килобайтах)
+    private val maxCacheSizeKb = 64 * 1024
     private val memoryCache = object : LruCache<String, Bitmap>(maxCacheSizeKb) {
         override fun sizeOf(key: String, value: Bitmap): Int {
             return (value.allocationByteCount / 1024).coerceAtLeast(1)

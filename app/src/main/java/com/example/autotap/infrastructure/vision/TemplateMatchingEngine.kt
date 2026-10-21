@@ -607,12 +607,13 @@ object TemplateMatchingEngine {
         val override = actionOverride
         val defaultSim = override?.similarityPercent ?: minSimilarityPercent
 
+        val isMultiSearch = templates.size > 1
         val roiMinX: Int
         val roiMinY: Int
         val roiMaxX: Int
         val roiMaxY: Int
         val hasRoi: Boolean
-        if (override != null && override.roiLeft != null && override.roiTop != null &&
+        if (!isMultiSearch && override != null && override.roiLeft != null && override.roiTop != null &&
             override.roiRight != null && override.roiBottom != null
         ) {
             hasRoi = true
@@ -654,35 +655,19 @@ object TemplateMatchingEngine {
 
             val anchorProbes = mutableListOf<com.example.autotap.domain.model.Point2D>()
 
-            // 1. МЕТАДАННЫЕ КАЛИБРОВКИ И ВЫРЕЗА
+            // 1. ПРИОРИТЕТ №1: Родные координаты калибровки ЭТОГО шаблона из его JSON
             if (features.calibratedX != null && features.calibratedY != null) {
                 anchorProbes.add(com.example.autotap.domain.model.Point2D(features.calibratedX.toFloat(), features.calibratedY.toFloat()))
             }
-            // 2. Координаты из действия макроса
-            if (actionOverride != null && (actionOverride.posX > 1f || actionOverride.posY > 1f)) {
-                val pt = com.example.autotap.domain.model.Point2D(actionOverride.posX, actionOverride.posY)
-                if (anchorProbes.none { abs(it.x - pt.x) < 4f && abs(it.y - pt.y) < 4f }) {
-                    anchorProbes.add(0, pt)
-                }
-            }
 
-            // 3. Опорные точки ROI шага / добавленные вручную (primaryAnchorPoints)
-            if (actionOverride != null && actionOverride.primaryAnchorPoints.isNotEmpty()) {
-                actionOverride.primaryAnchorPoints.forEach { pt ->
-                    if (anchorProbes.none { p -> abs(p.x - pt.x) < 16f && abs(p.y - pt.y) < 16f }) {
-                        anchorProbes.add(pt)
-                    }
-                }
-            }
-
-            // 4. Опорные точки и ROI зоны, сохраненные в meta.json конкретного шаблона/маски
+            // 2. ПРИОРИТЕТ №2: Опорные точки и ROI зоны из meta.json ЭТОГО шаблона
             features.metaAnchorLocations.forEach { pt ->
                 if (anchorProbes.none { p -> abs(p.x - pt.x) < 16f && abs(p.y - pt.y) < 16f }) {
                     anchorProbes.add(pt)
                 }
             }
 
-            // 5. Дополнительные динамические позиции (накопительный L0 Cache) с потокобезопасным чтением
+            // 3. ПРИОРИТЕТ №3: Накопленный L0 Cache именно для этого tPath
             if (enableL0Cache && tPath.isNotEmpty()) {
                 historicalSearchAnchors[tPath]?.let { set ->
                     synchronized(set) {
@@ -702,6 +687,22 @@ object TemplateMatchingEngine {
                                 anchorProbes.add(pt)
                             }
                         }
+                    }
+                }
+            }
+
+            // 4. ПРИОРИТЕТ №4: Общие координаты шага MacroAction (добавлять В КОНЕЦ, не затирая родной якорь!)
+            if (actionOverride != null && (actionOverride.posX > 1f || actionOverride.posY > 1f)) {
+                val pt = com.example.autotap.domain.model.Point2D(actionOverride.posX, actionOverride.posY)
+                if (anchorProbes.none { abs(it.x - pt.x) < 16f && abs(it.y - pt.y) < 16f }) {
+                    anchorProbes.add(pt)
+                }
+            }
+
+            if (actionOverride != null && actionOverride.primaryAnchorPoints.isNotEmpty()) {
+                actionOverride.primaryAnchorPoints.forEach { pt ->
+                    if (anchorProbes.none { p -> abs(p.x - pt.x) < 16f && abs(p.y - pt.y) < 16f }) {
+                        anchorProbes.add(pt)
                     }
                 }
             }
@@ -782,9 +783,9 @@ object TemplateMatchingEngine {
             }
             if (tier0Found && !findAllMatches) continue
 
-            // TIER 1: Быстрая двухпроходная окрестность UI (+-48 px вокруг главных опорных точек, 2-3 мс)
+            // TIER 1: Быстрая двухпроходная окрестность UI (+-48 px вокруг всех опорных точек, 2-3 мс)
             var tier1Found = false
-            val primaryProbes = ctx.anchorProbes.take(3)
+            val primaryProbes = ctx.anchorProbes.take(8)
             for (probe in primaryProbes) {
                 val expLeft = (probe.x - features.centroidX).toInt().coerceIn(roiMinX, scanLimitX)
                 val expTop = (probe.y - features.centroidY).toInt().coerceIn(roiMinY, scanLimitY)
@@ -868,8 +869,7 @@ object TemplateMatchingEngine {
             }
 
             val metaStep = features.optimalGridStepFromMeta
-            val isMulti = templates.size >= 3
-            val minStep = if (isMulti) 12 else 6
+            val minStep = 6
             val baseStepX = if (metaStep in 2..16) metaStep else (if (isSmall) (features.tw / 3).coerceIn(4, 10) else (features.tw / 2).coerceIn(minStep, 28))
             val baseStepY = if (metaStep in 2..16) metaStep else (if (isSmall) (features.th / 3).coerceIn(4, 10) else (features.th / 2).coerceIn(minStep, 28))
             val gridStepX = baseStepX
