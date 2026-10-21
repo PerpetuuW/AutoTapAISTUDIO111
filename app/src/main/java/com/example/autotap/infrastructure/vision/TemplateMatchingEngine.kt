@@ -343,56 +343,12 @@ object TemplateMatchingEngine {
 
         val safeColorPixels = if (colorSourcePixels.size == tw * th) colorSourcePixels else tPixels
 
-        val effTw: Int
-        val effTh: Int
-        val effPixels: IntArray
-        val effColorPixels: IntArray
-        val cropShiftX: Int
-        val cropShiftY: Int
-
-        if (cropMaxX >= cropMinX && cropMaxY >= cropMinY && (cropMaxX - cropMinX + 1 < tw || cropMaxY - cropMinY + 1 < th) && (cropMaxX - cropMinX + 1) >= 4 && (cropMaxY - cropMinY + 1) >= 4) {
-            effTw = cropMaxX - cropMinX + 1
-            effTh = cropMaxY - cropMinY + 1
-            cropShiftX = cropMinX
-            cropShiftY = cropMinY
-            effPixels = IntArray(effTw * effTh)
-            effColorPixels = IntArray(effTw * effTh)
-            for (cy in 0 until effTh) {
-                val srcRow = (cropMinY + cy) * tw
-                val dstRow = cy * effTw
-                if (srcRow + cropMinX + effTw <= tPixels.size) {
-                    System.arraycopy(tPixels, srcRow + cropMinX, effPixels, dstRow, effTw)
-                }
-                if (srcRow + cropMinX + effTw <= safeColorPixels.size) {
-                    System.arraycopy(safeColorPixels, srcRow + cropMinX, effColorPixels, dstRow, effTw)
-                }
-            }
-
-            // [V210.0] Автоматическая дозапись кадрированных габаритов в .json метаданные на диске для старых масок
-            if (tPath.isNotEmpty()) {
-                try {
-                    val maskFile = File(tPath)
-                    val metaFile = File(maskFile.parentFile, "${maskFile.nameWithoutExtension}.json")
-                    if (metaFile.exists()) {
-                        val metaJson = JSONObject(metaFile.readText())
-                        if (!metaJson.has("tightCropW")) {
-                            metaJson.put("tightCropX", cropShiftX)
-                            metaJson.put("tightCropY", cropShiftY)
-                            metaJson.put("tightCropW", effTw)
-                            metaJson.put("tightCropH", effTh)
-                            metaFile.writeText(metaJson.toString(4))
-                        }
-                    }
-                } catch (_: Exception) {}
-            }
-        } else {
-            effPixels = tPixels
-            effColorPixels = colorSourcePixels
-            effTw = tw
-            effTh = th
-            cropShiftX = 0
-            cropShiftY = 0
-        }
+        val effTw = tw
+        val effTh = th
+        val effPixels = tPixels
+        val effColorPixels = safeColorPixels
+        val cropShiftX = 0
+        val cropShiftY = 0
 
         val maxPoints = effTw * effTh
         val shapeDx = IntArray(maxPoints)
@@ -639,8 +595,8 @@ object TemplateMatchingEngine {
             clickOffsetXFromMeta = metaClickX,
             clickOffsetYFromMeta = metaClickY,
             useCustomOffsetFromMeta = metaUseOffset,
-            calibratedX = if (metaCropLeft != null) metaCropLeft!! + cX + cropShiftX else metaCalibX,
-            calibratedY = if (metaCropTop != null) metaCropTop!! + cY + cropShiftY else metaCalibY,
+            calibratedX = if (metaCropLeft != null) metaCropLeft!! + cX else metaCalibX,
+            calibratedY = if (metaCropTop != null) metaCropTop!! + cY else metaCalibY,
             optimalGridStepFromMeta = metaGridStep,
             optimalDownscaleFactorFromMeta = calculatedDownscale,
             optimalDownscaleScaleFromMeta = 1.0f / calculatedDownscale.toFloat(),
@@ -703,13 +659,14 @@ object TemplateMatchingEngine {
         val rejectedCandidatesList = Collections.synchronizedList(mutableListOf<Pair<MatchCandidate, String>>())
         val override = actionOverride
         val defaultSim = override?.similarityPercent ?: minSimilarityPercent
+        val isMultiSearch = templates.size > 1
 
         val roiMinX: Int
         val roiMinY: Int
         val roiMaxX: Int
         val roiMaxY: Int
         val hasRoi: Boolean
-        if (override != null && override.roiLeft != null && override.roiTop != null &&
+        if (!isMultiSearch && override != null && override.roiLeft != null && override.roiTop != null &&
             override.roiRight != null && override.roiBottom != null
         ) {
             hasRoi = true
@@ -792,18 +749,20 @@ object TemplateMatchingEngine {
                 }
             }
 
-            // 4. ПРИОРИТЕТ №4: Общие координаты шага MacroAction (добавлять В КОНЕЦ, не затирая родной якорь!)
-            if (actionOverride != null && (actionOverride.posX > 1f || actionOverride.posY > 1f)) {
-                val pt = com.example.autotap.domain.model.Point2D(actionOverride.posX, actionOverride.posY)
-                if (anchorProbes.none { abs(it.x - pt.x) < 16f && abs(it.y - pt.y) < 16f }) {
-                    anchorProbes.add(pt)
-                }
-            }
-
-            if (actionOverride != null && actionOverride.primaryAnchorPoints.isNotEmpty()) {
-                actionOverride.primaryAnchorPoints.forEach { pt ->
-                    if (anchorProbes.none { p -> abs(p.x - pt.x) < 16f && abs(p.y - pt.y) < 16f }) {
+            // 4. ПРИОРИТЕТ №4: Общие координаты шага MacroAction (добавлять только в обычном поиске или при отсутствии родных якорей)
+            if (!isMultiSearch || anchorProbes.isEmpty()) {
+                if (actionOverride != null && (actionOverride.posX > 1f || actionOverride.posY > 1f)) {
+                    val pt = com.example.autotap.domain.model.Point2D(actionOverride.posX, actionOverride.posY)
+                    if (anchorProbes.none { abs(it.x - pt.x) < 16f && abs(it.y - pt.y) < 16f }) {
                         anchorProbes.add(pt)
+                    }
+                }
+
+                if (actionOverride != null && actionOverride.primaryAnchorPoints.isNotEmpty()) {
+                    actionOverride.primaryAnchorPoints.forEach { pt ->
+                        if (anchorProbes.none { p -> abs(p.x - pt.x) < 16f && abs(p.y - pt.y) < 16f }) {
+                            anchorProbes.add(pt)
+                        }
                     }
                 }
             }

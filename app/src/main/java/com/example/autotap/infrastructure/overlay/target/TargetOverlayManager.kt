@@ -567,12 +567,20 @@ class TargetOverlayManager(
                                             existingMulti.add(0, targetAction.templatePath)
                                         }
                                         val primaryPath = targetAction.templatePath.ifBlank { path }
+                                        val distinctMulti = existingMulti.distinct()
+                                        val isMulti = distinctMulti.size > 1
                                         val multiAction = updatedAction.copy(
+                                            posX = if (targetAction.templatePath.isNotBlank()) targetAction.posX else updatedAction.posX,
+                                            posY = if (targetAction.templatePath.isNotBlank()) targetAction.posY else updatedAction.posY,
                                             templatePath = primaryPath,
-                                            multiTemplatePaths = existingMulti.distinct()
+                                            multiTemplatePaths = distinctMulti,
+                                            roiLeft = if (isMulti) null else updatedAction.roiLeft,
+                                            roiTop = if (isMulti) null else updatedAction.roiTop,
+                                            roiRight = if (isMulti) null else updatedAction.roiRight,
+                                            roiBottom = if (isMulti) null else updatedAction.roiBottom
                                         )
                                         updateAction(multiAction)
-                                        Toast.makeText(context, "Шаблон добавлен к мультипоиску шага #${targetAction.id} (всего: ${existingMulti.distinct().size})", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Шаблон добавлен к мультипоиску шага #${targetAction.id} (всего: ${distinctMulti.size})", Toast.LENGTH_SHORT).show()
                                     },
                                     onCancelled = {
                                         setOverlaysVisible(true)

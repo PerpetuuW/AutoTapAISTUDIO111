@@ -2252,6 +2252,8 @@ private val targetStepId: Int? = null,
                     existingMulti.add(tPath)
                 }
 
+                val isAddingToExistingMulti = existingAction != null && (existingAction.multiTemplatePaths.isNotEmpty() || existingAction.templatePath.isNotBlank())
+
                 val action = (existingAction ?: MacroAction(id = targetStepId ?: 1, type = ActionType.TRIGGER)).copy(
                     type = existingAction?.type ?: ActionType.TRIGGER,
                     posX = targetX,
@@ -2270,10 +2272,10 @@ private val targetStepId: Int? = null,
                     useCustomClickOffset = useCustomClickOffset,
                     clickOffsetX = clickOffsetX,
                     clickOffsetY = clickOffsetY,
-                    roiLeft = firstRoi?.left,
-                    roiTop = firstRoi?.top,
-                    roiRight = firstRoi?.right,
-                    roiBottom = firstRoi?.bottom,
+                    roiLeft = if (isAddingToExistingMulti) null else (firstRoi?.left ?: existingAction?.roiLeft),
+                    roiTop = if (isAddingToExistingMulti) null else (firstRoi?.top ?: existingAction?.roiTop),
+                    roiRight = if (isAddingToExistingMulti) null else (firstRoi?.right ?: existingAction?.roiRight),
+                    roiBottom = if (isAddingToExistingMulti) null else (firstRoi?.bottom ?: existingAction?.roiBottom),
                     primaryAnchorPoints = combinedAnchors
                 )
                 onFinished(action, tPath)
