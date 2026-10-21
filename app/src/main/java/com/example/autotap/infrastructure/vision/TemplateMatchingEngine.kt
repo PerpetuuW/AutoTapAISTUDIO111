@@ -1194,8 +1194,13 @@ object TemplateMatchingEngine {
                 var bestY = spot.second
 
                 val fineStep = if (searchRadius >= 6) 2 else 1
-                for (fy in max(roiMinY, spot.second - searchRadius)..min(scanLimitY, spot.second + searchRadius) step fineStep) {
-                    for (fx in max(roiMinX, spot.first - searchRadius)..min(scanLimitX, spot.first + searchRadius) step fineStep) {
+                val startX = (spot.first - searchRadius).coerceIn(roiMinX, scanLimitX)
+                val endX = (spot.first + searchRadius).coerceIn(startX, scanLimitX)
+                val startY = (spot.second - searchRadius).coerceIn(roiMinY, scanLimitY)
+                val endY = (spot.second + searchRadius).coerceIn(startY, scanLimitY)
+
+                for (fy in startY..endY step fineStep) {
+                    for (fx in startX..endX step fineStep) {
                         statL2Evals++
                         val score = evaluateCandidateScore(sPixels, sw, sh, fx, fy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
                         if (score > bestScore) {
@@ -1209,8 +1214,13 @@ object TemplateMatchingEngine {
                 if (fineStep > 1 && bestScore >= (templateThreshold * 0.70f)) {
                     val peakX = bestX
                     val peakY = bestY
-                    for (fy in max(roiMinY, peakY - 2)..min(scanLimitY, peakY + 2)) {
-                        for (fx in max(roiMinX, peakX - 2)..min(scanLimitX, peakX + 2)) {
+                    val fineStartX = (peakX - 2).coerceIn(roiMinX, scanLimitX)
+                    val fineEndX = (peakX + 2).coerceIn(fineStartX, scanLimitX)
+                    val fineStartY = (peakY - 2).coerceIn(roiMinY, scanLimitY)
+                    val fineEndY = (peakY + 2).coerceIn(fineStartY, scanLimitY)
+
+                    for (fy in fineStartY..fineEndY) {
+                        for (fx in fineStartX..fineEndX) {
                             statL2Evals++
                             val score = evaluateCandidateScore(sPixels, sw, sh, fx, fy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
                             if (score > bestScore) {

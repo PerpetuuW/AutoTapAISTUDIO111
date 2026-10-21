@@ -471,22 +471,15 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     overlayWindowManager = overlayWindowManager,
                     overrideScreenshot = screenshot,
                     onCaptureTriggered = { cropX, cropY, cropW, cropH, _ ->
-                        val designatedRoi = captureOverlay.designatedRoi
-                        val effectiveAction = if (designatedRoi != null) {
-                            val currentAnchors = actionion.primaryAnchorPoints.toMutableList()
-                            val roiCenter = Point2D(designatedRoi.centerX().toFloat(), designatedRoi.centerY().toFloat())
-                            if (currentAnchors.none { abs(it.x - roiCenter.x) < 24f && abs(it.y - roiCenter.y) < 24f }) {
-                                if (currentAnchors.size >= 8) currentAnchors.removeAt(0)
-                                currentAnchors.add(roiCenter)
-                            }
-                            actionion.copy(
-                                roiLeft = designatedRoi.left,
-                                roiTop = designatedRoi.top,
-                                roiRight = designatedRoi.right,
-                                roiBottom = designatedRoi.bottom,
-                                primaryAnchorPoints = currentAnchors
-                            )
-                        } else actionion
+                        val cropCenter = Point2D(cropX + cropW / 2f, cropY + cropH / 2f)
+                        val currentAnchors = actionion.primaryAnchorPoints.toMutableList()
+                        if (currentAnchors.none { abs(it.x - cropCenter.x) < 24f && abs(it.y - cropCenter.y) < 24f }) {
+                            if (currentAnchors.size >= 8) currentAnchors.removeAt(0)
+                            currentAnchors.add(cropCenter)
+                        }
+                        val effectiveAction = actionion.copy(
+                            primaryAnchorPoints = currentAnchors
+                        )
 
                         val safeW = cropW.coerceIn(8, screenshot.width)
                         val safeH = cropH.coerceIn(8, screenshot.height)
@@ -554,22 +547,15 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     overlayWindowManager = overlayWindowManager,
                     overrideScreenshot = screenshot,
                     onCaptureTriggered = { cropX, cropY, cropW, cropH, _ ->
-                        val designatedRoi = captureOverlay.designatedRoi
-                        val effectiveAction = if (designatedRoi != null) {
-                            val currentAnchors = actionion.primaryAnchorPoints.toMutableList()
-                            val roiCenter = Point2D(designatedRoi.centerX().toFloat(), designatedRoi.centerY().toFloat())
-                            if (currentAnchors.none { abs(it.x - roiCenter.x) < 24f && abs(it.y - roiCenter.y) < 24f }) {
-                                if (currentAnchors.size >= 8) currentAnchors.removeAt(0)
-                                currentAnchors.add(roiCenter)
-                            }
-                            actionion.copy(
-                                roiLeft = designatedRoi.left,
-                                roiTop = designatedRoi.top,
-                                roiRight = designatedRoi.right,
-                                roiBottom = designatedRoi.bottom,
-                                primaryAnchorPoints = currentAnchors
-                            )
-                        } else actionion
+                        val cropCenter = Point2D(cropX + cropW / 2f, cropY + cropH / 2f)
+                        val currentAnchors = actionion.primaryAnchorPoints.toMutableList()
+                        if (currentAnchors.none { abs(it.x - cropCenter.x) < 24f && abs(it.y - cropCenter.y) < 24f }) {
+                            if (currentAnchors.size >= 8) currentAnchors.removeAt(0)
+                            currentAnchors.add(cropCenter)
+                        }
+                        val effectiveAction = actionion.copy(
+                            primaryAnchorPoints = currentAnchors
+                        )
 
                         val safeW = cropW.coerceIn(8, screenshot.width)
                         val safeH = cropH.coerceIn(8, screenshot.height)
@@ -1316,19 +1302,12 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         captureOverlay = CaptureFrameOverlay(
             context = appContext, overlayWindowManager = overlayWindowManager,
             onCaptureTriggered = { cropX, cropY, cropW, cropH, _ ->
-                val designatedRoi = captureOverlay.designatedRoi
                 val nextId = (targetManager.getActions().maxOfOrNull { it.id } ?: 0) + 1
-                val initialAction = if (designatedRoi != null) {
-                    val roiCenter = Point2D(designatedRoi.centerX().toFloat(), designatedRoi.centerY().toFloat())
-                    MacroAction(
-                        id = nextId,
-                        roiLeft = designatedRoi.left,
-                        roiTop = designatedRoi.top,
-                        roiRight = designatedRoi.right,
-                        roiBottom = designatedRoi.bottom,
-                        primaryAnchorPoints = listOf(roiCenter)
-                    )
-                } else null
+                val cropCenter = Point2D(cropX + cropW / 2f, cropY + cropH / 2f)
+                val initialAction = MacroAction(
+                    id = nextId,
+                    primaryAnchorPoints = listOf(cropCenter)
+                )
 
                 appScope.launch(Dispatchers.Default) {
                     val service = AutoTapAccessibilityService.instance
