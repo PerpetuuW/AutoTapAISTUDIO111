@@ -170,25 +170,24 @@ object TemplateMatchingEngine {
             val th = template.height
 
             val metaLastMod = if (tPath.isNotEmpty()) {
-                try {
-                    val mf = File(tPath)
-                    val jf = File(mf.parentFile, "${mf.nameWithoutExtension}.json")
-                    if (jf.exists()) jf.lastModified() else 0L
-                } catch (_: Exception) {
-                    0L
-                }
+                try { File(tPath).lastModified() } catch (_: Exception) { 0L }
             } else 0L
 
-            val key = if (cacheKey.isNotEmpty()) cacheKey else if (tPath.isNotEmpty()) tPath else "dyn_bmp"
-            val dynamicKey = "${key}_${tw}x${th}_${metaLastMod}"
+            val stableKey = if (tPath.isNotEmpty()) {
+                "${tPath}_${tw}x${th}_${metaLastMod}_$defaultSim"
+            } else if (cacheKey.isNotEmpty()) {
+                "${cacheKey}_${tw}x${th}_$defaultSim"
+            } else {
+                "dyn_${tw}x${th}_${template.generationId}_$defaultSim"
+            }
 
-            val cached = templateFeatureCache[dynamicKey]
+            val cached = templateFeatureCache[stableKey]
             if (cached != null) return cached
 
             val tPixels = IntArray(tw * th)
             template.getPixels(tPixels, 0, tw, 0, 0, tw, th)
 
-            extractFeatures(tPixels, tw, th, dynamicKey, defaultSim, tPath, false)
+            extractFeatures(tPixels, tw, th, stableKey, defaultSim, tPath, false)
         } catch (t: Throwable) {
             AppLogger.logError(null, "CV_EXTRACT", t)
             null
@@ -208,21 +207,18 @@ object TemplateMatchingEngine {
         return try {
             if (tPixels.isEmpty() || tw <= 0 || th <= 0) return null
 
-        val metaLastMod = if (tPath.isNotEmpty()) {
-            try {
-                val mf = File(tPath)
-                val jf = File(mf.parentFile, "${mf.nameWithoutExtension}.json")
-                if (jf.exists()) jf.lastModified() else 0L
-            } catch (_: Exception) {
-                0L
+            val metaLastMod = if (tPath.isNotEmpty()) {
+                try { File(tPath).lastModified() } catch (_: Exception) { 0L }
+            } else 0L
+
+            val stableKey = if (cacheKey.contains("_$metaLastMod")) cacheKey else if (tPath.isNotEmpty()) {
+                "${tPath}_${tw}x${th}_${metaLastMod}_$defaultSim"
+            } else {
+                "${cacheKey}_${tw}x${th}_$defaultSim"
             }
-        } else 0L
 
-        val key = if (cacheKey.isNotEmpty()) cacheKey else if (tPath.isNotEmpty()) tPath else "dyn_pixels"
-        val dynamicKey = if (key.endsWith("_$metaLastMod")) key else "${key}_${tw}x${th}_${metaLastMod}"
-
-        val cached = templateFeatureCache[dynamicKey]
-        if (cached != null) return cached
+            val cached = templateFeatureCache[stableKey]
+            if (cached != null) return cached
 
         var templateSim = defaultSim
         var metaShapeOnly = false
@@ -657,7 +653,7 @@ object TemplateMatchingEngine {
             spatialWeights = spatialWeights,
             keyClusterIndices = keyClusterIndices
         )
-        templateFeatureCache[dynamicKey] = features
+        templateFeatureCache[stableKey] = features
         features
         } catch (t: Throwable) {
             AppLogger.logError(null, "CV_EXTRACT", t)
