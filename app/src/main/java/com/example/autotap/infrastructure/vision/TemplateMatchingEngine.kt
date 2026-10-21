@@ -824,6 +824,7 @@ object TemplateMatchingEngine {
 
         val featExtractMs = System.currentTimeMillis() - featStartTime
         val matchedTemplates = mutableSetOf<String>()
+        var statL1Hits = 0
 
         // =========================================================================
         // ЭТАП 1: Умная сверхбыстрая проверка ВСЕХ масок по первичным опорным точкам
@@ -876,7 +877,7 @@ object TemplateMatchingEngine {
                     tier0Found = true
                     statL0Hits++
                     matchedTemplates.add(tPath)
-                    if (!findAllMatches) {
+                    if (!findAllMatches && (candidate.score >= 0.95f || templates.size == 1)) {
                         val searchRoi = if (hasRoi) Rect(roiMinX, roiMinY, roiMaxX, roiMaxY) else null
                         val downscaleTag = if (lastUsedDownscale > 1) " [Сжатие: ${lastUsedDownscale}x]" else " [Сжатие: 1:1]"
                         val elapsed = System.currentTimeMillis() - perfStartTime
@@ -963,6 +964,7 @@ object TemplateMatchingEngine {
                     allCandidates.add(candidate)
                     recordFoundLocation(tPath, candidate.clickX, candidate.clickY)
                     tier1Found = true
+                    statL1Hits++
                     matchedTemplates.add(tPath)
                     if (!findAllMatches) break
                 }
@@ -995,7 +997,7 @@ object TemplateMatchingEngine {
                     elapsed,
                     featExtractMs,
                     statL0Hits,
-                    statL1Sectors,
+                    statL1Hits,
                     finalMatches.size,
                     if (topWinner != null) String.format(java.util.Locale.US, "Победитель: %s - %.1f%%", topWinner.templateName, topWinner.score * 100f) else "Не найдено"
                 )
