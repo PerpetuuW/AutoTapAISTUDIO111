@@ -964,9 +964,9 @@ object TemplateMatchingEngine {
 
             val isSmall = features.isMicroIcon || features.isThinLine
             val safeCoarseThreshold = if (isSmall) {
-                (templateThreshold * 0.20f).coerceIn(0.12f, 0.26f)
+                (templateThreshold * 0.45f).coerceIn(0.35f, 0.55f)
             } else {
-                (templateThreshold * 0.30f).coerceIn(0.18f, 0.35f)
+                (templateThreshold * 0.55f).coerceIn(0.45f, 0.65f)
             }
 
             val metaStep = features.optimalGridStepFromMeta
@@ -977,7 +977,6 @@ object TemplateMatchingEngine {
             val gridStepY = baseStepY
             val spatialSectors = HashMap<Long, Triple<Int, Int, Float>>()
             val sectorBinSize = if (isSmall) 16 else 32
-            var earlyExitFound = false
 
             val estCount = ((scanLimitY - roiMinY) / gridStepY + 1) * ((scanLimitX - roiMinX) / gridStepX + 1)
             val scanPoints = ArrayList<Pair<Int, Int>>(maxOf(16, estCount))
@@ -1073,9 +1072,9 @@ object TemplateMatchingEngine {
                                 val sgx = (lumaR - lumaL).toFloat()
                                 val sgy = (lumaB - lumaT).toFloat()
                                 val smag = abs(sgx) + abs(sgy)
-                                if (smag > 8f) {
+                                if (smag > 12f) {
                                     val dot = abs(sgx * features.l1Gx[i] + sgy * features.l1Gy[i]) / smag
-                                    if (dot > 0.35f) {
+                                    if (dot > 0.50f) {
                                         isHit = true
                                         break
                                     }
@@ -1096,28 +1095,8 @@ object TemplateMatchingEngine {
                     if (prev == null || coarseScore > prev.third) {
                         spatialSectors[sectorKey] = Triple(x, y, coarseScore)
                     }
-
-                    if (coarseScore >= 0.70f) {
-                        val fineScore = evaluateCandidateScore(sPixels, sw, sh, x, y, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
-                        if (fineScore >= maxOf(0.92f, templateThreshold)) {
-                            val candidate = MatchCandidate(
-                                x + features.centroidX, y + features.centroidY,
-                                x, y, x + features.tw, y + features.th,
-                                fineScore, tPath,
-                                if (features.useCustomOffsetFromMeta) features.clickOffsetXFromMeta else 0f,
-                                if (features.useCustomOffsetFromMeta) features.clickOffsetYFromMeta else 0f,
-                                isShapeDriven
-                            )
-                            allCandidates.add(candidate)
-                            recordFoundLocation(tPath, candidate.clickX, candidate.clickY)
-                            earlyExitFound = true
-                            break
-                        }
-                    }
                 }
             }
-
-            if (!findAllMatches && earlyExitFound) continue
 
             statL1Sectors += spatialSectors.size
             val sectorsToScan = if (selectedRoiZones.isNotEmpty() || selectedAnchors.isNotEmpty()) {
@@ -1142,22 +1121,23 @@ object TemplateMatchingEngine {
                     }
                     val distWeight = if (inside) 1.25f else (1.0f - (minDist / (sw * 0.75f)).coerceIn(0f, 0.40f))
                     spot.third * distWeight
-                }.take(if (findAllMatches) 48 else 24)
+                }.take(if (findAllMatches) 24 else 8)
             } else if (findAllMatches) {
-                spatialSectors.values.sortedByDescending { it.third }.take(64)
+                spatialSectors.values.sortedByDescending { it.third }.take(24)
             } else {
-                spatialSectors.values.sortedByDescending { it.third }.take(32)
+                spatialSectors.values.sortedByDescending { it.third }.take(8)
             }
 
+            val searchRadius = minOf(coarseStep, 8)
             for (spot in sectorsToScan) {
                 if (isCancelled()) break
                 var bestScore = 0f
                 var bestX = spot.first
                 var bestY = spot.second
 
-                val fineStep = if (coarseStep >= 6) 2 else 1
-                for (fy in max(roiMinY, spot.second - coarseStep)..min(scanLimitY, spot.second + coarseStep) step fineStep) {
-                    for (fx in max(roiMinX, spot.first - coarseStep)..min(scanLimitX, spot.first + coarseStep) step fineStep) {
+                val fineStep = if (searchRadius >= 6) 2 else 1
+                for (fy in max(roiMinY, spot.second - searchRadius)..min(scanLimitY, spot.second + searchRadius) step fineStep) {
+                    for (fx in max(roiMinX, spot.first - searchRadius)..min(scanLimitX, spot.first + searchRadius) step fineStep) {
                         statL2Evals++
                         val score = evaluateCandidateScore(sPixels, sw, sh, fx, fy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
                         if (score > bestScore) {
