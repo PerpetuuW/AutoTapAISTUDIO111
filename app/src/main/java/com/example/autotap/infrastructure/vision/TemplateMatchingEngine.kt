@@ -636,9 +636,13 @@ object TemplateMatchingEngine {
 
         val preparedContexts = mutableListOf<PreparedTemplateContext>()
 
-        for ((tPath, tBmp) in templates) {
+        for ((rawPath, tBmp) in templates) {
             if (isCancelled() || tBmp.isRecycled) continue
 
+            val rawFile = File(rawPath)
+            val tPath = if (rawPath.isBlank() || rawPath.startsWith("ocr:") || rawFile.exists()) rawPath else {
+                rawFile.absolutePath
+            }
             val features = extractFeatures(tBmp, tPath, tPath, defaultSim) ?: continue
             val currentTemplateDownscale = override?.downscaleFactor?.takeIf { it in 1..4 }
                 ?: features.optimalDownscaleFactorFromMeta
