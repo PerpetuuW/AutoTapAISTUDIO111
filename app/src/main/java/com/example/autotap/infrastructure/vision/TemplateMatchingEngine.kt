@@ -821,6 +821,7 @@ object TemplateMatchingEngine {
             )
         }
 
+        val featExtractMs = System.currentTimeMillis() - featStartTime
         val matchedTemplates = mutableSetOf<String>()
 
         // =========================================================================
@@ -884,7 +885,7 @@ object TemplateMatchingEngine {
 
             // TIER 1: Быстрая двухпроходная окрестность UI (+-48 px вокруг всех опорных точек, 2-3 мс)
             var tier1Found = false
-            val primaryProbes = ctx.anchorProbes.take(8)
+            val primaryProbes = ctx.anchorProbes.take(3)
             for (probe in primaryProbes) {
                 val expLeft = (probe.x - features.centroidX).toInt().coerceIn(roiMinX, scanLimitX)
                 val expTop = (probe.y - features.centroidY).toInt().coerceIn(roiMinY, scanLimitY)
@@ -894,9 +895,9 @@ object TemplateMatchingEngine {
                 var bestLocalY = expTop
                 val localRange = 48
 
-                for (dy in -localRange..localRange step 6) {
+                for (dy in -localRange..localRange step 12) {
                     val qy = (expTop + dy).coerceIn(roiMinY, scanLimitY)
-                    for (dx in -localRange..localRange step 6) {
+                    for (dx in -localRange..localRange step 12) {
                         val qx = (expLeft + dx).coerceIn(roiMinX, scanLimitX)
                         val score = evaluateCandidateScore(sPixels, sw, sh, qx, qy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
                         if (score > bestLocalScore) {
@@ -1227,7 +1228,6 @@ object TemplateMatchingEngine {
             downscaleFactor = lastUsedDownscale,
             elapsedMs = elapsed
         )
-        val featExtractMs = System.currentTimeMillis() - featStartTime
         AppLogger.log(
             null,
             "CV_PROFILER",
