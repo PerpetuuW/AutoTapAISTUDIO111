@@ -621,13 +621,12 @@ object TemplateMatchingEngine {
         val override = actionOverride
         val defaultSim = override?.similarityPercent ?: minSimilarityPercent
 
-        val isMultiSearch = templates.size > 1
         val roiMinX: Int
         val roiMinY: Int
         val roiMaxX: Int
         val roiMaxY: Int
         val hasRoi: Boolean
-        if (!isMultiSearch && override != null && override.roiLeft != null && override.roiTop != null &&
+        if (override != null && override.roiLeft != null && override.roiTop != null &&
             override.roiRight != null && override.roiBottom != null
         ) {
             hasRoi = true

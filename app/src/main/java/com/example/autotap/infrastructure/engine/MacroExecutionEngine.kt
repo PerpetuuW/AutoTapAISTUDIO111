@@ -1245,11 +1245,11 @@ class MacroExecutionEngine(
                     shapeExpansion = trig.shapeExpansion,
                     paddingOffsetPx = trig.paddingOffsetPx,
                     isCircleShape = trig.isCircleShape,
-                    // Если это мультипоиск, не зажимаем весь экран в один общий ROI
-                    roiLeft = if (isMulti) null else trig.roiLeft,
-                    roiTop = if (isMulti) null else trig.roiTop,
-                    roiRight = if (isMulti) null else trig.roiRight,
-                    roiBottom = if (isMulti) null else trig.roiBottom,
+                    roiLeft = trig.roiLeft,
+                    roiTop = trig.roiTop,
+                    roiRight = trig.roiRight,
+                    roiBottom = trig.roiBottom,
+                    isStrictRoiOnly = trig.isStrictRoiOnly,
                     primaryAnchorPoints = trig.additionalSearchLocations.toList()
                 )
 

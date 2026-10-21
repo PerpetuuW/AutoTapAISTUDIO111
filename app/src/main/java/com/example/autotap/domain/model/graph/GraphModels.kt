@@ -32,6 +32,7 @@ data class NodeTriggerSpec(
     val shapeExpansion: Int = 45,
     val paddingOffsetPx: Int = 2,
     val isCircleShape: Boolean = false,
+    val isStrictRoiOnly: Boolean = false,
     val roiLeft: Int? = null,
     val roiTop: Int? = null,
     val roiRight: Int? = null,
