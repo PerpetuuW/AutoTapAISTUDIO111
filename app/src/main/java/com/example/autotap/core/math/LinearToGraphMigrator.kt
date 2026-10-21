@@ -216,7 +216,7 @@ object LinearToGraphMigrator {
                             similarityThreshold = tplSimPct,
                             isShapeOnlyMode = tplShapeOnly,
                             colorDeltaEMode = tplColorDeltaE,
-                            autoClickTarget = false,
+                            autoClickTarget = action.clickAiTarget,
                             useCustomClick = tplUseCustomOff,
                             clickOffset = Point2D(tplClickOffX, tplClickOffY),
                             targetPortId = matchPortId
