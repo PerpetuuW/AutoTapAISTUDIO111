@@ -70,6 +70,7 @@ object TemplateMatchingEngine {
         val individualThreshold: Float,
         val isShapeOnlyFromMeta: Boolean = false,
         val isSmartColorFromMeta: Boolean = false,
+        val isStrictRoiOnlyFromMeta: Boolean = false,
         val clickOffsetXFromMeta: Float = 0f,
         val clickOffsetYFromMeta: Float = 0f,
         val useCustomOffsetFromMeta: Boolean = false,
@@ -216,6 +217,7 @@ object TemplateMatchingEngine {
         var templateSim = defaultSim
         var metaShapeOnly = false
         var metaSmartColor = false
+        var metaStrictRoi = false
         var metaClickX = 0f
         var metaClickY = 0f
         var metaUseOffset = false
@@ -235,6 +237,7 @@ object TemplateMatchingEngine {
                     templateSim = rawSim.coerceIn(60, 98)
                     metaShapeOnly = meta.optBoolean("isShapeOnlyMode", false)
                     metaSmartColor = meta.optBoolean("colorDeltaEMode", false) || meta.optBoolean("isSmartColorMode", false)
+                    metaStrictRoi = meta.optBoolean("isStrictRoiOnly", false)
                     metaClickX = meta.optDouble("clickOffsetX", 0.0).toFloat()
                     metaClickY = meta.optDouble("clickOffsetY", 0.0).toFloat()
                     metaUseOffset = meta.optBoolean("useCustomClickOffset", false)
@@ -554,6 +557,7 @@ object TemplateMatchingEngine {
             analysis = analysis, individualThreshold = templateSim / 100f,
             isShapeOnlyFromMeta = metaShapeOnly,
             isSmartColorFromMeta = metaSmartColor,
+            isStrictRoiOnlyFromMeta = metaStrictRoi,
             clickOffsetXFromMeta = metaClickX,
             clickOffsetYFromMeta = metaClickY,
             useCustomOffsetFromMeta = metaUseOffset,
@@ -859,12 +863,14 @@ object TemplateMatchingEngine {
 
         // =========================================================================
         // ЭТАП 2: Адаптивное регулярное сеточное сканирование (TIER 2 Grid Scan)
-        // Запускается ТОЛЬКО для масок, еще не найденных на опорных точках!
+        // Запускается ТОЛЬКО для масок, еще не найденных на опорных точках, если не включен "Только ROI шаблона"!
         // =========================================================================
+        val isStrictRoi = (actionOverride?.isStrictRoiOnly == true)
         val contextsForGridScan = preparedContexts.filter { !matchedTemplates.contains(it.tPath) }
 
         for (ctx in contextsForGridScan) {
             if (isCancelled()) break
+            if (isStrictRoi || ctx.features.isStrictRoiOnlyFromMeta) continue
 
             val tPath = ctx.tPath
             val features = ctx.features

@@ -82,6 +82,7 @@ class EditActionDialog(
     private var isDeltaEMode = action.colorDeltaEMode
     private var isShapeOnly = action.isShapeOnlyMode
     private var isNeuralEngine = action.isNeuralEngine
+    private var isStrictRoiOnly = action.isStrictRoiOnly
         // Режим формы инкапсулирован в метаданных шаблона
     private var btnToggleEngineRef: Button? = null
 
@@ -759,9 +760,11 @@ class EditActionDialog(
             }
             val btnNo = createTextActionButton("ОТМЕНА", "#21262D", "#94A3B8") {
                 rootCard.removeView(confirmCard)
+            }.apply {
+                setPadding(dp(12), 0, dp(12), 0)
             }
-            btnRow.addView(btnNo, LinearLayout.LayoutParams(dp(65), dp(28)).apply { marginEnd = dp(4) })
-            btnRow.addView(btnYes, LinearLayout.LayoutParams(dp(65), dp(28)))
+            btnRow.addView(btnNo, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(28)).apply { marginEnd = dp(4) })
+            btnRow.addView(btnYes, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(28)))
             confirmCard.addView(tvWarn)
             confirmCard.addView(input)
             confirmCard.addView(btnRow)
@@ -1171,10 +1174,12 @@ class EditActionDialog(
                             }
                             val btnCancel = createTextActionButton("ОТМЕНА", "#21262D", "#94A3B8") {
                                 rootCard.removeView(actionCard)
+                            }.apply {
+                                setPadding(dp(12), 0, dp(12), 0)
                             }
                             renameRow.addView(input)
-                            renameRow.addView(btnRename, LinearLayout.LayoutParams(dp(110), dp(28)).apply { marginEnd = dp(4) })
-                            renameRow.addView(btnCancel, LinearLayout.LayoutParams(dp(65), dp(28)))
+                            renameRow.addView(btnRename, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(28)).apply { marginEnd = dp(4) })
+                            renameRow.addView(btnCancel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(28)))
                             actionCard.addView(renameRow)
 
                             rootCard.addView(actionCard, 1)
@@ -1409,6 +1414,33 @@ class EditActionDialog(
                 }
         layoutTriggerCard.addView(btnToggleEngine, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(30)).apply {
             topMargin = dp(4)
+            bottomMargin = dp(3)
+        })
+
+        val btnToggleSearchScope = Button(context).apply {
+            val updateScopeBtn = {
+                text = if (isStrictRoiOnly) "ОБЛАСТЬ ПОИСКА: ТОЛЬКО ROI ШАБЛОНА" else "ОБЛАСТЬ ПОИСКА: ВЕСЬ ЭКРАН"
+                setTextColor(Color.WHITE)
+                background = GradientDrawable().apply {
+                    setColor(if (isStrictRoiOnly) "#065F46".toColorInt() else "#0F172A".toColorInt())
+                    cornerRadius = dpF(6f)
+                    setStroke(dp(1), if (isStrictRoiOnly) "#10B981".toColorInt() else "#38BDF8".toColorInt())
+                }
+            }
+            textSize = 8f
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            minHeight = 0; minimumHeight = 0
+            setPadding(dp(6), dp(4), dp(6), dp(4))
+            updateScopeBtn()
+            setOnClickListener {
+                isStrictRoiOnly = !isStrictRoiOnly
+                updateScopeBtn()
+                Toast.makeText(context, if (isStrictRoiOnly) "Режим: Только ROI шаблона" else "Режим: Весь экран (Каскад)", Toast.LENGTH_SHORT).show()
+            }
+        }
+        layoutTriggerCard.addView(btnToggleSearchScope, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(30)).apply {
+            topMargin = dp(2)
             bottomMargin = dp(3)
         })
 
@@ -1914,42 +1946,11 @@ class EditActionDialog(
             setPadding(0, dp(4), 0, dp(2))
         }
 
-        val btnTestStep = createTextActionButton("ТЕСТ", "#281745", "#A78BFA") {
-            val jumpM = etJumpMatch.text.toString().toIntOrNull()?.let { if (it > 0) it else null }
-            val jumpT = etJumpTimeout.text.toString().toIntOrNull()?.let { if (it > 0) it else null }
-            val subTarget = if (selectedType == ActionType.SUBROUTINE) etSubroutineName.text.toString().trim() else action.subroutineTarget
-            val d = maxOf(10L, etDelay.text.toString().toLongOrNull() ?: action.delayMs)
-            val rawH = etHold.text.toString().toLongOrNull() ?: action.holdDurationMs
-            val h = if (selectedType == ActionType.CLICK) rawH.coerceIn(10L, d) else rawH.coerceAtLeast(10L)
-            val currentAct = action.copy(
-                type = selectedType,
-                isNeuralEngine = isNeuralEngine,
-                roiLeft = currentRoiLeft, roiTop = currentRoiTop, roiRight = currentRoiRight, roiBottom = currentRoiBottom,
-                templatePath = boundTemplatePath, multiTemplatePaths = selectedMultiPaths.toList(),
-                similarityPercent = currentActionSimilarity, isMultiScaleMode = isMultiScale,
-                colorDeltaEMode = isDeltaEMode, isShapeOnlyMode = isShapeOnly,
-                pinchStartDistance = etPinchStart.text.toString().toFloatOrNull() ?: action.pinchStartDistance,
-                pinchEndDistance = etPinchEnd.text.toString().toFloatOrNull() ?: action.pinchEndDistance,
-                delayMs = d,
-                holdDurationMs = h,
-                jumpToStepOnMatch = jumpM, jumpToStepOnTimeout = jumpT,
-                subroutineTarget = subTarget, subroutineTag = subTarget,
-                targetScriptOrQuery = when (selectedType) { ActionType.SUBROUTINE -> subTarget; ActionType.OCR -> etOcrQuery.text.toString().trim(); else -> action.targetScriptOrQuery },
-                targetOccurrenceIndex = selectedTargetOccurrenceIndex,
-                useCustomClickOffset = isOcrUseOffset,
-                clickOffsetX = ocrOffsetX,
-                clickOffsetY = ocrOffsetY,
-                targetColorHex = etColorHex.text.toString().trim(),
-                colorTolerance = etColorTolerance.text.toString().toIntOrNull() ?: 15
-            )
-            onTest?.invoke(currentAct)
-        }
         val btnCloneStep = createTextActionButton("КЛОН", "#1A1433", "#58A6FF") { dismiss(); onClone(action) }
         val btnDeleteStep = createTextActionButton("УДАЛИТЬ", "#2E1218", "#F43F5E") { dismiss(); onDelete(action) }
 
-        actionToolbar.addView(btnTestStep, LinearLayout.LayoutParams(0, dp(34), 1.2f).apply { marginEnd = dp(3) })
-        actionToolbar.addView(btnCloneStep, LinearLayout.LayoutParams(0, dp(34), 0.9f).apply { marginEnd = dp(3) })
-        actionToolbar.addView(btnDeleteStep, LinearLayout.LayoutParams(0, dp(34), 0.9f))
+        actionToolbar.addView(btnCloneStep, LinearLayout.LayoutParams(0, dp(34), 1f).apply { marginEnd = dp(4) })
+        actionToolbar.addView(btnDeleteStep, LinearLayout.LayoutParams(0, dp(34), 1f))
         rootCard.addView(actionToolbar)
 
         // ДОМИНАНТНАЯ КНОПКА СОХРАНЕНИЯ (PRIMARY ACTION, 46dp)
@@ -1981,6 +1982,7 @@ class EditActionDialog(
                     templatePath = effectivePrimary,
                     multiTemplatePaths = selectedMultiPaths.toList(),
                     isNeuralEngine = isNeuralEngine,
+                    isStrictRoiOnly = isStrictRoiOnly,
                     pinchStartDistance = etPinchStart.text.toString().toFloatOrNull() ?: action.pinchStartDistance,
                     pinchEndDistance = etPinchEnd.text.toString().toFloatOrNull() ?: action.pinchEndDistance,
                     delayMs = d,

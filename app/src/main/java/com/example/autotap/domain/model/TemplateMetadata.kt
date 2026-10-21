@@ -31,6 +31,7 @@ data class TemplateMetadata(
     val isCircleShape: Boolean = false,
     val colorDeltaEMode: Boolean = true,
     val isSmartColorMode: Boolean = true,
+    val isStrictRoiOnly: Boolean = false,
     val optimalDownscaleFactor: Int = 1,
     val downscaleFactor: Int = 1,
     val useCustomClickOffset: Boolean = false,

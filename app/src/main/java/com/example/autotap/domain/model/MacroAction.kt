@@ -30,6 +30,7 @@ data class MacroAction(
     val isMultiScaleMode: Boolean = false,
     val isShapeOnlyMode: Boolean = false,
     val isNeuralEngine: Boolean = false,
+    val isStrictRoiOnly: Boolean = false,
 
     val useCustomClickOffset: Boolean = false,
     val clickOffsetX: Float = 0f,
