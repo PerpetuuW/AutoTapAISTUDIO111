@@ -1489,8 +1489,10 @@ object TemplateMatchingEngine {
             else -> 1.0f
         }
 
-        var spatialFactor = 1.0f
-        if (selectedZones.isNotEmpty() || selectedAnchors.isNotEmpty()) {
+        val bonus = if (isDeltaEActive) 1.08f else 1.05f
+        val maxPenalty = 0.10f
+        val distanceScale = 0.85f
+        val spatialFactor = if (selectedZones.isNotEmpty() || selectedAnchors.isNotEmpty()) {
             val candCenterX = fx + features.centroidX
             val candCenterY = fy + features.centroidY
             var minDistance = Float.MAX_VALUE
@@ -1514,14 +1516,12 @@ object TemplateMatchingEngine {
                 if (d < 30f) isInsideSelected = true
             }
 
-            val bonus = if (isDeltaEActive) 1.08f else 1.06f
-            val maxPenalty = if (isDeltaEActive) 0.50f else 0.40f
-            val distanceScale = if (isDeltaEActive) 0.65f else 0.75f
-            spatialFactor = if (isInsideSelected) bonus
-            else (1.0f - (minDistance / (sw * distanceScale)).coerceIn(0f, maxPenalty))
-        }
+            if (isInsideSelected) bonus else (1.0f - (minDistance / (sw * distanceScale)).coerceIn(0f, maxPenalty))
+        } else 1.0f
 
-        val combinedScore = (colScore * (1f - effectiveEdgeWeight) + edScore * effectiveEdgeWeight) * completenessFactor * clutterPenalty * spatialFactor
+        val rawMatchScore = (colScore * (1f - effectiveEdgeWeight) + edScore * effectiveEdgeWeight) * completenessFactor
+        val effectiveClutter = if (rawMatchScore >= 0.55f) 1.0f else clutterPenalty
+        val combinedScore = rawMatchScore * effectiveClutter * spatialFactor
         return combinedScore.coerceIn(0f, 1f)
     }
 }
