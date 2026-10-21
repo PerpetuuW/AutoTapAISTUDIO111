@@ -320,7 +320,54 @@ object TemplateMatchingEngine {
             }
         }
 
-        val maxPoints = tw * th
+        var cropMinX = tw
+        var cropMinY = th
+        var cropMaxX = -1
+        var cropMaxY = -1
+
+        for (ty in 0 until th) {
+            val row = ty * tw
+            for (tx in 0 until tw) {
+                val a = (tPixels[row + tx] ushr 24) and 0xFF
+                if (a > 25) {
+                    if (tx < cropMinX) cropMinX = tx
+                    if (tx > cropMaxX) cropMaxX = tx
+                    if (ty < cropMinY) cropMinY = ty
+                    if (ty > cropMaxY) cropMaxY = ty
+                }
+            }
+        }
+
+        val effTw: Int
+        val effTh: Int
+        val effPixels: IntArray
+        val effColorPixels: IntArray
+        val cropShiftX: Int
+        val cropShiftY: Int
+
+        if (cropMaxX >= cropMinX && cropMaxY >= cropMinY && (cropMaxX - cropMinX + 1 < tw || cropMaxY - cropMinY + 1 < th) && (cropMaxX - cropMinX + 1) >= 4 && (cropMaxY - cropMinY + 1) >= 4) {
+            effTw = cropMaxX - cropMinX + 1
+            effTh = cropMaxY - cropMinY + 1
+            cropShiftX = cropMinX
+            cropShiftY = cropMinY
+            effPixels = IntArray(effTw * effTh)
+            effColorPixels = IntArray(effTw * effTh)
+            for (cy in 0 until effTh) {
+                val srcRow = (cropMinY + cy) * tw
+                val dstRow = cy * effTw
+                System.arraycopy(tPixels, srcRow + cropMinX, effPixels, dstRow, effTw)
+                System.arraycopy(colorSourcePixels, srcRow + cropMinX, effColorPixels, dstRow, effTw)
+            }
+        } else {
+            effPixels = tPixels
+            effColorPixels = colorSourcePixels
+            effTw = tw
+            effTh = th
+            cropShiftX = 0
+            cropShiftY = 0
+        }
+
+        val maxPoints = effTw * effTh
         val shapeDx = IntArray(maxPoints)
         val shapeDy = IntArray(maxPoints)
         val shapeR = IntArray(maxPoints)
@@ -337,10 +384,10 @@ object TemplateMatchingEngine {
         var sumY = 0L
         var transparentCount = 0
 
-        val lum = IntArray(tw * th)
-        val mask = BooleanArray(tw * th)
-        for (i in 0 until tw * th) {
-            val c = tPixels[i]
+        val lum = IntArray(effTw * effTh)
+        val mask = BooleanArray(effTw * effTh)
+        for (i in 0 until effTw * effTh) {
+            val c = effPixels[i]
             val a = (c ushr 24) and 0xFF
             if (a <= 25) transparentCount++
             mask[i] = a > 25
@@ -349,7 +396,7 @@ object TemplateMatchingEngine {
             } else 0
         }
 
-        val isRawImage = isRawPixelsParam || (transparentCount < (tw * th * 0.05))
+        val isRawImage = isRawPixelsParam || (transparentCount < (effTw * effTh * 0.05))
 
         // [Adaptive Grayscale Contrast Normalization]
         if (!isRawImage && transparentCount > 0) {
@@ -357,7 +404,7 @@ object TemplateMatchingEngine {
             var maxL = 0
             val fgHist = IntArray(256)
             var fgCount = 0
-            for (i in 0 until tw * th) {
+            for (i in 0 until effTw * effTh) {
                 if (mask[i]) {
                     val l = lum[i]
                     if (l < minL) minL = l
@@ -377,7 +424,7 @@ object TemplateMatchingEngine {
                     if (fgHist[v] > 0 && cdfMin == -1) cdfMin = cdfSum
                 }
                 val cdfDenominator = (fgCount - (cdfMin.coerceAtLeast(0))).coerceAtLeast(1)
-                for (i in 0 until tw * th) {
+                for (i in 0 until effTw * effTh) {
                     if (mask[i]) {
                         val rawL = lum[i]
                         val normVal = ((rawL - minL) * 255 / range).coerceIn(0, 255)
@@ -390,26 +437,26 @@ object TemplateMatchingEngine {
             }
         }
 
-        val cxEstimate = tw / 2
-        val cyEstimate = th / 2
+        val cxEstimate = effTw / 2
+        val cyEstimate = effTh / 2
         var q0EdgeCount = 0
         var q1EdgeCount = 0
         var q2EdgeCount = 0
         var q3EdgeCount = 0
 
-        for (ty in 0 until th) {
-            val row = ty * tw
-            for (tx in 0 until tw) {
+        for (ty in 0 until effTh) {
+            val row = ty * effTw
+            for (tx in 0 until effTw) {
                 val idx = row + tx
                 if (mask[idx]) {
-                    val c = colorSourcePixels[idx]
-                    shapeDx[shapeCount] = tx
-                    shapeDy[shapeCount] = ty
+                    val c = effColorPixels[idx]
+                    shapeDx[shapeCount] = tx + cropShiftX
+                    shapeDy[shapeCount] = ty + cropShiftY
                     shapeR[shapeCount] = (c ushr 16) and 0xFF
                     shapeG[shapeCount] = (c ushr 8) and 0xFF
                     shapeB[shapeCount] = c and 0xFF
-                    sumX += tx
-                    sumY += ty
+                    sumX += (tx + cropShiftX)
+                    sumY += (ty + cropShiftY)
 
                     val q = (if (tx >= cxEstimate) 1 else 0) or (if (ty >= cyEstimate) 2 else 0)
                     shapeQuadrant[shapeCount] = q
@@ -417,34 +464,34 @@ object TemplateMatchingEngine {
                     val gx: Float
                     val gy: Float
 
-                    val isBorder = (tx == 0 || tx == tw - 1 || ty == 0 || ty == th - 1) ||
-                            (!mask[idx - 1] || !mask[idx + 1] || !mask[idx - tw] || !mask[idx + tw])
+                    val isBorder = (tx == 0 || tx == effTw - 1 || ty == 0 || ty == effTh - 1) ||
+                            (!mask[idx - 1] || !mask[idx + 1] || !mask[idx - effTw] || !mask[idx + effTw])
 
                     if (!isRawImage && isBorder) {
-                        val m00 = if (tx > 0 && ty > 0 && mask[idx - tw - 1]) 255 else 0
-                        val m01 = if (ty > 0 && mask[idx - tw]) 255 else 0
-                        val m02 = if (tx < tw - 1 && ty > 0 && mask[idx - tw + 1]) 255 else 0
+                        val m00 = if (tx > 0 && ty > 0 && mask[idx - effTw - 1]) 255 else 0
+                        val m01 = if (ty > 0 && mask[idx - effTw]) 255 else 0
+                        val m02 = if (tx < effTw - 1 && ty > 0 && mask[idx - effTw + 1]) 255 else 0
 
                         val m10 = if (tx > 0 && mask[idx - 1]) 255 else 0
-                        val m12 = if (tx < tw - 1 && mask[idx + 1]) 255 else 0
+                        val m12 = if (tx < effTw - 1 && mask[idx + 1]) 255 else 0
 
-                        val m20 = if (tx > 0 && ty < th - 1 && mask[idx + tw - 1]) 255 else 0
-                        val m21 = if (ty < th - 1 && mask[idx + tw]) 255 else 0
-                        val m22 = if (tx < tw - 1 && ty < th - 1 && mask[idx + tw + 1]) 255 else 0
+                        val m20 = if (tx > 0 && ty < effTh - 1 && mask[idx - effTw - 1]) 255 else 0
+                        val m21 = if (ty < effTh - 1 && mask[idx + effTw]) 255 else 0
+                        val m22 = if (tx < effTw - 1 && ty < effTh - 1 && mask[idx + effTw + 1]) 255 else 0
 
                         gx = (m02 + 2 * m12 + m22 - (m00 + 2 * m10 + m20)).toFloat()
                         gy = (m20 + 2 * m21 + m22 - (m00 + 2 * m01 + m02)).toFloat()
                     } else {
-                        val l00 = if (tx > 0 && ty > 0) lum[idx - tw - 1] else lum[idx]
-                        val l01 = if (ty > 0) lum[idx - tw] else lum[idx]
-                        val l02 = if (tx < tw - 1 && ty > 0) lum[idx - tw + 1] else lum[idx]
+                        val l00 = if (tx > 0 && ty > 0) lum[idx - effTw - 1] else lum[idx]
+                        val l01 = if (ty > 0) lum[idx - effTw] else lum[idx]
+                        val l02 = if (tx < effTw - 1 && ty > 0) lum[idx - effTw + 1] else lum[idx]
 
                         val l10 = if (tx > 0) lum[idx - 1] else lum[idx]
-                        val l12 = if (tx < tw - 1) lum[idx + 1] else lum[idx]
+                        val l12 = if (tx < effTw - 1) lum[idx + 1] else lum[idx]
 
-                        val l20 = if (tx > 0 && ty < th - 1) lum[idx + tw - 1] else lum[idx]
-                        val l21 = if (ty < th - 1 && lum.size > idx + tw) lum[idx + tw] else lum[idx]
-                        val l22 = if (tx < tw - 1 && ty < th - 1 && lum.size > idx + tw + 1) lum[idx + tw + 1] else lum[idx]
+                        val l20 = if (tx > 0 && ty < effTh - 1) lum[idx + effTw - 1] else lum[idx]
+                        val l21 = if (ty < effTh - 1 && lum.size > idx + effTw) lum[idx + effTw] else lum[idx]
+                        val l22 = if (tx < effTw - 1 && ty < effTh - 1 && lum.size > idx + effTw + 1) lum[idx + effTw + 1] else lum[idx]
 
                         gx = (l02 + 2 * l12 + l22 - (l00 + 2 * l10 + l20)).toFloat()
                         gy = (l20 + 2 * l21 + l22 - (l00 + 2 * l01 + l02)).toFloat()
