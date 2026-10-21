@@ -477,13 +477,13 @@ object TemplateMatchingEngine {
                 val idx = row + tx
                 if (mask[idx]) {
                     val c = effColorPixels[idx]
-                    shapeDx[shapeCount] = tx + cropShiftX
-                    shapeDy[shapeCount] = ty + cropShiftY
+                    shapeDx[shapeCount] = tx
+                    shapeDy[shapeCount] = ty
                     shapeR[shapeCount] = (c ushr 16) and 0xFF
                     shapeG[shapeCount] = (c ushr 8) and 0xFF
                     shapeB[shapeCount] = c and 0xFF
-                    sumX += (tx + cropShiftX)
-                    sumY += (ty + cropShiftY)
+                    sumX += tx
+                    sumY += ty
 
                     val q = (if (tx >= cxEstimate) 1 else 0) or (if (ty >= cyEstimate) 2 else 0)
                     shapeQuadrant[shapeCount] = q
@@ -911,7 +911,7 @@ object TemplateMatchingEngine {
 
             // TIER 1: Быстрая двухпроходная окрестность UI (+-48 px вокруг всех опорных точек, 2-3 мс)
             var tier1Found = false
-            val primaryProbes = ctx.anchorProbes.take(3)
+            val primaryProbes = ctx.anchorProbes.take(8)
             for (probe in primaryProbes) {
                 val expLeft = (probe.x - features.centroidX).toInt().coerceIn(roiMinX, scanLimitX)
                 val expTop = (probe.y - features.centroidY).toInt().coerceIn(roiMinY, scanLimitY)
@@ -921,9 +921,9 @@ object TemplateMatchingEngine {
                 var bestLocalY = expTop
                 val localRange = 48
 
-                for (dy in -localRange..localRange step 12) {
+                for (dy in -localRange..localRange step 6) {
                     val qy = (expTop + dy).coerceIn(roiMinY, scanLimitY)
-                    for (dx in -localRange..localRange step 12) {
+                    for (dx in -localRange..localRange step 6) {
                         val qx = (expLeft + dx).coerceIn(roiMinX, scanLimitX)
                         val score = evaluateCandidateScore(sPixels, sw, sh, qx, qy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
                         if (score > bestLocalScore) {
