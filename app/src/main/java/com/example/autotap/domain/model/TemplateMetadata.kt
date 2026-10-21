@@ -23,9 +23,9 @@ data class RoiZone(
 @Keep
 @Serializable
 data class TemplateMetadata(
-    val similarityPercent: Int = 80,
-    val shapeExpansion: Int = 45,
-    val paddingOffsetPx: Int = 2,
+    val similarityPercent: Int = com.example.autotap.core.config.AppConfig.Vision.DEFAULT_SIMILARITY_PERCENT,
+    val shapeExpansion: Int = com.example.autotap.core.config.AppConfig.Vision.DEFAULT_SHAPE_EXPANSION_PX,
+    val paddingOffsetPx: Int = com.example.autotap.core.config.AppConfig.Vision.DEFAULT_PADDING_OFFSET_PX,
     val isContourMode: Boolean = true,
     val isShapeOnlyMode: Boolean = false,
     val isCircleShape: Boolean = false,

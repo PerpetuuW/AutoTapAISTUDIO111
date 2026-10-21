@@ -254,7 +254,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
 
         persistJob = appScope.launch(Dispatchers.IO) {
             if (!immediate) {
-                delay(350L)
+                delay(com.example.autotap.core.config.AppConfig.Timing.DEBOUNCE_PERSIST_DELAY_MS)
             }
             scenarioRepository.saveScenario(scenario)
 

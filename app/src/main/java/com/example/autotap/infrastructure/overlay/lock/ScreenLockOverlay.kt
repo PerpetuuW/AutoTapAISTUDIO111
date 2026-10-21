@@ -49,7 +49,7 @@ class ScreenLockOverlay(
     private var countdownRunnable: Runnable? = null
     private var pixelShiftRunnable: Runnable? = null
     private var holdStartTime = 0L
-    private val totalHoldDurationMs = 3000L
+    private val totalHoldDurationMs = com.example.autotap.core.config.AppConfig.ScreenLock.HOLD_UNLOCK_DURATION_MS
     private var sessionStartTime = 0L
 
     private val prefs: SharedPreferences = context.getSharedPreferences("autotap_lock_prefs", Context.MODE_PRIVATE)
@@ -58,7 +58,7 @@ class ScreenLockOverlay(
         set(value) = prefs.edit().putBoolean("is_black_screen", value).apply()
 
     private var lockBrightness: Float
-        get() = prefs.getFloat("lock_brightness", 0.01f)
+        get() = prefs.getFloat("lock_brightness", com.example.autotap.core.config.AppConfig.ScreenLock.DEFAULT_SCREEN_BRIGHTNESS)
         set(value) = prefs.edit().putFloat("lock_brightness", value).apply()
 
     var onLockDismissedListener: (() -> Unit)? = null
@@ -377,7 +377,7 @@ class ScreenLockOverlay(
                 }
                 MotionEvent.ACTION_MOVE -> {
                     // Увеличен радиус дрейфа до 100dp для гарантированной доступности разблокировки
-                    if (hypot((event.rawX - touchDownX).toDouble(), (event.rawY - touchDownY).toDouble()) > dp(100)) {
+                    if (hypot((event.rawX - touchDownX).toDouble(), (event.rawY - touchDownY).toDouble()) > dp(com.example.autotap.core.config.AppConfig.ScreenLock.DRIFT_RADIUS_DP)) {
                         stopCountdown()
                     }
                     true
@@ -424,7 +424,7 @@ class ScreenLockOverlay(
         }
 
         val uiParams = overlayWindowManager.createLayoutParams(
-            width = dp(260),
+            width = dp(com.example.autotap.core.config.AppConfig.ScreenLock.UI_CARD_WIDTH_DP),
             height = WindowManager.LayoutParams.WRAP_CONTENT,
             flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
