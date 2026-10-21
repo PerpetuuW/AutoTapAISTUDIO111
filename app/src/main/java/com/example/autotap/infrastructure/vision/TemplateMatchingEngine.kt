@@ -505,7 +505,7 @@ object TemplateMatchingEngine {
                         val m10 = if (tx > 0 && mask[idx - 1]) 255 else 0
                         val m12 = if (tx < effTw - 1 && mask[idx + 1]) 255 else 0
 
-                        val m20 = if (tx > 0 && ty < effTh - 1 && mask[idx - effTw - 1]) 255 else 0
+                        val m20 = if (tx > 0 && ty < effTh - 1 && mask[idx + effTw - 1]) 255 else 0
                         val m21 = if (ty < effTh - 1 && mask[idx + effTw]) 255 else 0
                         val m22 = if (tx < effTw - 1 && ty < effTh - 1 && mask[idx + effTw + 1]) 255 else 0
 

@@ -316,19 +316,25 @@ class AutoTapAccessibilityService : AccessibilityService() {
 
         val orchestrator = AutoTapOrchestrator.getInstance(this)
         val lockScreenShowing = orchestrator.screenLockOverlay.isShowing()
-        if (lockScreenShowing) orchestrator.screenLockOverlay.setTemporarilyTransparent(true)
         val badgeShowing = orchestrator.runningBadgeOverlay.isShowing()
-        if (badgeShowing) orchestrator.runningBadgeOverlay.setTemporarilyTransparent(true)
         val highlightsShowing = com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.hasActiveHighlights()
-        if (highlightsShowing) com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.setTemporarilyTransparent(true)
 
         val handler = android.os.Handler(android.os.Looper.getMainLooper())
         val isResumed = AtomicBoolean(false)
+
+        handler.post {
+            if (lockScreenShowing) orchestrator.screenLockOverlay.setTemporarilyTransparent(true)
+            if (badgeShowing) orchestrator.runningBadgeOverlay.setTemporarilyTransparent(true)
+            if (highlightsShowing) com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.setTemporarilyTransparent(true)
+        }
+
         fun finish(bmp: Bitmap?) {
             if (isResumed.compareAndSet(false, true)) {
-                if (lockScreenShowing) orchestrator.screenLockOverlay.setTemporarilyTransparent(false)
-                if (badgeShowing) orchestrator.runningBadgeOverlay.setTemporarilyTransparent(false)
-                if (highlightsShowing) com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.setTemporarilyTransparent(false)
+                handler.post {
+                    if (lockScreenShowing) orchestrator.screenLockOverlay.setTemporarilyTransparent(false)
+                    if (badgeShowing) orchestrator.runningBadgeOverlay.setTemporarilyTransparent(false)
+                    if (highlightsShowing) com.example.autotap.infrastructure.visualizer.TargetHighlightVisualizer.setTemporarilyTransparent(false)
+                }
                 isScreenshotInProgress.set(false)
                 if (continuation.isActive) continuation.resumeWith(Result.success(bmp))
             }
