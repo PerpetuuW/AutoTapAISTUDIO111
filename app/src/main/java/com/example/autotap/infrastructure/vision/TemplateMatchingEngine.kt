@@ -338,6 +338,8 @@ object TemplateMatchingEngine {
             }
         }
 
+        val safeColorPixels = if (colorSourcePixels.size == tw * th) colorSourcePixels else tPixels
+
         val effTw: Int
         val effTh: Int
         val effPixels: IntArray
@@ -355,8 +357,12 @@ object TemplateMatchingEngine {
             for (cy in 0 until effTh) {
                 val srcRow = (cropMinY + cy) * tw
                 val dstRow = cy * effTw
-                System.arraycopy(tPixels, srcRow + cropMinX, effPixels, dstRow, effTw)
-                System.arraycopy(colorSourcePixels, srcRow + cropMinX, effColorPixels, dstRow, effTw)
+                if (srcRow + cropMinX + effTw <= tPixels.size) {
+                    System.arraycopy(tPixels, srcRow + cropMinX, effPixels, dstRow, effTw)
+                }
+                if (srcRow + cropMinX + effTw <= safeColorPixels.size) {
+                    System.arraycopy(safeColorPixels, srcRow + cropMinX, effColorPixels, dstRow, effTw)
+                }
             }
 
             // [V210.0] Автоматическая дозапись кадрированных габаритов в .json метаданные на диске для старых масок
