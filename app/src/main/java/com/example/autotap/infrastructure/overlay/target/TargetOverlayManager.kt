@@ -530,7 +530,7 @@ class TargetOverlayManager(
         CaptureFrameOverlay(
             context = context,
             overlayWindowManager = overlayWindowManager,
-            onCaptureTriggered = { cropX, cropY, cropW, cropH, isCircle ->
+            onCaptureTriggered = { cropX, cropY, cropW, cropH, isCircle, roi ->
                 kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
                     val screenshot = service.captureScreenshotAsync(2500L)
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {

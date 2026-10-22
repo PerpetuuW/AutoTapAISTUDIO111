@@ -482,24 +482,33 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     overlayWindowManager = overlayWindowManager,
                     overrideScreenshot = screenshot,
                     onCaptureTriggered = { cropX, cropY, cropW, cropH, _, roi ->
+                        val safeW = cropW.coerceIn(8, screenshot.width)
+                        val safeH = cropH.coerceIn(8, screenshot.height)
+                        val safeX = cropX.coerceIn(0, screenshot.width - safeW)
+                        val safeY = cropY.coerceIn(0, screenshot.height - safeH)
+                        val cropped = Bitmap.createBitmap(screenshot, safeX, safeY, safeW, safeH)
+
+                        val effectiveRoi = roi ?: Rect(
+                            (safeX - 100).coerceAtLeast(0),
+                            (safeY - 100).coerceAtLeast(0),
+                            (safeX + safeW + 100).coerceAtMost(screenshot.width),
+                            (safeY + safeH + 100).coerceAtMost(screenshot.height)
+                        )
+
                         val cropCenter = Point2D(cropX + cropW / 2f, cropY + cropH / 2f)
                         val currentAnchors = actionion.primaryAnchorPoints.toMutableList()
                         if (currentAnchors.none { abs(it.x - cropCenter.x) < 24f && abs(it.y - cropCenter.y) < 24f }) {
                             if (currentAnchors.size >= 8) currentAnchors.removeAt(0)
                             currentAnchors.add(cropCenter)
                         }
-                        var effectiveAction = actionion.copy(
-                            primaryAnchorPoints = currentAnchors
+                        
+                        val effectiveAction = actionion.copy(
+                            primaryAnchorPoints = currentAnchors,
+                            roiLeft = effectiveRoi.left,
+                            roiTop = effectiveRoi.top,
+                            roiRight = effectiveRoi.right,
+                            roiBottom = effectiveRoi.bottom
                         )
-                        if (roi != null) {
-                            effectiveAction = effectiveAction.copy(roiLeft = roi?.left, roiTop = roi?.top, roiRight = roi?.right, roiBottom = roi?.bottom)
-                        }
-
-                        val safeW = cropW.coerceIn(8, screenshot.width)
-                        val safeH = cropH.coerceIn(8, screenshot.height)
-                        val safeX = cropX.coerceIn(0, screenshot.width - safeW)
-                        val safeY = cropY.coerceIn(0, screenshot.height - safeH)
-                        val cropped = Bitmap.createBitmap(screenshot, safeX, safeY, safeW, safeH)
 
                         val initialAnchorCandidate = MatchCandidate(safeX + safeW / 2, safeY + safeH / 2, safeX, safeY, safeX + safeW, safeY + safeH, 1.0f)
 
@@ -562,24 +571,33 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     overlayWindowManager = overlayWindowManager,
                     overrideScreenshot = screenshot,
                     onCaptureTriggered = { cropX, cropY, cropW, cropH, _, roi ->
+                        val safeW = cropW.coerceIn(8, screenshot.width)
+                        val safeH = cropH.coerceIn(8, screenshot.height)
+                        val safeX = cropX.coerceIn(0, screenshot.width - safeW)
+                        val safeY = cropY.coerceIn(0, screenshot.height - safeH)
+                        val cropped = Bitmap.createBitmap(screenshot, safeX, safeY, safeW, safeH)
+
+                        val effectiveRoi = roi ?: Rect(
+                            (safeX - 100).coerceAtLeast(0),
+                            (safeY - 100).coerceAtLeast(0),
+                            (safeX + safeW + 100).coerceAtMost(screenshot.width),
+                            (safeY + safeH + 100).coerceAtMost(screenshot.height)
+                        )
+
                         val cropCenter = Point2D(cropX + cropW / 2f, cropY + cropH / 2f)
                         val currentAnchors = actionion.primaryAnchorPoints.toMutableList()
                         if (currentAnchors.none { abs(it.x - cropCenter.x) < 24f && abs(it.y - cropCenter.y) < 24f }) {
                             if (currentAnchors.size >= 8) currentAnchors.removeAt(0)
                             currentAnchors.add(cropCenter)
                         }
-                        var effectiveAction = actionion.copy(
-                            primaryAnchorPoints = currentAnchors
+                        
+                        val effectiveAction = actionion.copy(
+                            primaryAnchorPoints = currentAnchors,
+                            roiLeft = effectiveRoi.left,
+                            roiTop = effectiveRoi.top,
+                            roiRight = effectiveRoi.right,
+                            roiBottom = effectiveRoi.bottom
                         )
-                        if (roi != null) {
-                            effectiveAction = effectiveAction.copy(roiLeft = roi?.left, roiTop = roi?.top, roiRight = roi?.right, roiBottom = roi?.bottom)
-                        }
-
-                        val safeW = cropW.coerceIn(8, screenshot.width)
-                        val safeH = cropH.coerceIn(8, screenshot.height)
-                        val safeX = cropX.coerceIn(0, screenshot.width - safeW)
-                        val safeY = cropY.coerceIn(0, screenshot.height - safeH)
-                        val cropped = Bitmap.createBitmap(screenshot, safeX, safeY, safeW, safeH)
 
                         val initialAnchorCandidate = MatchCandidate(safeX + safeW / 2, safeY + safeH / 2, safeX, safeY, safeX + safeW, safeY + safeH, 1.0f)
 
@@ -1317,18 +1335,6 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         captureOverlay = CaptureFrameOverlay(
             context = appContext, overlayWindowManager = overlayWindowManager,
             onCaptureTriggered = { cropX, cropY, cropW, cropH, _, roi ->
-                val nextId = (targetManager.getActions().maxOfOrNull { it.id } ?: 0) + 1
-                val cropCenter = Point2D(cropX + cropW / 2f, cropY + cropH / 2f)
-                val initialAction = MacroAction(
-                    id = nextId,
-                    type = ActionType.TRIGGER,
-                    roiLeft = roi?.left,
-                    roiTop = roi?.top,
-                    roiRight = roi?.right,
-                    roiBottom = roi?.bottom,
-                    primaryAnchorPoints = listOf(cropCenter)
-                )
-
                 appScope.launch(Dispatchers.Default) {
                     delay(150L) // Гарантия сокрытия синей рамки видоискателя
                     val service = AutoTapAccessibilityService.instance
@@ -1337,6 +1343,26 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                         if (screenshot != null) {
                             val safeW = cropW.coerceIn(8, screenshot.width); val safeH = cropH.coerceIn(8, screenshot.height)
                             val safeX = cropX.coerceIn(0, screenshot.width - safeW); val safeY = cropY.coerceIn(0, screenshot.height - safeH)
+                            
+                            val effectiveRoi = roi ?: Rect(
+                                (safeX - 100).coerceAtLeast(0),
+                                (safeY - 100).coerceAtLeast(0),
+                                (safeX + safeW + 100).coerceAtMost(screenshot.width),
+                                (safeY + safeH + 100).coerceAtMost(screenshot.height)
+                            )
+                            
+                            val nextId = (targetManager.getActions().maxOfOrNull { it.id } ?: 0) + 1
+                            val cropCenter = Point2D(cropX + cropW / 2f, cropY + cropH / 2f)
+                            val initialAction = MacroAction(
+                                id = nextId,
+                                type = ActionType.TRIGGER,
+                                roiLeft = effectiveRoi.left,
+                                roiTop = effectiveRoi.top,
+                                roiRight = effectiveRoi.right,
+                                roiBottom = effectiveRoi.bottom,
+                                primaryAnchorPoints = listOf(cropCenter)
+                            )
+
                             val cropped = Bitmap.createBitmap(screenshot, safeX, safeY, safeW, safeH)
                             val anchor = MatchCandidate(safeX + safeW / 2, safeY + safeH / 2, safeX, safeY, safeX + safeW, safeY + safeH, 1.0f)
 

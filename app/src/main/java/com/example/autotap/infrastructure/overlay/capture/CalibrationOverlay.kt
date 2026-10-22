@@ -2184,13 +2184,37 @@ private val targetStepId: Int? = null,
                             }
                         }
                         if (!alreadyHas) {
-                            if (discArr.length() >= 8) discArr.remove(0)
+                            if (discArr.length() >= 12) discArr.remove(0)
                             discArr.put(JSONObject().apply {
                                 put("x", zx)
                                 put("y", zy)
                             })
                         }
                     }
+                    
+                    val reqThresh = currentSimilarity / 100f
+                    currentCandidates.forEach { cand ->
+                        if (cand.score >= reqThresh) {
+                            val cx = cand.clickX.toInt()
+                            val cy = cand.clickY.toInt()
+                            var alreadyHas = false
+                            for (i in 0 until discArr.length()) {
+                                val item = discArr.optJSONObject(i)
+                                if (item != null && abs(item.optInt("x") - cx) < 24 && abs(item.optInt("y") - cy) < 24) {
+                                    alreadyHas = true
+                                    break
+                                }
+                            }
+                            if (!alreadyHas) {
+                                if (discArr.length() >= 12) discArr.remove(0)
+                                discArr.put(JSONObject().apply {
+                                    put("x", cx)
+                                    put("y", cy)
+                                })
+                            }
+                        }
+                    }
+
                     if (discArr.length() > 0) {
                         put("discoveredLocations", discArr)
                         put("additionalSearchLocations", discArr)

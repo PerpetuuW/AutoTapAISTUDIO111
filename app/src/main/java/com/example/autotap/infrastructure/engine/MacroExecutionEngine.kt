@@ -354,6 +354,7 @@ class MacroExecutionEngine(
                                                                 continue
                                                             }
 
+                                                            val loopStartMs = System.currentTimeMillis()
                                                             val screenshot = service?.captureScreenshotAsync(1500L)
                                                             if (screenshot != null) {
                                                                 try {
@@ -425,7 +426,9 @@ class MacroExecutionEngine(
                                                                     screenshot.recycle()
                                                                 }
                                                             }
-                                                            delay(if (!isMatched) checkInterval.coerceAtLeast(180L) else checkInterval)
+                                                            val loopElapsedMs = System.currentTimeMillis() - loopStartMs
+                                                            val remainingDelay = (checkInterval - loopElapsedMs).coerceAtLeast(10L)
+                                                            if (!isMatched) delay(remainingDelay)
                                                         }
 
                                                         if (!isMatched) {

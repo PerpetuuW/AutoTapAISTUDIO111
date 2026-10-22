@@ -888,9 +888,20 @@ object TemplateMatchingEngine {
             }
             if (tier0Found && !findAllMatches) continue
 
-            // TIER 1: Быстрая двухпроходная окрестность UI (+-48 px вокруг всех опорных точек, 2-3 мс)
+            // TIER 1: Быстрая двухпроходная окрестность UI (в пределах ROI или +-48 px)
             var tier1Found = false
             val primaryProbes = ctx.anchorProbes.take(3)
+            val isRoiActive = hasRoi || (actionOverride?.isStrictRoiOnly == true)
+            val localRange = if (isRoiActive) {
+                val roiW = (scanLimitX - roiMinX).coerceAtLeast(100)
+                val roiH = (scanLimitY - roiMinY).coerceAtLeast(100)
+                max(roiW, roiH) / 2 + 16
+            } else 48
+
+            val l1Step = if (isRoiActive) {
+                (min(features.tw, features.th) / 3).coerceIn(4, 16)
+            } else 12
+
             for (probe in primaryProbes) {
                 val expLeft = (probe.x - features.centroidX).toInt().coerceIn(roiMinX, scanLimitX)
                 val expTop = (probe.y - features.centroidY).toInt().coerceIn(roiMinY, scanLimitY)
@@ -898,11 +909,10 @@ object TemplateMatchingEngine {
                 var bestLocalScore = 0f
                 var bestLocalX = expLeft
                 var bestLocalY = expTop
-                val localRange = 48
 
-                for (dy in -localRange..localRange step 12) {
+                for (dy in -localRange..localRange step l1Step) {
                     val qy = (expTop + dy).coerceIn(roiMinY, scanLimitY)
-                    for (dx in -localRange..localRange step 12) {
+                    for (dx in -localRange..localRange step l1Step) {
                         val qx = (expLeft + dx).coerceIn(roiMinX, scanLimitX)
                         val score = evaluateCandidateScore(sPixels, sw, sh, qx, qy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
                         if (score > bestLocalScore) {
