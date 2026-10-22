@@ -1034,7 +1034,7 @@ object TemplateMatchingEngine {
 
         for (ctx in contextsForGridScan) {
             if (isCancelled()) break
-            if (isStrictRoi || ctx.features.isStrictRoiOnlyFromMeta) continue
+            if (isStrictRoi) continue
 
             val tPath = ctx.tPath
             val features = ctx.features
@@ -1466,7 +1466,7 @@ object TemplateMatchingEngine {
                     return 0f
                 }
                 val minEdgeThresh = if (features.isThinLine || features.isMicroIcon) 0.10f else 0.18f
-                if (edgeWeightSum > 3f && currentEdgeRatio < minEdgeThresh) {
+                if ((isShapeOnly || currentNormColor < 0.55f) && edgeWeightSum > 3f && currentEdgeRatio < minEdgeThresh) {
                     return 0f
                 }
             }

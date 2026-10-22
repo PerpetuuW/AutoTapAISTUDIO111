@@ -2113,7 +2113,7 @@ private val targetStepId: Int? = null,
                     put("isCircleShape", isCircleShape)
                     put("colorDeltaEMode", isSmartColorMode)
                     put("isSmartColorMode", isSmartColorMode)
-                    put("isStrictRoiOnly", existingAction?.isStrictRoiOnly ?: false)
+                    put("isStrictRoiOnly", false)
                     put("isNeuralEngine", isNeuralEngineMode)
                     put("optimalDownscaleFactor", finalDownscale)
                     put("downscaleFactor", finalDownscale)
@@ -2247,27 +2247,32 @@ private val targetStepId: Int? = null,
                         combinedAnchors.add(pt)
                     }
                 }
-                val existingMulti = existingAction?.multiTemplatePaths?.toMutableList() ?: mutableListOf()
-                if (existingMulti.isNotEmpty()) {
-                    val oldPath = existingTemplatePath
-                    if (oldPath != null && existingMulti.contains(oldPath)) {
-                        val idx = existingMulti.indexOf(oldPath)
-                        existingMulti[idx] = tPath
-                    } else if (!existingMulti.contains(tPath)) {
-                        existingMulti.add(tPath)
-                    }
-                } else if (existingTemplatePath != null && existingTemplatePath != tPath) {
+                val existingMulti = existingAction?.multiTemplatePaths?.filter { it.isNotBlank() }?.toMutableList() ?: mutableListOf()
+                if (!existingAction?.templatePath.isNullOrBlank() && !existingMulti.contains(existingAction!!.templatePath)) {
+                    existingMulti.add(existingAction!!.templatePath)
+                }
+                val oldPath = existingTemplatePath
+                if (!oldPath.isNullOrBlank() && existingMulti.contains(oldPath)) {
+                    val idx = existingMulti.indexOf(oldPath)
+                    existingMulti[idx] = tPath
+                } else if (!existingMulti.contains(tPath)) {
                     existingMulti.add(tPath)
+                }
+
+                val primaryTemplatePath = if (!existingAction?.templatePath.isNullOrBlank() && existingTemplatePath == null) {
+                    existingAction!!.templatePath
+                } else {
+                    tPath
                 }
 
                 val isAddingToExistingMulti = existingAction != null && (existingAction.multiTemplatePaths.isNotEmpty() || existingAction.templatePath.isNotBlank())
 
                 val action = (existingAction ?: MacroAction(id = targetStepId ?: 1, type = ActionType.TRIGGER)).copy(
-                    type = existingAction?.type ?: ActionType.TRIGGER,
+                    type = ActionType.TRIGGER,
                     posX = targetX,
                     posY = targetY,
-                    templatePath = tPath,
-                    multiTemplatePaths = if (existingMulti.isNotEmpty()) existingMulti.distinct() else (existingAction?.multiTemplatePaths ?: emptyList()),
+                    templatePath = primaryTemplatePath,
+                    multiTemplatePaths = existingMulti.distinct(),
                     similarityPercent = currentSimilarity,
                     shapeExpansion = currentShapeExpansion,
                     paddingOffsetPx = currentPaddingOffset,
