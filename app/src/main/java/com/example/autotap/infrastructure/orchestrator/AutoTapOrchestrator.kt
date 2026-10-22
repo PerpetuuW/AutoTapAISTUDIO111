@@ -464,6 +464,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         controlPanelOverlay.hide()
 
         appScope.launch(Dispatchers.Default) {
+            delay(150L) // Гарантия сокрытия оверлеев
             val service = AutoTapAccessibilityService.instance
             val screenshot = service?.captureScreenshotAsync(2500L) ?: run {
                 withContext(Dispatchers.Main) {
@@ -480,16 +481,19 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     context = appContext,
                     overlayWindowManager = overlayWindowManager,
                     overrideScreenshot = screenshot,
-                    onCaptureTriggered = { cropX, cropY, cropW, cropH, _ ->
+                    onCaptureTriggered = { cropX, cropY, cropW, cropH, _, roi ->
                         val cropCenter = Point2D(cropX + cropW / 2f, cropY + cropH / 2f)
                         val currentAnchors = actionion.primaryAnchorPoints.toMutableList()
                         if (currentAnchors.none { abs(it.x - cropCenter.x) < 24f && abs(it.y - cropCenter.y) < 24f }) {
                             if (currentAnchors.size >= 8) currentAnchors.removeAt(0)
                             currentAnchors.add(cropCenter)
                         }
-                        val effectiveAction = actionion.copy(
+                        var effectiveAction = actionion.copy(
                             primaryAnchorPoints = currentAnchors
                         )
+                        if (roi != null) {
+                            effectiveAction = effectiveAction.copy(roiLeft = roi?.left, roiTop = roi?.top, roiRight = roi?.right, roiBottom = roi?.bottom)
+                        }
 
                         val safeW = cropW.coerceIn(8, screenshot.width)
                         val safeH = cropH.coerceIn(8, screenshot.height)
@@ -540,6 +544,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         controlPanelOverlay.hide()
 
         appScope.launch(Dispatchers.Default) {
+            delay(150L) // Гарантия сокрытия оверлеев
             val service = AutoTapAccessibilityService.instance
             val screenshot = service?.captureScreenshotAsync(2500L) ?: run {
                 withContext(Dispatchers.Main) {
@@ -556,16 +561,19 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     context = appContext,
                     overlayWindowManager = overlayWindowManager,
                     overrideScreenshot = screenshot,
-                    onCaptureTriggered = { cropX, cropY, cropW, cropH, _ ->
+                    onCaptureTriggered = { cropX, cropY, cropW, cropH, _, roi ->
                         val cropCenter = Point2D(cropX + cropW / 2f, cropY + cropH / 2f)
                         val currentAnchors = actionion.primaryAnchorPoints.toMutableList()
                         if (currentAnchors.none { abs(it.x - cropCenter.x) < 24f && abs(it.y - cropCenter.y) < 24f }) {
                             if (currentAnchors.size >= 8) currentAnchors.removeAt(0)
                             currentAnchors.add(cropCenter)
                         }
-                        val effectiveAction = actionion.copy(
+                        var effectiveAction = actionion.copy(
                             primaryAnchorPoints = currentAnchors
                         )
+                        if (roi != null) {
+                            effectiveAction = effectiveAction.copy(roiLeft = roi?.left, roiTop = roi?.top, roiRight = roi?.right, roiBottom = roi?.bottom)
+                        }
 
                         val safeW = cropW.coerceIn(8, screenshot.width)
                         val safeH = cropH.coerceIn(8, screenshot.height)
@@ -793,7 +801,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 context = appContext,
                 overlayWindowManager = overlayWindowManager,
                 overrideScreenshot = effectiveScreenshot,
-                onCaptureTriggered = { cropX, cropY, cropW, cropH, _ ->
+                onCaptureTriggered = { cropX, cropY, cropW, cropH, _, roi ->
                     try {
                         val maxX = (effectiveScreenshot.width - 4).coerceAtLeast(0)
                         val maxY = (effectiveScreenshot.height - 4).coerceAtLeast(0)
@@ -1308,16 +1316,21 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         lateinit var captureOverlay: CaptureFrameOverlay
         captureOverlay = CaptureFrameOverlay(
             context = appContext, overlayWindowManager = overlayWindowManager,
-            onCaptureTriggered = { cropX, cropY, cropW, cropH, _ ->
+            onCaptureTriggered = { cropX, cropY, cropW, cropH, _, roi ->
                 val nextId = (targetManager.getActions().maxOfOrNull { it.id } ?: 0) + 1
                 val cropCenter = Point2D(cropX + cropW / 2f, cropY + cropH / 2f)
                 val initialAction = MacroAction(
                     id = nextId,
                     type = ActionType.TRIGGER,
+                    roiLeft = roi?.left,
+                    roiTop = roi?.top,
+                    roiRight = roi?.right,
+                    roiBottom = roi?.bottom,
                     primaryAnchorPoints = listOf(cropCenter)
                 )
 
                 appScope.launch(Dispatchers.Default) {
+                    delay(150L) // Гарантия сокрытия синей рамки видоискателя
                     val service = AutoTapAccessibilityService.instance
                     val screenshot = service?.captureScreenshotAsync(2500L)
                     withContext(Dispatchers.Main) {
@@ -1592,7 +1605,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     context = appContext,
                     overlayWindowManager = overlayWindowManager,
                     overrideScreenshot = screenshot,
-                    onCaptureTriggered = { cropX, cropY, cropW, cropH, _ ->
+                    onCaptureTriggered = { cropX, cropY, cropW, cropH, _, roi ->
                         appScope.launch(Dispatchers.Default) {
                             try {
                                 val maxX = (screenshot.width - 4).coerceAtLeast(0)

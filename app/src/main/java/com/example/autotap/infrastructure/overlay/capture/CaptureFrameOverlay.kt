@@ -32,7 +32,7 @@ class CaptureFrameOverlay(
     private val context: Context,
     private val overlayWindowManager: OverlayWindowManager,
     private val overrideScreenshot: android.graphics.Bitmap? = null,
-    private val onCaptureTriggered: (cropX: Int, cropY: Int, cropW: Int, cropH: Int, isCircle: Boolean) -> Unit,
+    private val onCaptureTriggered: (cropX: Int, cropY: Int, cropW: Int, cropH: Int, isCircle: Boolean, roi: Rect?) -> Unit,
     private val onCancelled: () -> Unit
 ) {
 
@@ -244,7 +244,7 @@ class CaptureFrameOverlay(
             val absoluteX = capturedCrop.left + location[0]
             val absoluteY = capturedCrop.top + location[1]
             dismiss()
-            onCaptureTriggered(absoluteX, absoluteY, capturedCrop.width(), capturedCrop.height(), isCirc)
+            onCaptureTriggered(absoluteX, absoluteY, capturedCrop.width(), capturedCrop.height(), isCirc, designatedRoi)
         }.apply {
             background = android.graphics.drawable.GradientDrawable(
                 android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
