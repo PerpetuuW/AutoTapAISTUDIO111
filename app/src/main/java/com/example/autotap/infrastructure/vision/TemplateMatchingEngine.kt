@@ -693,7 +693,7 @@ object TemplateMatchingEngine {
         val roiMaxX: Int
         val roiMaxY: Int
         val hasRoi: Boolean
-        if (!isMultiSearch && override != null && override.roiLeft != null && override.roiTop != null &&
+        if (override != null && override.roiLeft != null && override.roiTop != null &&
             override.roiRight != null && override.roiBottom != null
         ) {
             hasRoi = true
@@ -1031,7 +1031,7 @@ object TemplateMatchingEngine {
         // ЭТАП 2: Адаптивное регулярное сеточное сканирование (TIER 2 Grid Scan)
         // Запускается ТОЛЬКО для масок, еще не найденных на опорных точках, если не включен "Только ROI шаблона"!
         // =========================================================================
-        val isStrictRoi = (actionOverride?.isStrictRoiOnly == true)
+        val isStrictRoi = hasRoi || (actionOverride?.isStrictRoiOnly == true)
         val contextsForGridScan = preparedContexts.filter { !matchedTemplates.contains(it.tPath) }
 
         for (ctx in contextsForGridScan) {
