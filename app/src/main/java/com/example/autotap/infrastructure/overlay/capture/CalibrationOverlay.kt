@@ -712,14 +712,22 @@ private val targetStepId: Int? = null,
                     val sPixels = PixelBufferPool.obtain(sw * sh)
                     try {
                         screenshot.getPixels(sPixels, 0, sw, 0, 0, sw, sh)
-                        val dynKey = "calib_${currentShapeExpansion}_${currentPaddingOffset}_${isAutoContourMode}_${isCircleShape}_${isShapeOnlyMode}"
-                        val features = TemplateMatchingEngine.extractFeatures(currentMask, dynKey, "", currentSimilarity)
-                        edgeCount = features?.shapeEdgeCount ?: 0
-
                         val baseSafeX = if (anchorCropX in 0 until sw) anchorCropX else ((existingAction?.posX?.toInt() ?: (sw / 2)) - currentMask.width / 2)
                         val baseSafeY = if (anchorCropY in 0 until sh) anchorCropY else ((existingAction?.posY?.toInt() ?: (sh / 2)) - currentMask.height / 2)
                         val originX = (baseSafeX + currentCropOffsetX).coerceIn(0, sw - currentMask.width)
                         val originY = (baseSafeY + currentCropOffsetY).coerceIn(0, sh - currentMask.height)
+
+                        val liveCropBmp = try {
+                            Bitmap.createBitmap(screenshot, originX, originY, currentMask.width.coerceAtMost(sw - originX), currentMask.height.coerceAtMost(sh - originY))
+                        } catch (_: Exception) { null }
+
+                        val combinedBmp = if (liveCropBmp != null) {
+                            TemplateMatchingEngine.combineMaskWithRawRgb(currentMask, liveCropBmp)
+                        } else currentMask
+
+                        val dynKey = "calib_${currentShapeExpansion}_${currentPaddingOffset}_${isAutoContourMode}_${isCircleShape}_${isShapeOnlyMode}_${liveCropBmp?.generationId ?: 0}"
+                        val features = TemplateMatchingEngine.extractFeatures(combinedBmp, dynKey, "", currentSimilarity)
+                        edgeCount = features?.shapeEdgeCount ?: 0
 
                         var peakScore = 0f
                         var peakX = originX

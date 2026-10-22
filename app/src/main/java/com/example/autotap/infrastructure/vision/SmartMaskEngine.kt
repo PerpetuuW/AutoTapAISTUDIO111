@@ -425,10 +425,9 @@ object SmartMaskEngine {
 
             val tw = res.bitmap.width
             val th = res.bitmap.height
-            val tPixels = IntArray(tw * th)
-            res.bitmap.getPixels(tPixels, 0, tw, 0, 0, tw, th)
 
-            val features = TemplateMatchingEngine.extractFeatures(tPixels, tw, th, "opt_${exp}_${tPixels.contentHashCode()}", 80, "", false)
+            val combinedBmp = TemplateMatchingEngine.combineMaskWithRawRgb(res.bitmap, rawTemplate)
+            val features = TemplateMatchingEngine.extractFeatures(combinedBmp, "opt_${exp}_${combinedBmp.generationId}", "", 80)
             val score = if (features != null) {
                 TemplateMatchingEngine.evaluateCandidateScore(screenshotPixels, sw, sh, originX, originY, features, isShapeOnly)
             } else 0f

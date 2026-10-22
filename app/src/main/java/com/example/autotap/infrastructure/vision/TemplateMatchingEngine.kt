@@ -161,6 +161,33 @@ object TemplateMatchingEngine {
         AppLogger.log(null, "VISION", "Кэши дескрипторов шаблонов очищены (накопленный опыт первичных точек сохранен)")
     }
 
+    fun combineMaskWithRawRgb(maskBmp: Bitmap, rawBmp: Bitmap): Bitmap {
+        if (maskBmp.isRecycled || maskBmp.width <= 0 || maskBmp.height <= 0) return maskBmp
+        if (rawBmp.isRecycled || rawBmp.width <= 0 || rawBmp.height <= 0) return maskBmp
+
+        val w = maskBmp.width
+        val h = maskBmp.height
+        val mPixels = IntArray(w * h)
+        val rPixels = IntArray(w * h)
+        maskBmp.getPixels(mPixels, 0, w, 0, 0, w, h)
+
+        if (rawBmp.width == w && rawBmp.height == h) {
+            rawBmp.getPixels(rPixels, 0, w, 0, 0, w, h)
+        } else {
+            val scaledRaw = Bitmap.createScaledBitmap(rawBmp, w, h, true)
+            scaledRaw.getPixels(rPixels, 0, w, 0, 0, w, h)
+            scaledRaw.recycle()
+        }
+
+        val combined = IntArray(w * h)
+        for (i in 0 until w * h) {
+            val alpha = (mPixels[i] ushr 24) and 0xFF
+            val rgb = rPixels[i] and 0x00FFFFFF
+            combined[i] = (alpha shl 24) or rgb
+        }
+        return Bitmap.createBitmap(combined, w, h, Bitmap.Config.ARGB_8888)
+    }
+
     // Перегрузка 1: Вызов с Bitmap (основная)
     fun extractFeatures(template: Bitmap, cacheKey: String, tPath: String = "", defaultSim: Int = 80): TemplateFeatures? {
         return try {
