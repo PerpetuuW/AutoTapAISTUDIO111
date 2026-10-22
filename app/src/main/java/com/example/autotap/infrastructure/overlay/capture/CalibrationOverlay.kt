@@ -2109,7 +2109,7 @@ private val targetStepId: Int? = null,
                 val finalCalibY = bestCand?.clickY?.toInt() ?: (anchorCropY + finalMask.height / 2)
 
                 val minDim = kotlin.math.min(finalMask.width, finalMask.height)
-                val calculatedGridStep = kotlin.math.max(12, kotlin.math.min(minDim / 3, 24))
+                val calculatedGridStep = kotlin.math.max(2, kotlin.math.min(minDim / 4, 8))
 
                 val finalDownscale = if (userDownscaleFactor in 1..4) userDownscaleFactor else effectiveDownscaleFactor
 

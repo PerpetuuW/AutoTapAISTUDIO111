@@ -123,6 +123,7 @@ class AutoTapAccessibilityService : AccessibilityService() {
             gestureDispatcher.onGesturePassthroughToggle = { enabled, rect ->
                 orchestrator.screenLockOverlay.setPassthroughEnabled(enabled, rect)
             }
+            orchestrator.showOverlays()
 
             // [V35.0] Детектор встряхивания (акселерометр) отключен в пользу ScreenOffStopMonitor
             // для защиты от ложных срабатываний при удержании телефона в руках.
