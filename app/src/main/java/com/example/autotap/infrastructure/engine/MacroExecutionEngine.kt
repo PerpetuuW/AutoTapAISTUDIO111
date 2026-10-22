@@ -1237,7 +1237,6 @@ class MacroExecutionEngine(
                     roiTop = trig.roiTop,
                     roiRight = trig.roiRight,
                     roiBottom = trig.roiBottom,
-                    isStrictRoiOnly = trig.isStrictRoiOnly,
                     primaryAnchorPoints = trig.additionalSearchLocations.toList()
                 )
 

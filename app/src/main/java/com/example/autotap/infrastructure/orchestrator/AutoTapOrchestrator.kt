@@ -291,9 +291,19 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         val dm = appContext.resources.displayMetrics
         val specs = DeviceDisplaySpecs(dm.widthPixels, dm.heightPixels, dm.densityDpi, dm.density, dm.widthPixels > dm.heightPixels)
         val scenario = MacroScenario("ActiveSession", 1, specs, actions, globalClickDurationMs, globalSwipeDurationMs)
-        val graph = LinearToGraphMigrator.linearToGraph(scenario)
-        scenarioRepository.saveGraphScenario(graph)
-        openGraphEditor(graph.name)
+        val existingGraph = scenarioRepository.loadGraphScenario("ActiveSession")
+        val updatedGraph = if (existingGraph != null) {
+            var g: com.example.autotap.domain.model.graph.GraphMacroScenario = existingGraph
+            for (act in actions) {
+                val updatedNode = LinearToGraphMigrator.updateNodeForAction(g, act)
+                if (updatedNode != null) g = updatedNode
+            }
+            g
+        } else {
+            LinearToGraphMigrator.linearToGraph(scenario)
+        }
+        scenarioRepository.saveGraphScenario(updatedGraph)
+        openGraphEditor(updatedGraph.name)
     }
 
     fun openGraphEditor(name: String) {
@@ -1050,12 +1060,9 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                     val screenshot = service?.captureScreenshotSync(1500L)
                     if (screenshot != null) {
                         try {
-                            val templates = templateRepository.loadAllTemplates()
-                            val targetPair = templates.firstOrNull { it.first == action.templatePath }
-                                ?: templates.getOrNull(action.selectedTemplateIndex)
-                                ?: templates.firstOrNull()
-                            if (targetPair != null) {
-                                val matches = visionGateway.findTemplateMatches(screenshot, targetPair.second, action.similarityPercent, action)
+                            val activeTemplates = loadScenarioTemplates(listOf(action)).toList()
+                            if (activeTemplates.isNotEmpty()) {
+                                val matches = visionGateway.findMultiTemplateMatches(screenshot, activeTemplates, action.similarityPercent, action)
                                 withContext(Dispatchers.Main) {
                                     if (matches.isNotEmpty()) {
                                         val best = matches.first()
@@ -1306,6 +1313,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 val cropCenter = Point2D(cropX + cropW / 2f, cropY + cropH / 2f)
                 val initialAction = MacroAction(
                     id = nextId,
+                    type = ActionType.TRIGGER,
                     primaryAnchorPoints = listOf(cropCenter)
                 )
 
@@ -1328,17 +1336,10 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                                     anchorCropX = safeX,
                                     anchorCropY = safeY,
                                     onFinished = { updatedAction, path ->
-                                        controlPanelOverlay.show(); targetManager.setOverlaysVisible(true)
-                                        val currentActions = targetManager.getActions()
-                                        if (currentActions.size == 1 && currentActions[0].type == ActionType.TRIGGER) {
-                                            val firstAct = currentActions[0]
-                                            val merged = updatedAction.copy(id = firstAct.id)
-                                            TemplateMatchingEngine.registerDiscoveredLocation(path, merged.posX.toInt(), merged.posY.toInt())
-                                            targetManager.updateAction(merged)
-                                        } else {
-                                            TemplateMatchingEngine.registerDiscoveredLocation(path, updatedAction.posX.toInt(), updatedAction.posY.toInt())
-                                            targetManager.addAction(updatedAction)
-                                        }
+                                        controlPanelOverlay.show()
+                                        targetManager.setOverlaysVisible(true)
+                                        TemplateMatchingEngine.registerDiscoveredLocation(path, updatedAction.posX.toInt(), updatedAction.posY.toInt())
+                                        targetManager.addAction(updatedAction.copy(type = ActionType.TRIGGER))
                                         checkAndPromptGraphGeneration(updatedAction) {}
                                     },
                                     onCancelled = { controlPanelOverlay.show(); targetManager.setOverlaysVisible(true) }
@@ -1427,7 +1428,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         com.example.autotap.infrastructure.accessibility.AutoTapAccessibilityService.instance?.gestureDispatcher?.onGesturePassthroughToggle = { isPassthrough, rect ->
             screenLockOverlay.setPassthroughEnabled(isPassthrough, rect)
         }
-        screenLockOverlay.show(targetManager.getActions())
+        screenLockOverlay.show()
     }
     override fun onClearAllClicked() {
         targetManager.clearAll()

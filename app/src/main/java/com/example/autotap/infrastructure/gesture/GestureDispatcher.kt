@@ -456,8 +456,9 @@ class GestureDispatcher(
             result = success
             latch.countDown()
         }
+        val actualDur = maxOf(durationMs, points.lastOrNull()?.timeOffsetMs ?: 0L)
         try {
-            latch.await(durationMs + timeoutMs, TimeUnit.MILLISECONDS)
+            latch.await(actualDur + timeoutMs, TimeUnit.MILLISECONDS)
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
         }

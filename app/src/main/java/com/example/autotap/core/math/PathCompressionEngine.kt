@@ -216,17 +216,37 @@ object PathCompressionEngine {
      */
     fun generateSmoothSpline(
         points: List<Point2D>,
-        pointsPerSegment: Int = 8
+        pointsPerSegment: Int = 8,
+        fallbackDurationMs: Long = 1000L
     ): List<Point2D> {
-        if (points.size < 3) return points
+        if (points.size < 2) return points
+
+        val hasValidTimestamps = points.last().timeOffsetMs > points.first().timeOffsetMs
+        val timedPoints = if (hasValidTimestamps) {
+            points
+        } else {
+            var totalLen = 0f
+            val dists = FloatArray(points.size)
+            for (i in 1 until points.size) {
+                totalLen += hypot((points[i].x - points[i - 1].x).toDouble(), (points[i].y - points[i - 1].y).toDouble()).toFloat()
+                dists[i] = totalLen
+            }
+            val safeTotal = totalLen.coerceAtLeast(1f)
+            val dur = fallbackDurationMs.coerceAtLeast(100L)
+            points.mapIndexed { idx, pt ->
+                Point2D(pt.x, pt.y, ((dists[idx] / safeTotal) * dur).toLong())
+            }
+        }
+        
+        if (timedPoints.size < 3) return timedPoints
 
         val result = ArrayList<Point2D>()
         val p = ArrayList<Point2D>()
         
         // Дублируем крайние точки для красивой обработки границ сплайна
-        p.add(points.first())
-        p.addAll(points)
-        p.add(points.last())
+        p.add(timedPoints.first())
+        p.addAll(timedPoints)
+        p.add(timedPoints.last())
 
         for (i in 1 until p.size - 2) {
             val p0 = p[i - 1]

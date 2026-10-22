@@ -225,13 +225,24 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             }
             val learnedLocations = com.example.autotap.infrastructure.vision.TemplateMatchingEngine.additionalSearchLocations[tPath]
             if (learnedLocations != null && learnedLocations.isNotEmpty()) {
-                val locArray = org.json.JSONArray()
+                val locArray = metadata.optJSONArray("discoveredLocations") ?: org.json.JSONArray()
                 synchronized(learnedLocations) {
                     for (loc in learnedLocations) {
-                        locArray.put(JSONObject().apply {
-                            put("x", loc.first)
-                            put("y", loc.second)
-                        })
+                        var alreadyHas = false
+                        for (i in 0 until locArray.length()) {
+                            val item = locArray.optJSONObject(i)
+                            if (item != null && kotlin.math.abs(item.optInt("x") - loc.first) < 24 && kotlin.math.abs(item.optInt("y") - loc.second) < 24) {
+                                alreadyHas = true
+                                break
+                            }
+                        }
+                        if (!alreadyHas) {
+                            if (locArray.length() >= 8) locArray.remove(0)
+                            locArray.put(JSONObject().apply {
+                                put("x", loc.first)
+                                put("y", loc.second)
+                            })
+                        }
                     }
                 }
                 metadata.put("discoveredLocations", locArray)

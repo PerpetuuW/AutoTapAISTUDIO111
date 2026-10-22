@@ -554,8 +554,8 @@ object LinearToGraphMigrator {
                 
                 val isColorCheck = trig.type == ActionType.COLOR_CHECK
 
-                val posX = if (isColorCheck) trig.clickOffset.x else 0f
-                val posY = if (isColorCheck) trig.clickOffset.y else 0f
+                val posX = trig.additionalSearchLocations.firstOrNull()?.x ?: if (isColorCheck) trig.clickOffset.x else 0f
+                val posY = trig.additionalSearchLocations.firstOrNull()?.y ?: if (isColorCheck) trig.clickOffset.y else 0f
                 val clickOffsetX = if (!isColorCheck && trig.useCustomClick) trig.clickOffset.x else 0f
                 val clickOffsetY = if (!isColorCheck && trig.useCustomClick) trig.clickOffset.y else 0f
 
