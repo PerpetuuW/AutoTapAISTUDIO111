@@ -42,7 +42,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
 data class ControlPanelState(
-    val mode: PanelDisplayMode = PanelDisplayMode.COMPACT_SINGLE_ROW,
+    val mode: PanelDisplayMode = PanelDisplayMode.EXPANDED,
     val isPlaying: Boolean = false,
     val visibilityMode: OverlayVisibilityMode = OverlayVisibilityMode.FULL,
     val isNumbersHidden: Boolean = false,

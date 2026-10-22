@@ -36,7 +36,7 @@ class ControlPanelOverlay(
     private var rootView: View? = null
     val containerView: View? get() = rootView
     private var rootLinearView: LinearLayout? = null
-    private var currentMode: PanelDisplayMode = PanelDisplayMode.COMPACT_SINGLE_ROW
+    private var currentMode: PanelDisplayMode = PanelDisplayMode.EXPANDED
     private var isPlayingState: Boolean = false
     private var visibilityModeState: OverlayVisibilityMode = OverlayVisibilityMode.FULL
     private var isNumbersHiddenState: Boolean = false
