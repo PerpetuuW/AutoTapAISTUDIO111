@@ -1053,9 +1053,9 @@ object TemplateMatchingEngine {
             }
 
             val metaStep = features.optimalGridStepFromMeta
-            val minStep = 6
-            val baseStepX = if (metaStep in 2..16) metaStep else (if (isSmall) (features.tw / 3).coerceIn(4, 10) else (features.tw / 2).coerceIn(minStep, 28))
-            val baseStepY = if (metaStep in 2..16) metaStep else (if (isSmall) (features.th / 3).coerceIn(4, 10) else (features.th / 2).coerceIn(minStep, 28))
+            val minStep = 16
+            val baseStepX = if (metaStep in minStep..32) metaStep else (if (isSmall) (features.tw / 2).coerceIn(minStep, 24) else (features.tw / 2).coerceIn(minStep, 32))
+            val baseStepY = if (metaStep in minStep..32) metaStep else (if (isSmall) (features.th / 2).coerceIn(minStep, 24) else (features.th / 2).coerceIn(minStep, 32))
             val gridStepX = baseStepX
             val gridStepY = baseStepY
             val spatialSectors = HashMap<Long, Triple<Int, Int, Float>>()
