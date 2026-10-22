@@ -752,19 +752,11 @@ object TemplateMatchingEngine {
                 }
             }
 
-            // 3. ПРИОРИТЕТ №3: Накопленный L0 Cache именно для этого tPath
+            // 3. ПРИОРИТЕТ №3: Накопленный L0 Cache именно для этого tPath и его имени файла
             if (enableL0Cache && tPath.isNotEmpty()) {
-                historicalSearchAnchors[tPath]?.let { set ->
-                    synchronized(set) {
-                        for (loc in set) {
-                            val pt = com.example.autotap.domain.model.Point2D(loc.first.toFloat(), loc.second.toFloat())
-                            if (anchorProbes.none { p -> abs(p.x - pt.x) < 16f && abs(p.y - pt.y) < 16f }) {
-                                anchorProbes.add(pt)
-                            }
-                        }
-                    }
-                }
-                additionalSearchLocations[tPath]?.let { set ->
+                val normKey = File(tPath).name
+                val setsToProbe = listOfNotNull(historicalSearchAnchors[tPath], historicalSearchAnchors[normKey], additionalSearchLocations[tPath], additionalSearchLocations[normKey])
+                for (set in setsToProbe) {
                     synchronized(set) {
                         for (loc in set) {
                             val pt = com.example.autotap.domain.model.Point2D(loc.first.toFloat(), loc.second.toFloat())

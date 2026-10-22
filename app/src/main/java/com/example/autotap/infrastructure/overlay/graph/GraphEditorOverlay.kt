@@ -48,6 +48,7 @@ class GraphEditorOverlay(
     var onStartGraphRequested: ((GraphMacroScenario) -> Unit)? = null
 
     private val dm = context.resources.displayMetrics
+    private val templateRepository by lazy { TemplateRepositoryImpl(context) }
     private fun dp(v: Int): Int = (v * dm.density).toInt()
     private fun dpF(v: Float): Float = v * dm.density
 
@@ -611,18 +612,19 @@ class GraphEditorOverlay(
                 background = GradientDrawable().apply { setColor("#21262D".toColorInt()); cornerRadius = dpF(4f) }
                 layoutParams = LinearLayout.LayoutParams(dp(32), dp(28)).apply { marginEnd = dp(6) }
                 setOnClickListener {
+                    val curNode = currentScenario?.nodes?.get(node.id) ?: node
                     val next = (currentRepeats - 1).coerceAtLeast(1)
-                    val updatedActions = if (node.entryActions.isEmpty()) {
+                    val updatedActions = if (curNode.entryActions.isEmpty()) {
                         val cx = context.resources.displayMetrics.widthPixels / 2f
                         val cy = context.resources.displayMetrics.heightPixels / 2f
-                        listOf(com.example.autotap.domain.model.graph.NodeActionSpec(id = "act_${node.id}", type = ActionType.CLICK, x = cx, y = cy, repeatCount = next))
+                        listOf(com.example.autotap.domain.model.graph.NodeActionSpec(id = "act_${curNode.id}", type = ActionType.CLICK, x = cx, y = cy, repeatCount = next))
                     } else {
-                        node.entryActions.map { it.copy(repeatCount = next) }
+                        curNode.entryActions.map { it.copy(repeatCount = next) }
                     }
-                    val updatedNode = node.copy(entryActions = updatedActions)
+                    val updatedNode = curNode.copy(entryActions = updatedActions)
                     currentScenario?.let { sc ->
                         val nodesMap = sc.nodes.toMutableMap()
-                        nodesMap[node.id] = updatedNode
+                        nodesMap[curNode.id] = updatedNode
                         val newSc = sc.copy(nodes = nodesMap)
                         currentScenario = newSc
                         canvasView?.setGraphScenario(newSc)
@@ -630,9 +632,9 @@ class GraphEditorOverlay(
                     }
                     currentRepeats = next
                     tvRepeatsLabel.text = "Итераций: $next"
-                    }
-                    }
-                    val btnPlus = Button(context).apply {
+                }
+            }
+            val btnPlus = Button(context).apply {
                 text = "+"
                 textSize = 12f
                 typeface = Typeface.DEFAULT_BOLD
@@ -644,18 +646,19 @@ class GraphEditorOverlay(
                 background = GradientDrawable().apply { setColor("#21262D".toColorInt()); cornerRadius = dpF(4f) }
                 layoutParams = LinearLayout.LayoutParams(dp(32), dp(28))
                 setOnClickListener {
+                    val curNode = currentScenario?.nodes?.get(node.id) ?: node
                     val next = (currentRepeats + 1).coerceAtMost(999)
-                    val updatedActions = if (node.entryActions.isEmpty()) {
+                    val updatedActions = if (curNode.entryActions.isEmpty()) {
                         val cx = context.resources.displayMetrics.widthPixels / 2f
                         val cy = context.resources.displayMetrics.heightPixels / 2f
-                        listOf(com.example.autotap.domain.model.graph.NodeActionSpec(id = "act_${node.id}", type = ActionType.CLICK, x = cx, y = cy, repeatCount = next))
+                        listOf(com.example.autotap.domain.model.graph.NodeActionSpec(id = "act_${curNode.id}", type = ActionType.CLICK, x = cx, y = cy, repeatCount = next))
                     } else {
-                        node.entryActions.map { it.copy(repeatCount = next) }
+                        curNode.entryActions.map { it.copy(repeatCount = next) }
                     }
-                    val updatedNode = node.copy(entryActions = updatedActions)
+                    val updatedNode = curNode.copy(entryActions = updatedActions)
                     currentScenario?.let { sc ->
                         val nodesMap = sc.nodes.toMutableMap()
-                        nodesMap[node.id] = updatedNode
+                        nodesMap[curNode.id] = updatedNode
                         val newSc = sc.copy(nodes = nodesMap)
                         currentScenario = newSc
                         canvasView?.setGraphScenario(newSc)
@@ -663,8 +666,8 @@ class GraphEditorOverlay(
                     }
                     currentRepeats = next
                     tvRepeatsLabel.text = "Итераций: $next"
-                    }
-                    }
+                }
+            }
                     stepperRow.addView(tvRepeatsLabel)
             stepperRow.addView(btnMinus)
             stepperRow.addView(btnPlus)
@@ -855,9 +858,10 @@ class GraphEditorOverlay(
                 val updated = sc.copy(edges = edges)
                 currentScenario = updated
                 canvasView?.setGraphScenario(updated)
+                scenarioRepository.saveGraphScenario(updated)
                 overlayContainerView?.removeView(card)
                 nodeSelectCard = null
-                sc.nodes[fromNodeId]?.let { showNodeInspector(it) }
+                updated.nodes[fromNodeId]?.let { showNodeInspector(it) }
                 Toast.makeText(context, "Ветка отвязана", Toast.LENGTH_SHORT).show()
             }
         }
@@ -906,7 +910,7 @@ class GraphEditorOverlay(
 
     private fun showCustomTemplatePickerDialog(node: ScenarioNode, trigIdx: Int) {
         templatePickerCard?.let { overlayContainerView?.removeView(it) }
-        val tplRepo = TemplateRepositoryImpl(context)
+        val tplRepo = templateRepository
         val allTpls = tplRepo.loadAllTemplates()
         if (allTpls.isEmpty()) {
             Toast.makeText(context, "В базе нет сохраненных шаблонов", Toast.LENGTH_SHORT).show()
