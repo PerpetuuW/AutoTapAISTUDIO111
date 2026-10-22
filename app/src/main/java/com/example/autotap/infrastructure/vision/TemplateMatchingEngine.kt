@@ -327,20 +327,34 @@ object TemplateMatchingEngine {
             else -> 4
         }
 
-        // [V12.0] Загрузка истинных RGB цветов из raw_*.png вместо бинарной маски
+        // [V12.0] Загрузка истинных RGB цветов из raw_*.png/jpg вместо бинарной маски
         var colorSourcePixels = tPixels
         if (tPath.isNotEmpty()) {
             try {
                 val maskFile = File(tPath)
                 if (maskFile.exists()) {
-                    val rawFile = File(maskFile.parentFile, "raw_" + maskFile.name.removePrefix("mask_"))
+                    val parentDir = maskFile.parentFile
+                    val baseName = maskFile.nameWithoutExtension.removePrefix("mask_")
+                    var rawFile = File(parentDir, "raw_$baseName.png")
+                    if (!rawFile.exists()) {
+                        rawFile = File(parentDir, "raw_$baseName.jpg")
+                    }
+                    if (!rawFile.exists()) {
+                        rawFile = File(parentDir, "raw_" + maskFile.name)
+                    }
                     if (rawFile.exists()) {
                         val rawBmp = BitmapFactory.decodeFile(rawFile.absolutePath)
                         if (rawBmp != null) {
-                            if (rawBmp.width == tw && rawBmp.height == th) {
-                                val rp = IntArray(tw * th)
-                                rawBmp.getPixels(rp, 0, tw, 0, 0, tw, th)
-                                colorSourcePixels = rp
+                            val scaledRaw = if (rawBmp.width == tw && rawBmp.height == th) {
+                                rawBmp
+                            } else {
+                                Bitmap.createScaledBitmap(rawBmp, tw, th, true)
+                            }
+                            val rp = IntArray(tw * th)
+                            scaledRaw.getPixels(rp, 0, tw, 0, 0, tw, th)
+                            colorSourcePixels = rp
+                            if (scaledRaw != rawBmp && !scaledRaw.isRecycled) {
+                                scaledRaw.recycle()
                             }
                             rawBmp.recycle()
                         }
