@@ -863,7 +863,7 @@ object TemplateMatchingEngine {
                     tier0Found = true
                     statL0Hits++
                     matchedTemplates.add(tPath)
-                    if (!findAllMatches && (candidate.score >= 0.95f || templates.size == 1)) {
+                    if (!findAllMatches && candidate.score >= confidentThreshold) {
                         val searchRoi = if (hasRoi) Rect(roiMinX, roiMinY, roiMaxX, roiMaxY) else null
                         val downscaleTag = if (lastUsedDownscale > 1) " [Сжатие: ${lastUsedDownscale}x]" else " [Сжатие: 1:1]"
                         val elapsed = System.currentTimeMillis() - perfStartTime
@@ -898,7 +898,7 @@ object TemplateMatchingEngine {
 
             // TIER 1: Быстрая двухпроходная окрестность UI (+-48 px вокруг всех опорных точек, 2-3 мс)
             var tier1Found = false
-            val primaryProbes = ctx.anchorProbes.take(8)
+            val primaryProbes = ctx.anchorProbes.take(3)
             for (probe in primaryProbes) {
                 val expLeft = (probe.x - features.centroidX).toInt().coerceIn(roiMinX, scanLimitX)
                 val expTop = (probe.y - features.centroidY).toInt().coerceIn(roiMinY, scanLimitY)
@@ -908,9 +908,9 @@ object TemplateMatchingEngine {
                 var bestLocalY = expTop
                 val localRange = 48
 
-                for (dy in -localRange..localRange step 6) {
+                for (dy in -localRange..localRange step 12) {
                     val qy = (expTop + dy).coerceIn(roiMinY, scanLimitY)
-                    for (dx in -localRange..localRange step 6) {
+                    for (dx in -localRange..localRange step 12) {
                         val qx = (expLeft + dx).coerceIn(roiMinX, scanLimitX)
                         val score = evaluateCandidateScore(sPixels, sw, sh, qx, qy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
                         if (score > bestLocalScore) {
@@ -948,6 +948,40 @@ object TemplateMatchingEngine {
                         isShapeDriven
                     )
                     allCandidates.add(candidate)
+                    recordFoundLocation(tPath, candidate.clickX, candidate.clickY)
+                    tier1Found = true
+                    statL1Hits++
+                    matchedTemplates.add(tPath)
+                    if (!findAllMatches) {
+                        val searchRoi = if (hasRoi) Rect(roiMinX, roiMinY, roiMaxX, roiMaxY) else null
+                        val downscaleTag = if (lastUsedDownscale > 1) " [Сжатие: ${lastUsedDownscale}x]" else " [Сжатие: 1:1]"
+                        val elapsed = System.currentTimeMillis() - perfStartTime
+                        lastDiagnostics = SearchDiagnostics(
+                            roi = searchRoi,
+                            bestCandidate = candidate,
+                            rejectedCandidates = emptyList(),
+                            thresholdPct = defaultSim,
+                            methodName = ((if (isDeltaEMode) "ГИБРИД + УМНЫЙ ЦВЕТ (ΔE)" else if (actionOverride?.isShapeOnlyMode == true) "ФОРМА / КОНТУР" else "ГИБРИД CV") + downscaleTag),
+                            downscaleFactor = lastUsedDownscale,
+                            elapsedMs = elapsed
+                        )
+                        AppLogger.log(
+                            null,
+                            "CV_PROFILER",
+                            String.format(
+                                java.util.Locale.US,
+                                "Мультипоиск [%d масок]: %dms [Дескрипторы=%dms, L0=%d, L1=%d, L2=0] | Результат: 1 целей (Победитель: %s - %.1f%%)",
+                                templates.size,
+                                elapsed,
+                                featExtractMs,
+                                statL0Hits,
+                                statL1Hits,
+                                candidate.templateName,
+                                candidate.score * 100f
+                            )
+                        )
+                        return listOf(candidate)
+                    }
                     recordFoundLocation(tPath, candidate.clickX, candidate.clickY)
                     tier1Found = true
                     statL1Hits++
