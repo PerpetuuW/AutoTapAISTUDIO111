@@ -593,7 +593,10 @@ class EditActionDialog(
 
             val btnReversePath = createSmallButton("РЕВЕРС") {
                 if (action.pathPoints.size >= 2) {
-                    val rev = action.pathPoints.reversed()
+                    val maxT = action.pathPoints.maxOfOrNull { it.timeOffsetMs } ?: 0L
+                    val rev = action.pathPoints.reversed().map { pt ->
+                        com.example.autotap.domain.model.Point2D(pt.x, pt.y, if (maxT > 0L) (maxT - pt.timeOffsetMs).coerceAtLeast(0L) else 0L)
+                    }
                     onSave(action.copy(pathPoints = rev, posX = rev.first().x, posY = rev.first().y, endX = rev.last().x, endY = rev.last().y))
                     dismiss()
                     Toast.makeText(context, "Направление пути развернуто!", Toast.LENGTH_SHORT).show()
@@ -980,24 +983,38 @@ class EditActionDialog(
                     targets.forEach { path ->
                         val maskFile = File(path)
                         if (maskFile.exists()) {
-                            val baseName = maskFile.name.removePrefix("mask_")
-                            val rawFile = File(maskFile.parentFile, "raw_$baseName")
-                            val screenFile = File(maskFile.parentFile, "screen_$baseName")
+                            val baseNameNoExt = maskFile.nameWithoutExtension.removePrefix("mask_")
+                            val rawFilePng = File(maskFile.parentFile, "raw_$baseNameNoExt.png")
+                            val rawFileJpg = File(maskFile.parentFile, "raw_$baseNameNoExt.jpg")
+                            val screenFileJpg = File(maskFile.parentFile, "screen_$baseNameNoExt.jpg")
+                            val screenFilePng = File(maskFile.parentFile, "screen_$baseNameNoExt.png")
                             val metaFile = File(maskFile.parentFile, "${maskFile.nameWithoutExtension}.json")
 
-                            maskFile.renameTo(File(targetDir, maskFile.name))
-                            if (rawFile.exists()) rawFile.renameTo(File(targetDir, rawFile.name))
-                            if (screenFile.exists()) screenFile.renameTo(File(targetDir, screenFile.name))
+                            val targetMaskFile = File(targetDir, maskFile.name)
+                            maskFile.renameTo(targetMaskFile)
+                            if (rawFilePng.exists()) rawFilePng.renameTo(File(targetDir, rawFilePng.name))
+                            if (rawFileJpg.exists()) rawFileJpg.renameTo(File(targetDir, rawFileJpg.name))
+                            if (screenFileJpg.exists()) screenFileJpg.renameTo(File(targetDir, screenFileJpg.name))
+                            if (screenFilePng.exists()) screenFilePng.renameTo(File(targetDir, screenFilePng.name))
                             if (metaFile.exists()) metaFile.renameTo(File(targetDir, metaFile.name))
+
+                            val newPath = targetMaskFile.absolutePath
+                            com.example.autotap.infrastructure.vision.TemplateMatchingEngine.migrateTemplatePath(path, newPath)
+
+                            if (selectedMultiPaths.contains(path)) {
+                                selectedMultiPaths.remove(path)
+                                selectedMultiPaths.add(newPath)
                             }
+                            if (boundTemplatePath == path) {
+                                boundTemplatePath = newPath
                             }
-                            allTemplates = templateRepository.loadAllTemplates().toMutableList()
-                            selectedMultiPaths.clear()
-                            boundTemplatePath = allTemplates.firstOrNull()?.first ?: ""
-                            refreshActiveTemplateCard()
-                            renderCarouselItems()
-                            layoutTriggerCard.removeView(folderInputBox)
-                            Toast.makeText(context, "Перемещено ${targets.size} шаблонов в '$fName'", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    allTemplates = templateRepository.loadAllTemplates().toMutableList()
+                    refreshActiveTemplateCard()
+                    renderCarouselItems()
+                    layoutTriggerCard.removeView(folderInputBox)
+                    Toast.makeText(context, "Перемещено ${targets.size} шаблонов в '$fName'", Toast.LENGTH_SHORT).show()
                             }
                             }
                             val btnCancelMove = createTextActionButton("X", "#2A1420", "#F43F5E") {
@@ -1549,30 +1566,9 @@ class EditActionDialog(
         val layoutTimings = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         layoutTimingsRef = layoutTimings
         val (etDelay, _) = createNumericInputWithSteppers(layoutTimings, "Пауза шага (мс):", action.delayMs.toString(), 50L)
-        val (etHold, containerHold) = createNumericInputWithSteppers(layoutTimings, "Длительность нажатия (мс):", action.holdDurationMs.coerceAtMost(action.delayMs).toString(), 20L)
+        val (etHold, containerHold) = createNumericInputWithSteppers(layoutTimings, "Длительность нажатия (мс):", action.holdDurationMs.toString(), 20L)
         containerHoldRef = containerHold
         tvHoldLabelRef = containerHold.getChildAt(0) as? TextView
-
-        // Инвариант: длительность нажатия не может превышать периодичность шага
-        etHold.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) {
-                val d = etDelay.text.toString().toLongOrNull() ?: action.delayMs
-                val h = etHold.text.toString().toLongOrNull() ?: action.holdDurationMs
-                if (h > d && d > 0L) {
-                    etHold.setText(d.toString())
-                    Toast.makeText(context, "Длительность нажатия ограничена периодичностью ($d мс)", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-        etDelay.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) {
-                val d = etDelay.text.toString().toLongOrNull() ?: action.delayMs
-                val h = etHold.text.toString().toLongOrNull() ?: action.holdDurationMs
-                if (h > d && d > 0L) {
-                    etHold.setText(d.toString())
-                }
-            }
-        }
 
         val (etRepeats, _) = createNumericInputWithSteppers(layoutTimings, "Повторения (0 = бесконечно):", action.repeatCount.toString(), 1L)
         val (etRadius, containerRadius) = createNumericInputWithSteppers(layoutTimings, "Разброс радиуса (px):", action.randomRadiusPx.toString(), 1L)
@@ -1981,6 +1977,10 @@ class EditActionDialog(
                     type = selectedType,
                     templatePath = effectivePrimary,
                     multiTemplatePaths = selectedMultiPaths.toList(),
+                    similarityPercent = currentActionSimilarity,
+                    colorDeltaEMode = isDeltaEMode,
+                    isShapeOnlyMode = isShapeOnly,
+                    isMultiScaleMode = isMultiScale,
                     isNeuralEngine = isNeuralEngine,
                     isStrictRoiOnly = isStrictRoiOnly,
                     pinchStartDistance = etPinchStart.text.toString().toFloatOrNull() ?: action.pinchStartDistance,

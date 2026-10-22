@@ -327,6 +327,7 @@ class GestureRecorderOverlay(
                                         }
 
                                         val tPath = templateRepo.saveTemplateWithScreen("smart_record", null, finalMask, rawCropped, screenshot, meta)
+                                        com.example.autotap.infrastructure.vision.TemplateMatchingEngine.registerDiscoveredLocation(tPath, objCenterX.toInt(), objCenterY.toInt())
 
                                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                             recordedActions.add(

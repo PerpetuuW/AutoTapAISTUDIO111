@@ -99,9 +99,8 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                     put("colorDeltaEMode", action.colorDeltaEMode)
                     put("isShapeOnlyMode", action.isShapeOnlyMode)
                     put("isNeuralEngine", action.isNeuralEngine)
-                    put("isNeuralEngine", action.isNeuralEngine)
-                    put("isNeuralEngine", action.isNeuralEngine)
-                    put("isNeuralEngine", action.isNeuralEngine)
+                    put("isStrictRoiOnly", action.isStrictRoiOnly)
+                    put("targetOccurrenceIndex", action.targetOccurrenceIndex)
                     put("shapeExpansion", action.shapeExpansion)
                     put("paddingOffsetPx", action.paddingOffsetPx)
                     put("isCircleShape", action.isCircleShape)
@@ -302,9 +301,10 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                         isContourMode = obj.optBoolean("isContourMode", true),
                         isFastMode = obj.optBoolean("isFastMode", true),
                         isMultiScaleMode = obj.optBoolean("isMultiScaleMode", false),
-                        colorDeltaEMode = obj.optBoolean("colorDeltaEMode", false),
+                        colorDeltaEMode = obj.optBoolean("colorDeltaEMode", true),
                         isShapeOnlyMode = obj.optBoolean("isShapeOnlyMode", false),
                         isNeuralEngine = obj.optBoolean("isNeuralEngine", false),
+                        isStrictRoiOnly = obj.optBoolean("isStrictRoiOnly", false),
                         shapeExpansion = obj.optInt("shapeExpansion", 45),
                         paddingOffsetPx = obj.optInt("paddingOffsetPx", 2),
                         isCircleShape = obj.optBoolean("isCircleShape", false),
@@ -316,6 +316,7 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                         jumpToStepOnTimeout = if (obj.has("jumpToStepOnTimeout") && obj.getInt("jumpToStepOnTimeout") > 0) obj.getInt("jumpToStepOnTimeout") else null,
                         pathPoints = pList,
                         targetScriptOrQuery = obj.optString("targetScriptToLoad", ""),
+                        targetOccurrenceIndex = obj.optInt("targetOccurrenceIndex", 0),
                         subroutineTag = obj.optString("subroutineTag", ""),
                         subroutineTarget = subTarget,
 
@@ -415,6 +416,16 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                             put("clickOffsetX", trig.clickOffset.x.toDouble())
                             put("clickOffsetY", trig.clickOffset.y.toDouble())
                             put("targetPortId", trig.targetPortId)
+                            if (trig.additionalSearchLocations.isNotEmpty()) {
+                                val searchLocsArr = JSONArray()
+                                for (loc in trig.additionalSearchLocations) {
+                                    searchLocsArr.put(JSONObject().apply {
+                                        put("x", loc.x.toDouble())
+                                        put("y", loc.y.toDouble())
+                                    })
+                                }
+                                put("additionalSearchLocations", searchLocsArr)
+                            }
                         })
                     }
                     put("triggers", triggersArr)
@@ -589,6 +600,15 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                     for (p in 0 until mpArr.length()) multiPaths.add(resolveTemplatePath(mpArr.getString(p)))
                 }
 
+                val searchLocsList = mutableListOf<Point2D>()
+                if (tObj.has("additionalSearchLocations")) {
+                    val slArr = tObj.getJSONArray("additionalSearchLocations")
+                    for (sl in 0 until slArr.length()) {
+                        val slObj = slArr.getJSONObject(sl)
+                        searchLocsList.add(Point2D(slObj.getDouble("x").toFloat(), slObj.getDouble("y").toFloat()))
+                    }
+                }
+
                 triggersList.add(
                     NodeTriggerSpec(
                         behavior = tBehavior,
@@ -615,7 +635,8 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                         targetOccurrenceIndex = tObj.optInt("targetOccurrenceIndex", 0),
                         useCustomClick = tObj.optBoolean("useCustomClick", false),
                         clickOffset = Point2D(tObj.optDouble("clickOffsetX", 0.0).toFloat(), tObj.optDouble("clickOffsetY", 0.0).toFloat()),
-                        targetPortId = tObj.optString("targetPortId", "out_match_${tObj.getString("id")}")
+                        targetPortId = tObj.optString("targetPortId", "out_match_${tObj.getString("id")}"),
+                        additionalSearchLocations = searchLocsList
                     )
                 )
             }
