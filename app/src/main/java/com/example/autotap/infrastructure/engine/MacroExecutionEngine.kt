@@ -475,18 +475,6 @@ class MacroExecutionEngine(
                                             if (history.size >= 8) history.remove(history.first())
                                             history.add(Pair(bestMatchCand.clickX, bestMatchCand.clickY))
                                         }
-                                        try {
-                                            val meta = templateRepository.getTemplateMetadata(bestMatchCand.templatePath)?.toMutableMap() ?: mutableMapOf()
-                                            meta["calibratedX"] = bestMatchCand.clickX
-                                            meta["calibratedY"] = bestMatchCand.clickY
-                                            val orgMeta = org.json.JSONObject()
-                                            meta.forEach { (k, v) -> orgMeta.put(k, v) }
-                                            val bmp = templateRepository.getTemplate(bestMatchCand.templatePath)
-                                            if (bmp != null) {
-                                                val parentDir = java.io.File(bestMatchCand.templatePath).parentFile?.name ?: "default"
-                                                templateRepository.saveTemplate(parentDir, bestMatchCand.templatePath, bmp, null, orgMeta)
-                                            }
-                                        } catch (_: Exception) {}
                                     }
 
                                     if (action.notifyOnMatch) {

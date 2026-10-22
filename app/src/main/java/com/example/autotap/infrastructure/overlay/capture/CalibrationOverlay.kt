@@ -131,6 +131,7 @@ private val targetStepId: Int? = null,
     private var sbExpansion: SeekBar? = null
     private var sbPadding: SeekBar? = null
     private var sbSimilarity: SeekBar? = null
+    private var isUserCustomSimilarity = false
     private var btnContourToggle: Button? = null
     private var btnShapeOnlyToggle: Button? = null
     private var btnCircleToggle: Button? = null
@@ -757,6 +758,12 @@ private val targetStepId: Int? = null,
                                     }
                                 }
                             }
+                        }
+
+                        if (peakScore > 0.40f && !isUserCustomSimilarity) {
+                            val peakScorePct = (peakScore * 100).toInt()
+                            val autoSimilarityWithMargin = (peakScorePct - 5).coerceIn(60, 95)
+                            currentSimilarity = autoSimilarityWithMargin
                         }
 
                         val localAnchorMatch = if (peakScore > 0.20f) {
@@ -1609,7 +1616,8 @@ private val targetStepId: Int? = null,
             minHeight = 0; minimumHeight = 0
             setPadding(dp(4), dp(3), dp(4), dp(3))
             setOnClickListener {
-                currentSimilarity = (currentSimilarity - 5).coerceAtLeast(35)
+                isUserCustomSimilarity = true
+                currentSimilarity = (currentSimilarity - 5).coerceAtLeast(45)
                 tvSim.text = "ПОРОГ: $currentSimilarity%"
                 reevaluateMatching()
             }
@@ -1630,6 +1638,7 @@ private val targetStepId: Int? = null,
             minHeight = 0; minimumHeight = 0
             setPadding(dp(4), dp(3), dp(4), dp(3))
             setOnClickListener {
+                isUserCustomSimilarity = true
                 currentSimilarity = (currentSimilarity + 5).coerceAtMost(98)
                 tvSim.text = "ПОРОГ: $currentSimilarity%"
                 reevaluateMatching()

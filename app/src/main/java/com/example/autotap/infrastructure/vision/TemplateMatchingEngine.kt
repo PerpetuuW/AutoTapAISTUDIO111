@@ -406,7 +406,7 @@ object TemplateMatchingEngine {
             } else 0
         }
 
-        val isRawImage = isRawPixelsParam || (transparentCount < (effTw * effTh * 0.05))
+        val isRawImage = isRawPixelsParam || metaSmartColor || (transparentCount < (effTw * effTh * 0.05))
 
         // [Adaptive Grayscale Contrast Normalization]
         if (!isRawImage && transparentCount > 0) {
