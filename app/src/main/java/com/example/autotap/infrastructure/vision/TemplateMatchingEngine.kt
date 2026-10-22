@@ -189,7 +189,13 @@ object TemplateMatchingEngine {
     }
 
     // Перегрузка 1: Вызов с Bitmap (основная)
-    fun extractFeatures(template: Bitmap, cacheKey: String, tPath: String = "", defaultSim: Int = 80): TemplateFeatures? {
+    fun extractFeatures(
+        template: Bitmap,
+        cacheKey: String,
+        tPath: String = "",
+        defaultSim: Int = 80,
+        colorSourceBitmap: Bitmap? = null
+    ): TemplateFeatures? {
         return try {
             if (template.isRecycled || template.width <= 0 || template.height <= 0) return null
 
@@ -214,7 +220,21 @@ object TemplateMatchingEngine {
             val tPixels = IntArray(tw * th)
             template.getPixels(tPixels, 0, tw, 0, 0, tw, th)
 
-            extractFeatures(tPixels, tw, th, stableKey, defaultSim, tPath, false)
+            val colorPixels = if (colorSourceBitmap != null && !colorSourceBitmap.isRecycled && colorSourceBitmap.width > 0 && colorSourceBitmap.height > 0) {
+                val scaled = if (colorSourceBitmap.width == tw && colorSourceBitmap.height == th) {
+                    colorSourceBitmap
+                } else {
+                    Bitmap.createScaledBitmap(colorSourceBitmap, tw, th, true)
+                }
+                val cp = IntArray(tw * th)
+                scaled.getPixels(cp, 0, tw, 0, 0, tw, th)
+                if (scaled != colorSourceBitmap && !scaled.isRecycled) {
+                    scaled.recycle()
+                }
+                cp
+            } else null
+
+            extractFeatures(tPixels, tw, th, stableKey, defaultSim, tPath, false, colorPixels)
         } catch (t: Throwable) {
             AppLogger.logError(null, "CV_EXTRACT", t)
             null
@@ -229,7 +249,8 @@ object TemplateMatchingEngine {
         cacheKey: String,
         defaultSim: Int = 80,
         tPath: String = "",
-        isRawPixelsParam: Boolean = false
+        isRawPixelsParam: Boolean = false,
+        overrideColorPixels: IntArray? = null
     ): TemplateFeatures? {
         return try {
             if (tPixels.isEmpty() || tw <= 0 || th <= 0) return null
@@ -327,9 +348,9 @@ object TemplateMatchingEngine {
             else -> 4
         }
 
-        // [V12.0] Загрузка истинных RGB цветов из raw_*.png/jpg вместо бинарной маски
-        var colorSourcePixels = tPixels
-        if (tPath.isNotEmpty()) {
+        // [V12.0] Загрузка истинных RGB цветов из overrideColorPixels или raw_*.png/jpg
+        var colorSourcePixels = if (overrideColorPixels != null && overrideColorPixels.size == tw * th) overrideColorPixels else tPixels
+        if (overrideColorPixels == null && tPath.isNotEmpty()) {
             try {
                 val maskFile = File(tPath)
                 if (maskFile.exists()) {

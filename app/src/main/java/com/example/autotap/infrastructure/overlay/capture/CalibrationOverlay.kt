@@ -727,7 +727,15 @@ private val targetStepId: Int? = null,
                         } else currentMask
 
                         val dynKey = "calib_${currentShapeExpansion}_${currentPaddingOffset}_${isAutoContourMode}_${isCircleShape}_${isShapeOnlyMode}_${liveCropBmp?.generationId ?: 0}"
-                        val features = TemplateMatchingEngine.extractFeatures(combinedBmp, dynKey, "", currentSimilarity)
+                        val effectivePath = existingTemplatePath ?: ""
+                        val colorSourceBmp = liveCropBmp ?: currentWorkingRaw
+                        val features = TemplateMatchingEngine.extractFeatures(
+                            template = combinedBmp,
+                            cacheKey = dynKey,
+                            tPath = effectivePath,
+                            defaultSim = currentSimilarity,
+                            colorSourceBitmap = colorSourceBmp
+                        )
                         edgeCount = features?.shapeEdgeCount ?: 0
 
                         var peakScore = 0f
