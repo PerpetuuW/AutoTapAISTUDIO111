@@ -896,7 +896,8 @@ class TargetOverlayManager(
                                     val cur = actionsList[aIdx]
                                     if (pIdx < cur.pathPoints.size) {
                                         val mPts = cur.pathPoints.toMutableList()
-                                        mPts[pIdx] = com.example.autotap.domain.model.Point2D(lp.x + halfSz, lp.y + halfSz, 0L)
+                                        val oldTime = mPts[pIdx].timeOffsetMs
+                                        mPts[pIdx] = com.example.autotap.domain.model.Point2D(lp.x + halfSz, lp.y + halfSz, oldTime)
                                         actionsList[aIdx] = cur.copy(pathPoints = mPts)
                                         updateGraph()
                                     }

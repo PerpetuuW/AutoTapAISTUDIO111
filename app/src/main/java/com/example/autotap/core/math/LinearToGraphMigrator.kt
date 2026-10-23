@@ -44,8 +44,29 @@ object LinearToGraphMigrator {
         val updatedNodes = graph.nodes.toMutableMap()
         updatedNodes[nodeId] = preservedNode
 
+        val updatedEdges = graph.edges.toMutableList()
+        val prevMatchTargetId = updatedEdges.firstOrNull { it.fromNodeId == nodeId && it.fromPortId.startsWith("out_match") }?.toNodeId
+            ?: updatedEdges.firstOrNull { it.fromNodeId == nodeId && it.fromPortId == "out_default" }?.toNodeId
+
+        if (prevMatchTargetId != null) {
+            for (trig in preservedNode.triggers) {
+                if (updatedEdges.none { it.fromNodeId == nodeId && it.fromPortId == trig.targetPortId }) {
+                    updatedEdges.add(
+                        ScenarioEdge(
+                            id = "edge_${nodeId}_${trig.id}",
+                            fromNodeId = nodeId,
+                            fromPortId = trig.targetPortId,
+                            toNodeId = prevMatchTargetId,
+                            toPortId = "in_entry"
+                        )
+                    )
+                }
+            }
+        }
+
         return graph.copy(
             nodes = updatedNodes,
+            edges = updatedEdges,
             modifiedAt = System.currentTimeMillis()
         )
     }
@@ -78,7 +99,6 @@ object LinearToGraphMigrator {
         val edgesList = ArrayList<ScenarioEdge>()
         val totalActions = scenario.actions.size
 
-        // Постоянный стартовый узел
         val startNode = ScenarioNode(
             id = "node_start",
             title = "СТАРТ",
@@ -212,7 +232,6 @@ object LinearToGraphMigrator {
                             similarityThreshold = tplSimPct,
                             isShapeOnlyMode = tplShapeOnly,
                             colorDeltaEMode = tplColorDeltaE,
-                            isStrictRoiOnly = action.isStrictRoiOnly,
                             autoClickTarget = action.clickAiTarget,
                             useCustomClick = tplUseCustomOff,
                             clickOffset = Point2D(tplClickOffX, tplClickOffY),
@@ -280,7 +299,6 @@ object LinearToGraphMigrator {
                         shapeExpansion = action.shapeExpansion,
                         paddingOffsetPx = action.paddingOffsetPx,
                         isCircleShape = action.isCircleShape,
-                        isStrictRoiOnly = action.isStrictRoiOnly,
                         roiLeft = action.roiLeft,
                         roiTop = action.roiTop,
                         roiRight = action.roiRight,
@@ -487,7 +505,6 @@ object LinearToGraphMigrator {
         nodesMap[timeoutNodeId] = timeoutActionNode
 
         edgesList.add(ScenarioEdge(id = "edge_timeout_${targetAction.id}", fromNodeId = mainNodeId, fromPortId = "out_timeout", toNodeId = timeoutNodeId, toPortId = "in_entry"))
-        // Замыкаем узел таймаута на следующий шаг
         edgesList.add(ScenarioEdge(id = "edge_timeout_to_next_${targetAction.id}", fromNodeId = timeoutNodeId, fromPortId = "out_default", toNodeId = nextTargetNodeId, toPortId = "in_entry"))
 
         val updatedDecisionNode = existingMainNode.copy(
@@ -513,7 +530,6 @@ object LinearToGraphMigrator {
     fun graphToLinear(graphScenario: GraphMacroScenario): MacroScenario {
         val resultActions = ArrayList<MacroAction>()
 
-        // Отсекаем служебные узлы (старт, ветвления мультипоиска _branch_, вспомогательные клики _act)
         val validNodes = graphScenario.nodes.values.filter { node ->
             node.id != "node_start" && !node.id.contains("_branch_") && !node.id.contains("_act") && !node.id.contains("timeout")
         }
@@ -545,17 +561,32 @@ object LinearToGraphMigrator {
                     graphScenario.edges.firstOrNull { it.fromNodeId == rawTargetId && it.fromPortId == "out_default" }?.toNodeId
                 } else rawTargetId
                 val jumpMatch = resolvedTargetId?.let { nodeIdToStepIdMap[it] }
-                
+
                 val rawTimeoutTargetId = timeoutEdge?.toNodeId
                 val resolvedTimeoutTargetId = if (rawTimeoutTargetId != null && rawTimeoutTargetId.contains("_timeout")) {
                     graphScenario.edges.firstOrNull { it.fromNodeId == rawTimeoutTargetId && it.fromPortId == "out_default" }?.toNodeId
                 } else rawTimeoutTargetId
                 val jumpTimeout = resolvedTimeoutTargetId?.let { nodeIdToStepIdMap[it] }
-                
-                val isColorCheck = trig.type == ActionType.COLOR_CHECK
 
-                val posX = trig.additionalSearchLocations.firstOrNull()?.x ?: if (isColorCheck) trig.clickOffset.x else 0f
-                val posY = trig.additionalSearchLocations.firstOrNull()?.y ?: if (isColorCheck) trig.clickOffset.y else 0f
+                val isColorCheck = trig.type == ActionType.COLOR_CHECK
+                val allPaths = node.triggers.flatMap { listOf(it.templatePath) + it.multiTemplatePaths }.filter { it.isNotBlank() }.distinct()
+                val primaryPath = allPaths.firstOrNull() ?: ""
+
+                var recoveredX = if (isColorCheck) trig.clickOffset.x else (trig.additionalSearchLocations.firstOrNull()?.x ?: 0f)
+                var recoveredY = if (isColorCheck) trig.clickOffset.y else (trig.additionalSearchLocations.firstOrNull()?.y ?: 0f)
+
+                if (recoveredX <= 0f && recoveredY <= 0f && primaryPath.isNotBlank() && !primaryPath.startsWith("ocr:")) {
+                    try {
+                        val maskFile = File(primaryPath)
+                        val metaFile = File(maskFile.parentFile, "${maskFile.nameWithoutExtension}.json")
+                        if (metaFile.exists()) {
+                            val meta = JSONObject(metaFile.readText())
+                            if (meta.has("calibratedX")) recoveredX = meta.getInt("calibratedX").toFloat()
+                            if (meta.has("calibratedY")) recoveredY = meta.getInt("calibratedY").toFloat()
+                        }
+                    } catch (_: Exception) {}
+                }
+
                 val clickOffsetX = if (!isColorCheck && trig.useCustomClick) trig.clickOffset.x else 0f
                 val clickOffsetY = if (!isColorCheck && trig.useCustomClick) trig.clickOffset.y else 0f
 
@@ -563,14 +594,11 @@ object LinearToGraphMigrator {
                 val childActNode = if (childActNodeId != null) graphScenario.nodes[childActNodeId] else null
                 val recoveredDelayMs = childActNode?.entryActions?.firstOrNull()?.delayAfterMs ?: node.pollIntervalMs.coerceAtLeast(100L)
 
-                val allPaths = node.triggers.flatMap { listOf(it.templatePath) + it.multiTemplatePaths }.filter { it.isNotBlank() }.distinct()
-                val primaryPath = allPaths.firstOrNull() ?: ""
-
                 val action = MacroAction(
                     id = stepId,
                     type = trig.type,
-                    posX = posX,
-                    posY = posY,
+                    posX = recoveredX,
+                    posY = recoveredY,
                     delayMs = recoveredDelayMs,
                     holdDurationMs = 120L,
                     checkIntervalMs = node.pollIntervalMs,

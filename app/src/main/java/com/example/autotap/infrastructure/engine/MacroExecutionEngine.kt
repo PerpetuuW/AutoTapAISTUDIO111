@@ -1236,10 +1236,10 @@ class MacroExecutionEngine(
                     shapeExpansion = trig.shapeExpansion,
                     paddingOffsetPx = trig.paddingOffsetPx,
                     isCircleShape = trig.isCircleShape,
-                    roiLeft = trig.roiLeft,
-                    roiTop = trig.roiTop,
-                    roiRight = trig.roiRight,
-                    roiBottom = trig.roiBottom,
+                    roiLeft = if (isMulti) null else trig.roiLeft,
+                    roiTop = if (isMulti) null else trig.roiTop,
+                    roiRight = if (isMulti) null else trig.roiRight,
+                    roiBottom = if (isMulti) null else trig.roiBottom,
                     primaryAnchorPoints = trig.additionalSearchLocations.toList()
                 )
 

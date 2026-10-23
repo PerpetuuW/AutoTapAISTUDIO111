@@ -82,7 +82,7 @@ class EditActionDialog(
     private var isDeltaEMode = action.colorDeltaEMode
     private var isShapeOnly = action.isShapeOnlyMode
     private var isNeuralEngine = action.isNeuralEngine
-    private var isStrictRoiOnly = action.isStrictRoiOnly
+    private var isStrictRoiOnly = false
         // Режим формы инкапсулирован в метаданных шаблона
     private var btnToggleEngineRef: Button? = null
 
@@ -1972,7 +1972,7 @@ class EditActionDialog(
                 val subTarget = if (selectedType == ActionType.SUBROUTINE) etSubroutineName.text.toString().trim() else action.subroutineTarget
                 val d = maxOf(10L, etDelay.text.toString().toLongOrNull() ?: action.delayMs)
                 val rawH = etHold.text.toString().toLongOrNull() ?: action.holdDurationMs
-                val h = if (selectedType == ActionType.CLICK) rawH.coerceIn(10L, d) else rawH.coerceAtLeast(10L)
+                val h = rawH.coerceAtLeast(10L)
                 val updated = action.copy(
                     type = selectedType,
                     templatePath = effectivePrimary,
@@ -1982,7 +1982,6 @@ class EditActionDialog(
                     isShapeOnlyMode = isShapeOnly,
                     isMultiScaleMode = isMultiScale,
                     isNeuralEngine = isNeuralEngine,
-                    isStrictRoiOnly = isStrictRoiOnly,
                     pinchStartDistance = etPinchStart.text.toString().toFloatOrNull() ?: action.pinchStartDistance,
                     pinchEndDistance = etPinchEnd.text.toString().toFloatOrNull() ?: action.pinchEndDistance,
                     delayMs = d,

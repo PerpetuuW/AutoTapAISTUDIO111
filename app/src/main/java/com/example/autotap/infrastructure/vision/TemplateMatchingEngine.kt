@@ -926,7 +926,7 @@ object TemplateMatchingEngine {
             // TIER 1: Быстрая двухпроходная окрестность UI (в пределах ROI или +-48 px)
             var tier1Found = false
             val primaryProbes = ctx.anchorProbes.take(3)
-            val isRoiActive = hasRoi || (actionOverride?.isStrictRoiOnly == true)
+            val isRoiActive = hasRoi
             val localRange = if (isRoiActive) {
                 val roiW = (scanLimitX - roiMinX).coerceAtLeast(100)
                 val roiH = (scanLimitY - roiMinY).coerceAtLeast(100)
@@ -1066,7 +1066,7 @@ object TemplateMatchingEngine {
         // ЭТАП 2: Адаптивное регулярное сеточное сканирование (TIER 2 Grid Scan)
         // Запускается ТОЛЬКО для масок, еще не найденных на опорных точках, если не включен "Только ROI шаблона"!
         // =========================================================================
-        val isStrictRoi = hasRoi || (actionOverride?.isStrictRoiOnly == true)
+        val isStrictRoi = hasRoi
         val contextsForGridScan = preparedContexts.filter { !matchedTemplates.contains(it.tPath) }
 
         for (ctx in contextsForGridScan) {

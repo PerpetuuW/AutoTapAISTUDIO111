@@ -39,9 +39,6 @@ object PathCompressionEngine {
     /**
      * Сжимает последовательность точек жеста, создавая опорные вершины
      * СТРОГО в местах радикального изменения направления (углы, резкие повороты, изломы траектории).
-     *
-     * Гарантирует минимальное количество точек для чистого и удобного ручного
-     * редактирования в оверлеях (TargetOverlayManager) и соблюдение лимитов AOSP.
      */
     fun compressPath(
         points: List<Point2D>,
@@ -50,7 +47,6 @@ object PathCompressionEngine {
     ): List<Point2D> {
         if (points.size <= 2) return points
 
-        // Шаг 1: Первичная RDP-фильтрация сенсорного высокочастотного шума
         var eps = initialEpsilon
         var compressed = rdpRecursive(points, eps)
 
@@ -61,7 +57,6 @@ object PathCompressionEngine {
             iterations++
         }
 
-        // Шаг 2: Фильтрация узлов строго по местам радикального изменения направления
         val radicalOnly = filterRadicalDirectionChanges(compressed, minAngleDeg = 25f, minDistancePx = 24f)
 
         val finalResult = if (radicalOnly.size > maxPoints) {
@@ -73,12 +68,6 @@ object PathCompressionEngine {
         return if (finalResult.size >= 2) finalResult else listOf(points.first(), points.last())
     }
 
-    /**
-     * Фильтрует вершины траектории, выделяя точки СТРОГО там, где происходит
-     * радикальное изменение вектора движения (углы поворота >= minAngleDeg).
-     *
-     * Устраняет промежуточные паразитные точки на прямых отрезках и при незначительных микроколебаниях пальца.
-     */
     fun filterRadicalDirectionChanges(
         points: List<Point2D>,
         minAngleDeg: Float = 25f,
@@ -95,7 +84,6 @@ object PathCompressionEngine {
             return listOf(points.first(), points.last())
         }
 
-        // Адаптивный порог минимального расстояния для коротких жестов
         val effectiveMinDist = minOf(minDistancePx, maxOf(10f, totalLen * 0.08f))
 
         val result = ArrayList<Point2D>()
@@ -117,13 +105,11 @@ object PathCompressionEngine {
             val outDy = next.y - candidate.y
             val outLen = hypot(outDx.toDouble(), outDy.toDouble()).toFloat()
 
-            // Если кандидат слишком близок к предыдущему опорному узлу — пропускаем
             if (inLen < effectiveMinDist) {
                 i++
                 continue
             }
 
-            // Вычисляем угол поворота между направлением движения к кандидату и направлением от кандидата
             val dot = inDx * outDx + inDy * outDy
             val cosTheta = if (inLen > 1e-4f && outLen > 1e-4f) {
                 (dot / (inLen * outLen)).toDouble().coerceIn(-1.0, 1.0)
@@ -131,12 +117,8 @@ object PathCompressionEngine {
 
             val angleRad = kotlin.math.acos(cosTheta)
             val angleDeg = Math.toDegrees(angleRad).toFloat()
-
-            // Отклонение точки от прямой линии между anchor и next
             val perpDist = perpendicularDistance(candidate, anchor, next)
 
-            // Радикальное изменение: резкий угловой перелом (>= minAngleDeg)
-            // либо выраженный изгиб относительно хорды
             val isRadical = (angleDeg >= minAngleDeg && inLen >= effectiveMinDist && outLen >= 6f) ||
                     (perpDist >= effectiveMinDist && angleDeg >= 18f)
 
@@ -212,7 +194,8 @@ object PathCompressionEngine {
 
     /**
      * Генерирует плавную человекоподобную траекторию с использованием сглаживания Catmull-Rom Сплайном.
-     * Устраняет резкие углы и угловатые изломы, делая воспроизведение жестов и джойстика естественным.
+     * Если у точек не заданы монотоннно возрастающие timeOffsetMs (например, все 0L),
+     * автоматически распределяет fallbackDurationMs пропорционально длине сегментов.
      */
     fun generateSmoothSpline(
         points: List<Point2D>,
@@ -221,8 +204,17 @@ object PathCompressionEngine {
     ): List<Point2D> {
         if (points.size < 2) return points
 
-        val hasValidTimestamps = points.last().timeOffsetMs > points.first().timeOffsetMs
-        val timedPoints = if (hasValidTimestamps) {
+        var isMonotonicTime = points.last().timeOffsetMs > points.first().timeOffsetMs
+        if (isMonotonicTime) {
+            for (i in 1 until points.size) {
+                if (points[i].timeOffsetMs < points[i - 1].timeOffsetMs) {
+                    isMonotonicTime = false
+                    break
+                }
+            }
+        }
+
+        val timedPoints = if (isMonotonicTime) {
             points
         } else {
             var totalLen = 0f
@@ -234,16 +226,16 @@ object PathCompressionEngine {
             val safeTotal = totalLen.coerceAtLeast(1f)
             val dur = fallbackDurationMs.coerceAtLeast(100L)
             points.mapIndexed { idx, pt ->
-                Point2D(pt.x, pt.y, ((dists[idx] / safeTotal) * dur).toLong())
+                val tMs = if (idx == points.lastIndex) dur else ((dists[idx] / safeTotal) * dur).toLong()
+                Point2D(pt.x, pt.y, tMs)
             }
         }
-        
+
         if (timedPoints.size < 3) return timedPoints
 
         val result = ArrayList<Point2D>()
         val p = ArrayList<Point2D>()
-        
-        // Дублируем крайние точки для красивой обработки границ сплайна
+
         p.add(timedPoints.first())
         p.addAll(timedPoints)
         p.add(timedPoints.last())
@@ -259,7 +251,6 @@ object PathCompressionEngine {
                 val t2 = t * t
                 val t3 = t2 * t
 
-                // Формулы Catmull-Rom
                 val x = 0.5f * ((2f * p1.x) +
                         (-p0.x + p2.x) * t +
                         (2f * p0.x - 5f * p1.x + 4f * p2.x - p3.x) * t2 +
@@ -275,7 +266,7 @@ object PathCompressionEngine {
                 result.add(Point2D(x, y, timeMs))
             }
         }
-        result.add(points.last())
+        result.add(timedPoints.last())
         return result
     }
 }
