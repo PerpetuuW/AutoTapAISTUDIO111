@@ -829,7 +829,7 @@ class EditActionDialog(
                 val offY = (metaMap?.get("clickOffsetY") as? Number)?.toInt() ?: 0
 
                 previewView.bind(bmp, isMask = true, isCircle = action.isCircleShape)
-                tvTplName.text = File(effectivePrimary).nameWithoutExtension
+                tvTplName.text = File(effectivePrimary).nameWithoutExtension.removePrefix("mask_")
                 // [V13.8] Read-Only панель метаданных (размеры, порог, режим)
                 tvTplSpecs.text = "РАЗРЕШЕНИЕ: ${bmp.width}x${bmp.height} px\nПОРОГ: $metaSim% | РЕЖИМ: ${if (isShape) "КОНТУР" else "ГИБРИД"}\nСМЕЩЕНИЕ КЛИКА: X:$offX, Y:$offY"
             } else {
@@ -843,9 +843,20 @@ class EditActionDialog(
         var renderCarouselItems: () -> Unit = {}
 
         val multiControlRow = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(4), 0, dp(6))
+        }
+        val multiControlTopRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(2), 0, dp(4))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(4)
+            }
+        }
+        val multiControlBottomRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         }
 
         val btnAddOcr = createSmallButton("+ ТЕКСТ (OCR)") {
@@ -904,13 +915,13 @@ class EditActionDialog(
             })
             etOcrText.requestFocus()
         }
-        multiControlRow.addView(btnAddOcr, LinearLayout.LayoutParams(0, dp(24), 1.0f).apply { marginEnd = dp(2) })
+        multiControlTopRow.addView(btnAddOcr, LinearLayout.LayoutParams(0, dp(28), 1.0f).apply { marginEnd = dp(4) })
 
         val btnAddScreenOcr = createSmallButton("+ С ЭКРАНА (OCR)") {
             dismiss()
             onSelectScreenOcrText?.invoke(action.copy(multiTemplatePaths = selectedMultiPaths.toList(), templatePath = boundTemplatePath))
         }
-        multiControlRow.addView(btnAddScreenOcr, LinearLayout.LayoutParams(0, dp(24), 1.0f).apply { marginEnd = dp(2) })
+        multiControlTopRow.addView(btnAddScreenOcr, LinearLayout.LayoutParams(0, dp(28), 1.0f).apply { marginEnd = dp(4) })
 
         val btnSelectAll = createSmallButton("ВЫБРАТЬ ВСЕ (${allTemplates.size})") {
             selectedMultiPaths.clear()
@@ -922,8 +933,7 @@ class EditActionDialog(
             renderCarouselItems()
             Toast.makeText(context, "Выбраны все ${allTemplates.size} шаблона", Toast.LENGTH_SHORT).show()
         }
-
-        multiControlRow.addView(btnSelectAll, LinearLayout.LayoutParams(0, dp(24), 1.0f).apply { marginEnd = dp(2) })
+        multiControlTopRow.addView(btnSelectAll, LinearLayout.LayoutParams(0, dp(28), 1.0f))
 
         val btnMoveToFolder = createSmallButton("В ПАПКУ") {
 
@@ -1031,9 +1041,9 @@ class EditActionDialog(
                             })
             etFolderName.requestFocus()
         }
-        multiControlRow.addView(btnMoveToFolder, LinearLayout.LayoutParams(0, dp(24), 1.1f).apply { marginEnd = dp(2) })
+        multiControlBottomRow.addView(btnMoveToFolder, LinearLayout.LayoutParams(0, dp(28), 1.0f).apply { marginEnd = dp(4) })
 
-                val btnDeleteCurrent = createSmallButton("УДАЛИТЬ") {
+        val btnDeleteCurrent = createSmallButton("УДАЛИТЬ") {
             val toDelete = if (selectedMultiPaths.isNotEmpty()) {
                 selectedMultiPaths.toList()
             } else if (boundTemplatePath.isNotBlank()) {
@@ -1052,7 +1062,7 @@ class EditActionDialog(
                 Toast.makeText(context, "Выберите шаблоны для удаления", Toast.LENGTH_SHORT).show()
             }
         }
-        multiControlRow.addView(btnDeleteCurrent, LinearLayout.LayoutParams(0, dp(24), 0.9f).apply { marginEnd = dp(2) })
+        multiControlBottomRow.addView(btnDeleteCurrent, LinearLayout.LayoutParams(0, dp(28), 1.0f).apply { marginEnd = dp(4) })
 
         val btnClearTemplates = createSmallButton("ОЧИСТИТЬ") {
             selectedMultiPaths.clear()
@@ -1061,7 +1071,9 @@ class EditActionDialog(
             renderCarouselItems()
             Toast.makeText(context, "Шаблоны удалены из шага", Toast.LENGTH_SHORT).show()
         }
-        multiControlRow.addView(btnClearTemplates, LinearLayout.LayoutParams(0, dp(24), 0.9f))
+        multiControlBottomRow.addView(btnClearTemplates, LinearLayout.LayoutParams(0, dp(28), 1.0f))
+        multiControlRow.addView(multiControlTopRow)
+        multiControlRow.addView(multiControlBottomRow)
         layoutTriggerCard.addView(multiControlRow)
 
         val libraryScroll = HorizontalScrollView(context).apply {

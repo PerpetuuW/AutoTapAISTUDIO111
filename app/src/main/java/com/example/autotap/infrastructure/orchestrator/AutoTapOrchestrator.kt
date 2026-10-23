@@ -653,29 +653,19 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
 
 
     private fun startRecaptureForStep(action: MacroAction) {
-        val primaryPath = if (action.selectedTemplateIndex in action.multiTemplatePaths.indices) {
+        val rawPath = if (action.selectedTemplateIndex in action.multiTemplatePaths.indices) {
             action.multiTemplatePaths[action.selectedTemplateIndex]
         } else {
             action.templatePath.ifBlank { action.multiTemplatePaths.firstOrNull { it.isNotBlank() } ?: "" }
         }
+        val primaryPath = templateRepository.resolveTemplatePath(rawPath)
         if (primaryPath.isEmpty()) {
             Toast.makeText(appContext, "Шаблон отсутствует, запуск обычного захвата", Toast.LENGTH_SHORT).show()
             startCaptureForStep(action)
             return
         }
 
-        // [V20.1] Надежный поиск файлов шаблона с поддержкой относительных путей
-        val maskFile = if (File(primaryPath).isAbsolute && File(primaryPath).exists()) {
-            File(primaryPath)
-        } else {
-            val tDir = File(appContext.filesDir, "templates")
-            val direct = File(tDir, primaryPath)
-            if (direct.exists()) direct else {
-                val fName = File(primaryPath).name
-                tDir.walkTopDown().filter { it.isFile && it.name == fName }.firstOrNull() ?: File(primaryPath)
-            }
-        }
-
+        val maskFile = File(primaryPath)
         val parentDir = maskFile.parentFile ?: File(appContext.filesDir, "templates")
         val baseName = maskFile.name.removePrefix("mask_").substringBeforeLast(".")
         val screenJpg = File(parentDir, "screen_$baseName.jpg")
@@ -700,16 +690,10 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             return
         }
 
-
-        showCalibrationChoiceModal(action, historicalScreenshot, rawCropBitmap)
+        showCalibrationChoiceModal(action.copy(templatePath = primaryPath), historicalScreenshot, rawCropBitmap)
     }
 
     private fun showCalibrationChoiceModal(action: MacroAction, historicalScreenshot: Bitmap?, rawCropBitmap: Bitmap) {
-        if (historicalScreenshot == null) {
-            executeRecaptureWithScreenshot(action, null, rawCropBitmap)
-            return
-        }
-
         activeEditDialog?.dismiss()
         activeEditDialog = null
         targetManager.setOverlaysVisible(false)
@@ -729,49 +713,76 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
         }
 
         val tvTitle = TextView(appContext).apply {
-            text = "ВЫБОР ЭКРАНА КАЛИБРОВКИ"
+            text = "РЕДАКТИРОВАНИЕ И КАЛИБРОВКА ШАБЛОНА"
             textSize = 9.5f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.parseColor("#38BDF8"))
-            setPadding(0, 0, 0, dp(8))
+            setPadding(0, 0, 0, dp(4))
         }
         card.addView(tvTitle)
 
+        val tplCleanName = File(action.templatePath).nameWithoutExtension.removePrefix("mask_")
+        val tvSub = TextView(appContext).apply {
+            text = "Активный шаблон: $tplCleanName (${rawCropBitmap.width}×${rawCropBitmap.height} px)"
+            textSize = 8f
+            setTextColor(Color.parseColor("#94A3B8"))
+            setPadding(0, 0, 0, dp(8))
+        }
+        card.addView(tvSub)
+
+        if (historicalScreenshot != null) {
+            val btnHist = Button(appContext).apply {
+                text = "НА СОХРАНЕННОМ СКРИНШОТЕ (С ТЕКУЩИМ ШАБЛОНОМ)"
+                textSize = 8f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(Color.WHITE)
+                background = GradientDrawable().apply {
+                    setColor(Color.parseColor("#312E81"))
+                    cornerRadius = 6f * density
+                    setStroke(dp(1), Color.parseColor("#818CF8"))
+                }
+                setOnClickListener {
+                    overlayWindowManager.removeViewSafe(card)
+                    openCalibrationWithExistingTemplate(action, historicalScreenshot, rawCropBitmap)
+                }
+            }
+            card.addView(btnHist, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(36)).apply { bottomMargin = dp(6) })
+        }
+
         val btnLive = Button(appContext).apply {
-            text = "НА ТЕКУЩЕМ ЭКРАНЕ"
-            textSize = 9f
+            text = "НА ТЕКУЩЕМ ЭКРАНЕ (С ТЕКУЩИМ ШАБЛОНОМ)"
+            textSize = 8f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.WHITE)
             background = GradientDrawable().apply {
                 setColor(Color.parseColor("#1F6FEB"))
                 cornerRadius = 6f * density
+                setStroke(dp(1), Color.parseColor("#38BDF8"))
             }
-            minHeight = 0; minimumHeight = 0
-            setPadding(0, 0, 0, 0)
+            setOnClickListener {
+                overlayWindowManager.removeViewSafe(card)
+                historicalScreenshot?.recycle()
+                openCalibrationWithExistingTemplate(action, null, rawCropBitmap)
+            }
+        }
+        card.addView(btnLive, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(36)).apply { bottomMargin = dp(6) })
+
+        val btnRecrop = Button(appContext).apply {
+            text = "ВЫРЕЗАТЬ НОВУЮ ОБЛАСТЬ С ЭКРАНА"
+            textSize = 8f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Color.parseColor("#FBBF24"))
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#1E293B"))
+                cornerRadius = 6f * density
+                setStroke(dp(1), Color.parseColor("#F59E0B"))
+            }
             setOnClickListener {
                 overlayWindowManager.removeViewSafe(card)
                 executeRecaptureWithScreenshot(action, null, rawCropBitmap)
             }
         }
-        card.addView(btnLive, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(34)).apply { bottomMargin = dp(4) })
-
-        val btnHist = Button(appContext).apply {
-            text = "НА СОХРАНЕННОМ СКРИНШОТЕ"
-            textSize = 9f
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor(Color.WHITE)
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor("#312E81"))
-                cornerRadius = 6f * density
-            }
-            minHeight = 0; minimumHeight = 0
-            setPadding(0, 0, 0, 0)
-            setOnClickListener {
-                overlayWindowManager.removeViewSafe(card)
-                executeRecaptureWithScreenshot(action, historicalScreenshot, rawCropBitmap)
-            }
-        }
-        card.addView(btnHist, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(34)).apply { bottomMargin = dp(4) })
+        card.addView(btnRecrop, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(34)).apply { bottomMargin = dp(6) })
 
         val btnCancel = Button(appContext).apply {
             text = "ОТМЕНА"
@@ -782,22 +793,140 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 setColor(Color.parseColor("#21262D"))
                 cornerRadius = 6f * density
             }
-            minHeight = 0; minimumHeight = 0
-            setPadding(0, 0, 0, 0)
             setOnClickListener {
                 overlayWindowManager.removeViewSafe(card)
+                historicalScreenshot?.recycle()
                 controlPanelOverlay.show()
                 targetManager.setOverlaysVisible(true)
             }
         }
-        card.addView(btnCancel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(34)))
+        card.addView(btnCancel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(28)))
 
         val params = overlayWindowManager.createLayoutParams(
-            width = dp(280),
+            width = dp(316),
             height = WindowManager.LayoutParams.WRAP_CONTENT,
             gravity = Gravity.CENTER
         )
         overlayWindowManager.addViewSafe(card, params)
+    }
+
+    private fun openCalibrationWithExistingTemplate(
+        action: MacroAction,
+        forcedScreenshot: Bitmap?,
+        rawCropBitmap: Bitmap
+    ) {
+        activeEditDialog?.dismiss()
+        activeEditDialog = null
+        targetManager.setOverlaysVisible(false)
+        controlPanelOverlay.hide()
+
+        appScope.launch(Dispatchers.Default) {
+            val screenshot = forcedScreenshot ?: run {
+                delay(140L)
+                AutoTapAccessibilityService.instance?.captureScreenshotAsync(2000L)
+            }
+
+            if (screenshot == null) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(appContext, "Не удалось получить снимок экрана", Toast.LENGTH_SHORT).show()
+                    controlPanelOverlay.show()
+                    targetManager.setOverlaysVisible(true)
+                }
+                return@launch
+            }
+
+            val primaryPath = action.templatePath
+            var cropLeftFromMeta: Int? = null
+            var cropTopFromMeta: Int? = null
+            var calibXFromMeta: Int? = null
+            var calibYFromMeta: Int? = null
+
+            if (primaryPath.isNotEmpty()) {
+                try {
+                    val maskFile = File(primaryPath)
+                    val metaFile = File(maskFile.parentFile, "${maskFile.nameWithoutExtension}.json")
+                    if (metaFile.exists()) {
+                        val meta = JSONObject(metaFile.readText())
+                        if (meta.has("cropLeft")) cropLeftFromMeta = meta.getInt("cropLeft")
+                        if (meta.has("cropTop")) cropTopFromMeta = meta.getInt("cropTop")
+                        if (meta.has("calibratedX")) calibXFromMeta = meta.getInt("calibratedX")
+                        if (meta.has("calibratedY")) calibYFromMeta = meta.getInt("calibratedY")
+                    }
+                } catch (_: Exception) {}
+            }
+
+            var foundX = calibXFromMeta ?: action.posX.toInt()
+            var foundY = calibYFromMeta ?: action.posY.toInt()
+            var anchorLeft = cropLeftFromMeta ?: (foundX - rawCropBitmap.width / 2).coerceIn(0, (screenshot.width - rawCropBitmap.width).coerceAtLeast(0))
+            var anchorTop = cropTopFromMeta ?: (foundY - rawCropBitmap.height / 2).coerceIn(0, (screenshot.height - rawCropBitmap.height).coerceAtLeast(0))
+
+            if (forcedScreenshot == null && primaryPath.isNotEmpty()) {
+                val sPixels = PixelBufferPool.obtain(screenshot.width * screenshot.height)
+                try {
+                    screenshot.getPixels(sPixels, 0, screenshot.width, 0, 0, screenshot.width, screenshot.height)
+                    val tplMask = templateRepository.getTemplate(primaryPath) ?: rawCropBitmap
+                    val matches = TemplateMatchingEngine.findTemplateFastCascade(
+                        sPixels = sPixels,
+                        sw = screenshot.width,
+                        sh = screenshot.height,
+                        template = tplMask,
+                        minSimilarityPercent = 55,
+                        templatePath = primaryPath,
+                        enableL0Cache = true
+                    )
+                    val topMatch = matches.maxByOrNull { it.score }
+                    if (topMatch != null && topMatch.score >= 0.55f) {
+                        foundX = topMatch.clickX
+                        foundY = topMatch.clickY
+                        anchorLeft = topMatch.rectLeft
+                        anchorTop = topMatch.rectTop
+                    }
+                } catch (_: Exception) {
+                } finally {
+                    PixelBufferPool.release(sPixels)
+                }
+            }
+
+            val anchorCandidate = MatchCandidate(
+                clickX = foundX,
+                clickY = foundY,
+                rectLeft = anchorLeft,
+                rectTop = anchorTop,
+                rectRight = (anchorLeft + rawCropBitmap.width).coerceAtMost(screenshot.width),
+                rectBottom = (anchorTop + rawCropBitmap.height).coerceAtMost(screenshot.height),
+                score = 1.0f,
+                templatePath = primaryPath
+            )
+
+            withContext(Dispatchers.Main) {
+                CalibrationOverlay(
+                    context = appContext,
+                    overlayWindowManager = overlayWindowManager,
+                    screenshot = screenshot,
+                    rawTemplateBitmap = rawCropBitmap,
+                    initialCandidates = listOf(anchorCandidate),
+                    existingAction = action,
+                    existingTemplatePath = primaryPath,
+                    allActions = targetManager.getActions(),
+                    targetStepId = action.id,
+                    anchorCropX = anchorLeft,
+                    anchorCropY = anchorTop,
+                    onFinished = { updatedAction, path ->
+                        controlPanelOverlay.show()
+                        targetManager.setOverlaysVisible(true)
+                        TemplateMatchingEngine.clearTemplateCache()
+                        TemplateMatchingEngine.registerDiscoveredLocation(path, updatedAction.posX.toInt(), updatedAction.posY.toInt())
+                        targetManager.updateAction(updatedAction)
+                        persistActiveSession(immediate = true)
+                        checkAndPromptGraphGeneration(updatedAction) {}
+                    },
+                    onCancelled = {
+                        controlPanelOverlay.show()
+                        targetManager.setOverlaysVisible(true)
+                    }
+                ).show()
+            }
+        }
     }
 
     private fun executeRecaptureWithScreenshot(action: MacroAction, forcedScreenshot: Bitmap?, rawCropBitmap: Bitmap) {
@@ -872,20 +1001,7 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
     }
 
     private fun startCalibration(action: MacroAction) {
-        val service = AutoTapAccessibilityService.instance ?: run {
-            Toast.makeText(appContext, "Включите службу кликера в Спец. возможностях", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        activeEditDialog?.dismiss()
-        activeEditDialog = null
-        targetManager.setOverlaysVisible(false)
-        controlPanelOverlay.hide()
-
-        appScope.launch(Dispatchers.Main) {
-            delay(150L) // Гарантия того, что SurfaceFlinger успел стереть UI оверлея
-            executeCleanCalibration(service, action)
-        }
+        startRecaptureForStep(action)
     }
 
     private fun executeCleanCalibration(service: AutoTapAccessibilityService, action: MacroAction) {
