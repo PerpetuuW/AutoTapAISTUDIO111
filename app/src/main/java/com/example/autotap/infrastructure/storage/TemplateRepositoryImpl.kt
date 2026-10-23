@@ -177,7 +177,10 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
     ): String {
         val targetDir = File(baseTemplatesDir, folderName).apply { mkdirs() }
         val cleanName = customFileName?.takeIf { it.isNotBlank() }?.let {
-            val safe = it.trim().replace(Regex("[^a-zA-Z0-9_-]"), "_")
+            val safe = it.trim()
+                .replace(Regex("""[^a-zA-Z0-9_\-\s\u0400-\u04FF]"""), "_")
+                .replace(Regex("""_+"""), "_")
+                .trim('_')
             val name = if (safe.startsWith("mask_")) safe else "mask_$safe"
             if (name.endsWith(".png")) name else "$name.png"
         }
@@ -406,7 +409,11 @@ class TemplateRepositoryImpl(private val context: Context) : ITemplateRepository
             if (!maskFile.exists()) return null
 
             val parentDir = maskFile.parentFile ?: baseTemplatesDir
-            val cleanNewName = newName.trim().replace(Regex("""[^a-zA-Z0-9_\\-\\s\\u0400-\\u04FF]"""), "_").removePrefix("mask_").trim()
+            val cleanNewName = newName.trim()
+                .replace(Regex("""[^a-zA-Z0-9_\-\s\u0400-\u04FF]"""), "_")
+                .replace(Regex("""_+"""), "_")
+                .removePrefix("mask_")
+                .trim('_')
             if (cleanNewName.isEmpty()) return null
 
             val oldBase = maskFile.nameWithoutExtension.removePrefix("mask_")

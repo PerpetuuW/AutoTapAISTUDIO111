@@ -20,6 +20,10 @@ data class MatchCandidate(
             templatePath.isEmpty() -> ""
             templatePath.startsWith("ocr:") -> templatePath.removePrefix("ocr:")
             else -> File(templatePath).nameWithoutExtension
+                .removePrefix("mask_")
+                .replace(Regex("""_+"""), "_")
+                .trim('_')
+                .ifBlank { "Цель" }
         }
     val width: Int get() = (rectRight - rectLeft).coerceAtLeast(1)
     val height: Int get() = (rectBottom - rectTop).coerceAtLeast(1)

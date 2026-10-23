@@ -1949,13 +1949,19 @@ private val targetStepId: Int? = null,
         nameRow.addView(tvNameLabel)
 
         val defaultTplName = if (existingTemplatePath != null) {
-            File(existingTemplatePath).nameWithoutExtension.removePrefix("mask_")
+            File(existingTemplatePath).nameWithoutExtension
+                .removePrefix("mask_")
+                .replace(Regex("""_+"""), "_")
+                .trim('_')
         } else {
             val existingNames = templateRepository.loadAllTemplates().map {
-                File(it.first).nameWithoutExtension.removePrefix("mask_")
+                File(it.first).nameWithoutExtension
+                    .removePrefix("mask_")
+                    .replace(Regex("""_+"""), "_")
+                    .trim('_')
             }.toSet()
             var idx = existingNames.size + 1
-            while (existingNames.contains("Цель_$idx") || existingNames.contains("цель_$idx")) {
+            while (existingNames.contains("Цель_$idx") || existingNames.contains("Цель $idx") || existingNames.contains("цель_$idx")) {
                 idx++
             }
             "Цель_$idx"
@@ -2254,7 +2260,7 @@ private val targetStepId: Int? = null,
                     currentWorkingRaw
                 }
 
-                val rawCustomName = etTemplateName.text.toString().trim()
+                val rawCustomName = etTemplateName.text.toString().trim().replace(Regex("""_+"""), "_").trim('_')
                 val customName = if (rawCustomName.isNotBlank()) rawCustomName else null
                 val effectiveExistingPath = existingTemplatePath
 
