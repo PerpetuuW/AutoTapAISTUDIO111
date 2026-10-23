@@ -1098,19 +1098,7 @@ class MacroExecutionEngine(
                                 try {
                                     if (MediaProjectionService.copyLatestFrame(sPixels, streamW, streamH)) {
                                         frameProcessedViaStream = true
-                                        for (trig in currentNode.triggers) {
-                                            val isDetected = evaluateSingleGraphTrigger(sPixels, streamW, streamH, null, trig, templates)
-                                            val isConditionSatisfied = when (trig.behavior) {
-                                                com.example.autotap.domain.model.graph.TriggerBehavior.WAIT_DISAPPEAR -> !isDetected
-                                                com.example.autotap.domain.model.graph.TriggerBehavior.WAIT_APPEAR,
-                                                com.example.autotap.domain.model.graph.TriggerBehavior.CHECK_ONCE,
-                                                com.example.autotap.domain.model.graph.TriggerBehavior.LOOP_WHILE -> isDetected
-                                            }
-                                            if (isConditionSatisfied) {
-                                                matchedTrigger = trig
-                                                break
-                                            }
-                                        }
+                                        matchedTrigger = evaluateNodeTriggersBatch(sPixels, streamW, streamH, null, currentNode.triggers, templates.toList())
                                     }
                                 } finally {
                                     PixelBufferPool.release(sPixels)
@@ -1120,19 +1108,7 @@ class MacroExecutionEngine(
                                 val screenshot = service?.captureScreenshotAsync(1500L)
                                 if (screenshot != null) {
                                     try {
-                                        for (trig in currentNode.triggers) {
-                                            val isDetected = evaluateSingleGraphTrigger(null, currentSw, currentSh, screenshot, trig, templates)
-                                            val isConditionSatisfied = when (trig.behavior) {
-                                                com.example.autotap.domain.model.graph.TriggerBehavior.WAIT_DISAPPEAR -> !isDetected
-                                                com.example.autotap.domain.model.graph.TriggerBehavior.WAIT_APPEAR,
-                                                com.example.autotap.domain.model.graph.TriggerBehavior.CHECK_ONCE,
-                                                com.example.autotap.domain.model.graph.TriggerBehavior.LOOP_WHILE -> isDetected
-                                            }
-                                            if (isConditionSatisfied) {
-                                                matchedTrigger = trig
-                                                break
-                                            }
-                                        }
+                                        matchedTrigger = evaluateNodeTriggersBatch(null, currentSw, currentSh, screenshot, currentNode.triggers, templates.toList())
                                     } finally {
                                         screenshot.recycle()
                                     }
@@ -1176,6 +1152,89 @@ class MacroExecutionEngine(
         // Защита от самосрабатывания: отсекаем координаты, если они попадают в известные оверлеи пульта
         // При перекалибровке превью скрывается, а координаты исключаются из совпадений
         return false
+    }
+
+    private suspend fun evaluateNodeTriggersBatch(
+        sPixels: IntArray?, sw: Int, sh: Int, screenshot: Bitmap?,
+        triggers: List<NodeTriggerSpec>,
+        templates: List<Pair<String, Bitmap>>
+    ): NodeTriggerSpec? {
+        if (triggers.isEmpty()) return null
+        if (triggers.size == 1) {
+            val trig = triggers[0]
+            val isDetected = evaluateSingleGraphTrigger(sPixels, sw, sh, screenshot, trig, templates.toMap())
+            val isConditionSatisfied = when (trig.behavior) {
+                com.example.autotap.domain.model.graph.TriggerBehavior.WAIT_DISAPPEAR -> !isDetected
+                com.example.autotap.domain.model.graph.TriggerBehavior.WAIT_APPEAR,
+                com.example.autotap.domain.model.graph.TriggerBehavior.CHECK_ONCE,
+                com.example.autotap.domain.model.graph.TriggerBehavior.LOOP_WHILE -> isDetected
+            }
+            return if (isConditionSatisfied) trig else null
+        }
+
+        val isAllTriggerType = triggers.all { it.type == ActionType.TRIGGER && it.templatePath.isNotBlank() }
+        if (isAllTriggerType) {
+            val tPairs = triggers.mapNotNull { trig ->
+                val resolvedPath = templateRepository.resolveTemplatePath(trig.templatePath)
+                val bmp = templates.firstOrNull { it.first == resolvedPath }?.second
+                    ?: templateRepository.getTemplate(resolvedPath)
+                if (bmp != null) Pair(trig, Pair(resolvedPath, bmp)) else null
+            }
+
+            if (tPairs.isNotEmpty()) {
+                val multiTemplates = tPairs.map { it.second }
+                val minSim = triggers.minOfOrNull { it.similarityThreshold } ?: 80
+
+                val matches = if (sPixels != null) {
+                    TemplateMatchingEngine.findMultiTemplatesFastCascade(
+                        sPixels = sPixels, sw = sw, sh = sh,
+                        templates = multiTemplates,
+                        minSimilarityPercent = minSim,
+                        enableL0Cache = true
+                    )
+                } else if (screenshot != null) {
+                    val pixels = PixelBufferPool.obtain(sw * sh)
+                    try {
+                        screenshot.getPixels(pixels, 0, sw, 0, 0, sw, sh)
+                        TemplateMatchingEngine.findMultiTemplatesFastCascade(
+                            sPixels = pixels, sw = sw, sh = sh,
+                            templates = multiTemplates,
+                            minSimilarityPercent = minSim,
+                            enableL0Cache = true
+                        )
+                    } finally {
+                        PixelBufferPool.release(pixels)
+                    }
+                } else emptyList()
+
+                val bestMatch = matches.maxByOrNull { it.score }
+                if (bestMatch != null) {
+                    val matchingPair = tPairs.firstOrNull { it.second.first == bestMatch.templatePath || File(it.second.first).name == File(bestMatch.templatePath).name }
+                    if (matchingPair != null) {
+                        val trig = matchingPair.first
+                        if (trig.autoClickTarget) {
+                            val clickX = bestMatch.clickX.toFloat() + trig.clickOffset.x
+                            val clickY = bestMatch.clickY.toFloat() + trig.clickOffset.y
+                            AutoTapAccessibilityService.instance?.gestureDispatcher?.performClick(clickX, clickY, 100L)
+                        }
+                        return trig
+                    }
+                }
+                return null
+            }
+        }
+
+        for (trig in triggers) {
+            val isDetected = evaluateSingleGraphTrigger(sPixels, sw, sh, screenshot, trig, templates.toMap())
+            val isConditionSatisfied = when (trig.behavior) {
+                com.example.autotap.domain.model.graph.TriggerBehavior.WAIT_DISAPPEAR -> !isDetected
+                com.example.autotap.domain.model.graph.TriggerBehavior.WAIT_APPEAR,
+                com.example.autotap.domain.model.graph.TriggerBehavior.CHECK_ONCE,
+                com.example.autotap.domain.model.graph.TriggerBehavior.LOOP_WHILE -> isDetected
+            }
+            if (isConditionSatisfied) return trig
+        }
+        return null
     }
 
     private suspend fun evaluateSingleGraphTrigger(

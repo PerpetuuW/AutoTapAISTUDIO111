@@ -22,7 +22,7 @@ object LinearToGraphMigrator {
      */
     fun updateNodeForAction(graph: GraphMacroScenario, action: MacroAction): GraphMacroScenario {
         val nodeId = "node_${action.id}"
-        val existingNode = graph.nodes[nodeId] ?: return graph
+        val existingNode = graph.nodes[nodeId]
 
         val tempScenario = MacroScenario(
             name = graph.name,
@@ -35,33 +35,85 @@ object LinearToGraphMigrator {
         val tempGraph = linearToGraph(tempScenario)
         val newNodeSpec = tempGraph.nodes[nodeId] ?: return graph
 
-        val preservedNode = newNodeSpec.copy(
-            canvasX = existingNode.canvasX,
-            canvasY = existingNode.canvasY,
-            standardPorts = existingNode.standardPorts.ifEmpty { newNodeSpec.standardPorts }
-        )
-
         val updatedNodes = graph.nodes.toMutableMap()
+        val updatedEdges = graph.edges.toMutableList()
+
+        val prevMatchTargetId = updatedEdges
+            .firstOrNull { it.fromNodeId == nodeId && (it.fromPortId.startsWith("out_match") || it.fromPortId == "out_default") }
+            ?.let { edge ->
+                if (edge.toNodeId.contains("_branch_") || edge.toNodeId.contains("_act")) {
+                    updatedEdges.firstOrNull { it.fromNodeId == edge.toNodeId && it.fromPortId == "out_default" }?.toNodeId ?: edge.toNodeId
+                } else {
+                    edge.toNodeId
+                }
+            } ?: "node_1"
+
+        val prevTimeoutTargetId = updatedEdges
+            .firstOrNull { it.fromNodeId == nodeId && it.fromPortId == "out_timeout" }
+            ?.toNodeId ?: prevMatchTargetId
+
+        val preservedNode = newNodeSpec.copy(
+            canvasX = existingNode?.canvasX ?: 520f,
+            canvasY = existingNode?.canvasY ?: (200f + action.id * 140f),
+            standardPorts = existingNode?.standardPorts?.ifEmpty { newNodeSpec.standardPorts } ?: newNodeSpec.standardPorts
+        )
         updatedNodes[nodeId] = preservedNode
 
-        val updatedEdges = graph.edges.toMutableList()
-        val prevMatchTargetId = updatedEdges.firstOrNull { it.fromNodeId == nodeId && it.fromPortId.startsWith("out_match") }?.toNodeId
-            ?: updatedEdges.firstOrNull { it.fromNodeId == nodeId && it.fromPortId == "out_default" }?.toNodeId
+        val oldHelperIds = updatedNodes.keys.filter {
+            it.startsWith("${nodeId}_branch_") || it == "${nodeId}_act"
+        }
+        oldHelperIds.forEach { helperId ->
+            updatedNodes.remove(helperId)
+            updatedEdges.removeAll { it.fromNodeId == helperId || it.toNodeId == helperId }
+        }
+        updatedEdges.removeAll { it.fromNodeId == nodeId && it.fromPortId.startsWith("out_match") }
 
-        if (prevMatchTargetId != null) {
-            for (trig in preservedNode.triggers) {
-                if (updatedEdges.none { it.fromNodeId == nodeId && it.fromPortId == trig.targetPortId }) {
-                    updatedEdges.add(
-                        ScenarioEdge(
-                            id = "edge_${nodeId}_${trig.id}",
-                            fromNodeId = nodeId,
-                            fromPortId = trig.targetPortId,
-                            toNodeId = prevMatchTargetId,
-                            toPortId = "in_entry"
-                        )
-                    )
-                }
+        val deltaX = preservedNode.canvasX - newNodeSpec.canvasX
+        val deltaY = preservedNode.canvasY - newNodeSpec.canvasY
+        for ((tempKey, tempNode) in tempGraph.nodes) {
+            if (tempKey.startsWith("${nodeId}_branch_") || tempKey == "${nodeId}_act") {
+                val oldBranchPos = graph.nodes[tempKey]
+                updatedNodes[tempKey] = tempNode.copy(
+                    canvasX = oldBranchPos?.canvasX ?: (tempNode.canvasX + deltaX),
+                    canvasY = oldBranchPos?.canvasY ?: (tempNode.canvasY + deltaY)
+                )
             }
+        }
+
+        for (tempEdge in tempGraph.edges) {
+            if (tempEdge.fromNodeId == nodeId && tempEdge.fromPortId.startsWith("out_match")) {
+                val targetId = if (tempEdge.toNodeId.startsWith("${nodeId}_")) tempEdge.toNodeId else prevMatchTargetId
+                updatedEdges.add(tempEdge.copy(toNodeId = targetId))
+            } else if (tempEdge.fromNodeId.startsWith("${nodeId}_branch_") || tempEdge.fromNodeId == "${nodeId}_act") {
+                updatedEdges.add(tempEdge.copy(toNodeId = prevMatchTargetId))
+            }
+        }
+
+        if (preservedNode.standardPorts.contains("out_timeout") &&
+            updatedEdges.none { it.fromNodeId == nodeId && it.fromPortId == "out_timeout" }
+        ) {
+            updatedEdges.add(
+                ScenarioEdge(
+                    id = "edge_${action.id}_timeout",
+                    fromNodeId = nodeId,
+                    fromPortId = "out_timeout",
+                    toNodeId = prevTimeoutTargetId,
+                    toPortId = "in_entry"
+                )
+            )
+        }
+        if (preservedNode.standardPorts.contains("out_default") &&
+            updatedEdges.none { it.fromNodeId == nodeId && it.fromPortId == "out_default" }
+        ) {
+            updatedEdges.add(
+                ScenarioEdge(
+                    id = "edge_${action.id}_default",
+                    fromNodeId = nodeId,
+                    fromPortId = "out_default",
+                    toNodeId = prevMatchTargetId,
+                    toPortId = "in_entry"
+                )
+            )
         }
 
         return graph.copy(
@@ -144,7 +196,7 @@ object LinearToGraphMigrator {
 
                 val safeTimeoutSeconds = when {
                     action.isWaitUntilMode -> 0
-                    action.aiTimeoutSeconds > 0 -> action.aiTimeoutSeconds + 4
+                    action.aiTimeoutSeconds > 0 -> action.aiTimeoutSeconds
                     else -> 10
                 }
 
@@ -209,6 +261,16 @@ object LinearToGraphMigrator {
                         var tplClickOffX = action.clickOffsetX
                         var tplClickOffY = action.clickOffsetY
                         var tplUseCustomOff = action.useCustomClickOffset
+                        var tplContour = action.isContourMode
+                        var tplExpansion = action.shapeExpansion
+                        var tplPadding = action.paddingOffsetPx
+                        var tplCircle = action.isCircleShape
+                        var tplStrictRoi = action.isStrictRoiOnly
+                        var tplRoiL: Int? = null
+                        var tplRoiT: Int? = null
+                        var tplRoiR: Int? = null
+                        var tplRoiB: Int? = null
+                        val tplAnchors = LinkedHashSet<Point2D>()
 
                         try {
                             val metaFile = File(templateFile.parentFile, "${templateFile.nameWithoutExtension}.json")
@@ -220,6 +282,33 @@ object LinearToGraphMigrator {
                                 if (json.has("clickOffsetX")) tplClickOffX = json.getDouble("clickOffsetX").toFloat()
                                 if (json.has("clickOffsetY")) tplClickOffY = json.getDouble("clickOffsetY").toFloat()
                                 if (json.has("useCustomClickOffset")) tplUseCustomOff = json.getBoolean("useCustomClickOffset")
+                                if (json.has("isContourMode")) tplContour = json.getBoolean("isContourMode")
+                                if (json.has("shapeExpansion")) tplExpansion = json.getInt("shapeExpansion")
+                                if (json.has("paddingOffsetPx")) tplPadding = json.getInt("paddingOffsetPx")
+                                if (json.has("isCircleShape")) tplCircle = json.getBoolean("isCircleShape")
+                                if (json.has("isStrictRoiOnly")) tplStrictRoi = json.getBoolean("isStrictRoiOnly")
+                                if (json.has("calibratedX") && json.has("calibratedY")) {
+                                    tplAnchors.add(Point2D(json.getInt("calibratedX").toFloat(), json.getInt("calibratedY").toFloat()))
+                                }
+                                val discArr = json.optJSONArray("discoveredLocations")
+                                if (discArr != null) {
+                                    for (dIdx in 0 until discArr.length()) {
+                                        val dObj = discArr.optJSONObject(dIdx)
+                                        if (dObj != null && dObj.has("x") && dObj.has("y")) {
+                                            tplAnchors.add(Point2D(dObj.getInt("x").toFloat(), dObj.getInt("y").toFloat()))
+                                        }
+                                    }
+                                }
+                                val roiArr = json.optJSONArray("roiZones")
+                                if (roiArr != null && roiArr.length() > 0) {
+                                    val r0 = roiArr.optJSONObject(0)
+                                    if (r0 != null) {
+                                        tplRoiL = r0.optInt("left")
+                                        tplRoiT = r0.optInt("top")
+                                        tplRoiR = r0.optInt("right")
+                                        tplRoiB = r0.optInt("bottom")
+                                    }
+                                }
                             }
                         } catch (_: Exception) {}
 
@@ -230,11 +319,21 @@ object LinearToGraphMigrator {
                             templatePath = path,
                             multiTemplatePaths = listOf(path),
                             similarityThreshold = tplSimPct,
+                            isContourMode = tplContour,
                             isShapeOnlyMode = tplShapeOnly,
                             colorDeltaEMode = tplColorDeltaE,
+                            shapeExpansion = tplExpansion,
+                            paddingOffsetPx = tplPadding,
+                            isCircleShape = tplCircle,
+                            isStrictRoiOnly = tplStrictRoi,
+                            roiLeft = tplRoiL,
+                            roiTop = tplRoiT,
+                            roiRight = tplRoiR,
+                            roiBottom = tplRoiB,
                             autoClickTarget = action.clickAiTarget,
                             useCustomClick = tplUseCustomOff,
                             clickOffset = Point2D(tplClickOffX, tplClickOffY),
+                            additionalSearchLocations = tplAnchors.toMutableList(),
                             targetPortId = matchPortId
                         )
                         triggerSpecs.add(trigSpec)
