@@ -1066,7 +1066,7 @@ object TemplateMatchingEngine {
         // ЭТАП 2: Адаптивное регулярное сеточное сканирование (TIER 2 Grid Scan)
         // Запускается ТОЛЬКО для масок, еще не найденных на опорных точках, если не включен "Только ROI шаблона"!
         // =========================================================================
-        val isStrictRoi = hasRoi
+        val isStrictRoi = (actionOverride?.isStrictRoiOnly == true)
         val contextsForGridScan = preparedContexts.filter { !matchedTemplates.contains(it.tPath) }
 
         for (ctx in contextsForGridScan) {

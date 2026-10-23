@@ -877,15 +877,15 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             return
         }
 
-        // [V12.3] Упреждающее закрытие диалога редактирования и панели для исключения захвата собственного превью
         activeEditDialog?.dismiss()
         activeEditDialog = null
         targetManager.setOverlaysVisible(false)
         controlPanelOverlay.hide()
 
-        mainHandler.postDelayed({
+        appScope.launch(Dispatchers.Main) {
+            delay(150L) // Гарантия того, что SurfaceFlinger успел стереть UI оверлея
             executeCleanCalibration(service, action)
-        }, 120L)
+        }
     }
 
     private fun executeCleanCalibration(service: AutoTapAccessibilityService, action: MacroAction) {
@@ -912,10 +912,15 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
             } catch (_: Exception) {}
         }
 
-        // Если сохраненного экрана нет, делаем живой снимок
-        val screenshot = savedScreenBmp ?: service.captureScreenshotSync(2000L) ?: run {
-            Toast.makeText(appContext, "Не удалось получить снимок экрана", Toast.LENGTH_SHORT).show()
-            return
+        val screenshot = savedScreenBmp ?: run {
+            val liveScreen = service.captureScreenshotSync(2500L)
+            if (liveScreen == null) {
+                Toast.makeText(appContext, "Не удалось получить снимок экрана", Toast.LENGTH_SHORT).show()
+                controlPanelOverlay.show()
+                targetManager.setOverlaysVisible(true)
+                return
+            }
+            liveScreen
         }
 
         val rawSourceBitmap: Bitmap? = if (primaryPath.isNotEmpty()) {
