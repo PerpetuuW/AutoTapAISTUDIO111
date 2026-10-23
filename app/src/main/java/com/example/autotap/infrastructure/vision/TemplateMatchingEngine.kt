@@ -86,6 +86,7 @@ object TemplateMatchingEngine {
         val l1LabA: FloatArray = FloatArray(0),
         val l1LabB: FloatArray = FloatArray(0),
         val metaAnchorLocations: List<com.example.autotap.domain.model.Point2D> = emptyList(),
+        val metaRoiZones: List<Rect> = emptyList(),
         val spatialWeights: FloatArray = FloatArray(0),
         val keyClusterIndices: IntArray = IntArray(0)
     )
@@ -282,6 +283,7 @@ object TemplateMatchingEngine {
         var metaGridStep = 0
         var metaDownscaleFactor = 1
         val metaAnchors = mutableListOf<com.example.autotap.domain.model.Point2D>()
+        val metaRoiRects = mutableListOf<Rect>()
 
         if (tPath.isNotEmpty()) {
             try {
@@ -318,8 +320,15 @@ object TemplateMatchingEngine {
                         for (i in 0 until arr.length()) {
                             val o = arr.optJSONObject(i)
                             if (o != null && o.has("left") && o.has("right") && o.has("top") && o.has("bottom")) {
-                                val cx = (o.getInt("left") + o.getInt("right")) / 2f
-                                val cy = (o.getInt("top") + o.getInt("bottom")) / 2f
+                                val rLeft = o.getInt("left")
+                                val rTop = o.getInt("top")
+                                val rRight = o.getInt("right")
+                                val rBottom = o.getInt("bottom")
+                                if (rRight > rLeft && rBottom > rTop) {
+                                    metaRoiRects.add(Rect(rLeft, rTop, rRight, rBottom))
+                                }
+                                val cx = (rLeft + rRight) / 2f
+                                val cy = (rTop + rBottom) / 2f
                                 metaAnchors.add(com.example.autotap.domain.model.Point2D(cx, cy))
                             }
                         }
@@ -670,6 +679,7 @@ object TemplateMatchingEngine {
             l1LabA = l1LabA,
             l1LabB = l1LabB,
             metaAnchorLocations = metaAnchors,
+            metaRoiZones = metaRoiRects,
             spatialWeights = spatialWeights,
             keyClusterIndices = keyClusterIndices
         )
@@ -699,8 +709,12 @@ object TemplateMatchingEngine {
         val features: TemplateFeatures,
         val templateThreshold: Float,
         val isShapeDriven: Boolean,
+        val isStrictRoi: Boolean,
+        val minX: Int,
+        val minY: Int,
         val scanLimitX: Int,
         val scanLimitY: Int,
+        val templateRoiZones: List<Rect>,
         val anchorProbes: List<com.example.autotap.domain.model.Point2D>
     )
 
@@ -770,9 +784,41 @@ object TemplateMatchingEngine {
             val rawThreshold = if (findAllMatches) (defaultSim / 100f) else features.individualThreshold
             val templateThreshold = rawThreshold.coerceIn(0.55f, 0.98f)
             val isShapeDriven = if (findAllMatches && actionOverride != null) actionOverride.isShapeOnlyMode else ((actionOverride?.isShapeOnlyMode == true) || features.isShapeOnlyFromMeta)
+            val isStrictRoiForTemplate = (override?.isStrictRoiOnly == true) || features.isStrictRoiOnlyFromMeta
 
-            val scanLimitX = (roiMaxX - features.tw).coerceAtLeast(roiMinX)
-            val scanLimitY = (roiMaxY - features.th).coerceAtLeast(roiMinY)
+            val tplRoiZones = mutableListOf<Rect>()
+            tplRoiZones.addAll(features.metaRoiZones)
+            if (hasRoi) {
+                tplRoiZones.add(Rect(roiMinX, roiMinY, roiMaxX, roiMaxY))
+            }
+
+            val ctxMinX: Int
+            val ctxMinY: Int
+            val ctxMaxX: Int
+            val ctxMaxY: Int
+            if (isStrictRoiForTemplate) {
+                if (tplRoiZones.isNotEmpty()) {
+                    ctxMinX = tplRoiZones.minOf { it.left }.coerceIn(0, sw - 1)
+                    ctxMinY = tplRoiZones.minOf { it.top }.coerceIn(0, sh - 1)
+                    ctxMaxX = tplRoiZones.maxOf { it.right }.coerceIn(ctxMinX + 1, sw)
+                    ctxMaxY = tplRoiZones.maxOf { it.bottom }.coerceIn(ctxMinY + 1, sh)
+                } else if (features.calibratedX != null && features.calibratedY != null) {
+                    val pad = 48
+                    val left = features.calibratedX - features.centroidX
+                    val top = features.calibratedY - features.centroidY
+                    ctxMinX = (left - pad).coerceIn(0, sw - 1)
+                    ctxMinY = (top - pad).coerceIn(0, sh - 1)
+                    ctxMaxX = (left + features.tw + pad).coerceIn(ctxMinX + 1, sw)
+                    ctxMaxY = (top + features.th + pad).coerceIn(ctxMinY + 1, sh)
+                } else {
+                    ctxMinX = roiMinX; ctxMinY = roiMinY; ctxMaxX = roiMaxX; ctxMaxY = roiMaxY
+                }
+            } else {
+                ctxMinX = 0; ctxMinY = 0; ctxMaxX = sw; ctxMaxY = sh
+            }
+
+            val scanLimitX = (ctxMaxX - features.tw).coerceAtLeast(ctxMinX)
+            val scanLimitY = (ctxMaxY - features.th).coerceAtLeast(ctxMinY)
 
             val anchorProbes = mutableListOf<com.example.autotap.domain.model.Point2D>()
 
@@ -822,6 +868,16 @@ object TemplateMatchingEngine {
                 }
             }
 
+            val filteredProbes = if (isStrictRoiForTemplate) {
+                anchorProbes.filter { pt ->
+                    val lx = (pt.x - features.centroidX).toInt()
+                    val ly = (pt.y - features.centroidY).toInt()
+                    lx in (ctxMinX - 16)..(scanLimitX + 16) && ly in (ctxMinY - 16)..(scanLimitY + 16)
+                }.ifEmpty { anchorProbes.take(1) }
+            } else {
+                anchorProbes
+            }
+
             preparedContexts.add(
                 PreparedTemplateContext(
                     tPath = tPath,
@@ -829,9 +885,13 @@ object TemplateMatchingEngine {
                     features = features,
                     templateThreshold = templateThreshold,
                     isShapeDriven = isShapeDriven,
+                    isStrictRoi = isStrictRoiForTemplate,
+                    minX = ctxMinX,
+                    minY = ctxMinY,
                     scanLimitX = scanLimitX,
                     scanLimitY = scanLimitY,
-                    anchorProbes = anchorProbes
+                    templateRoiZones = tplRoiZones,
+                    anchorProbes = filteredProbes
                 )
             )
         }
@@ -851,24 +911,26 @@ object TemplateMatchingEngine {
             val features = ctx.features
             val confidentThreshold = ctx.templateThreshold
             val isShapeDriven = ctx.isShapeDriven
+            val cMinX = ctx.minX
+            val cMinY = ctx.minY
             val scanLimitX = ctx.scanLimitX
             val scanLimitY = ctx.scanLimitY
 
             // TIER 0: Точечная проверка в окрестности опорной точки (+-12 px, < 1 мс)
             var tier0Found = false
             for (probe in ctx.anchorProbes) {
-                val expLeft = (probe.x - features.centroidX).toInt().coerceIn(roiMinX, scanLimitX)
-                val expTop = (probe.y - features.centroidY).toInt().coerceIn(roiMinY, scanLimitY)
+                val expLeft = (probe.x - features.centroidX).toInt().coerceIn(cMinX, scanLimitX)
+                val expTop = (probe.y - features.centroidY).toInt().coerceIn(cMinY, scanLimitY)
 
                 var bestMicroScore = 0f
                 var bestMicroX = expLeft
                 var bestMicroY = expTop
 
                 for (dy in -12..12) {
-                    val qy = (expTop + dy).coerceIn(roiMinY, scanLimitY)
+                    val qy = (expTop + dy).coerceIn(cMinY, scanLimitY)
                     for (dx in -12..12) {
-                        val qx = (expLeft + dx).coerceIn(roiMinX, scanLimitX)
-                        val score = evaluateCandidateScore(sPixels, sw, sh, qx, qy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
+                        val qx = (expLeft + dx).coerceIn(cMinX, scanLimitX)
+                        val score = evaluateCandidateScore(sPixels, sw, sh, qx, qy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = ctx.templateRoiZones, selectedAnchors = selectedAnchors)
                         if (score > bestMicroScore) {
                             bestMicroScore = score
                             bestMicroX = qx
@@ -934,18 +996,18 @@ object TemplateMatchingEngine {
             val l1StepY = (features.th / 4).coerceIn(4, 16)
 
             for (probe in primaryProbes) {
-                val expLeft = (probe.x - features.centroidX).toInt().coerceIn(roiMinX, scanLimitX)
-                val expTop = (probe.y - features.centroidY).toInt().coerceIn(roiMinY, scanLimitY)
+                val expLeft = (probe.x - features.centroidX).toInt().coerceIn(cMinX, scanLimitX)
+                val expTop = (probe.y - features.centroidY).toInt().coerceIn(cMinY, scanLimitY)
 
                 var bestLocalScore = 0f
                 var bestLocalX = expLeft
                 var bestLocalY = expTop
 
                 for (dy in -localRangeY..localRangeY step l1StepY) {
-                    val qy = (expTop + dy).coerceIn(roiMinY, scanLimitY)
+                    val qy = (expTop + dy).coerceIn(cMinY, scanLimitY)
                     for (dx in -localRangeX..localRangeX step l1StepX) {
-                        val qx = (expLeft + dx).coerceIn(roiMinX, scanLimitX)
-                        val score = evaluateCandidateScore(sPixels, sw, sh, qx, qy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
+                        val qx = (expLeft + dx).coerceIn(cMinX, scanLimitX)
+                        val score = evaluateCandidateScore(sPixels, sw, sh, qx, qy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = ctx.templateRoiZones, selectedAnchors = selectedAnchors)
                         if (score > bestLocalScore) {
                             bestLocalScore = score
                             bestLocalX = qx
@@ -958,10 +1020,10 @@ object TemplateMatchingEngine {
                     val peakX = bestLocalX
                     val peakY = bestLocalY
                     for (fdy in -2..2) {
-                        val fqy = (peakY + fdy).coerceIn(roiMinY, scanLimitY)
+                        val fqy = (peakY + fdy).coerceIn(cMinY, scanLimitY)
                         for (fdx in -2..2) {
-                            val fqx = (peakX + fdx).coerceIn(roiMinX, scanLimitX)
-                            val score = evaluateCandidateScore(sPixels, sw, sh, fqx, fqy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
+                            val fqx = (peakX + fdx).coerceIn(cMinX, scanLimitX)
+                            val score = evaluateCandidateScore(sPixels, sw, sh, fqx, fqy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = ctx.templateRoiZones, selectedAnchors = selectedAnchors)
                             if (score > bestLocalScore) {
                                 bestLocalScore = score
                                 bestLocalX = fqx
@@ -1067,26 +1129,18 @@ object TemplateMatchingEngine {
 
         for (ctx in contextsForGridScan) {
             if (isCancelled()) break
+            if (ctx.isStrictRoi && ctx.templateRoiZones.isEmpty()) continue
 
             val tPath = ctx.tPath
             val features = ctx.features
             val templateThreshold = ctx.templateThreshold
             val isShapeDriven = ctx.isShapeDriven
             
-            var effMinX = roiMinX
-            var effMinY = roiMinY
-            var effMaxX = ctx.scanLimitX
-            var effMaxY = ctx.scanLimitY
+            val effMinX = ctx.minX
+            val effMinY = ctx.minY
+            val effMaxX = ctx.scanLimitX
+            val effMaxY = ctx.scanLimitY
 
-            if (isStrictRoi) {
-                // Строгий режим: мы сканируем только ROI
-            } else if (!hasRoi) {
-                // Если нет строгого режима и нет явного ROI - ищем по всему экрану
-                effMinX = 0
-                effMinY = 0
-                effMaxX = sw - features.tw
-                effMaxY = sh - features.th
-            }
             val scanLimitX = effMaxX
             val scanLimitY = effMaxY
 
@@ -1114,12 +1168,12 @@ object TemplateMatchingEngine {
                 }
             }
 
-            if (selectedRoiZones.isNotEmpty() || selectedAnchors.isNotEmpty()) {
+            if (ctx.templateRoiZones.isNotEmpty() || selectedAnchors.isNotEmpty()) {
                 scanPoints.sortBy { pt ->
                     val cx = pt.first + features.centroidX
                     val cy = pt.second + features.centroidY
                     var minD = Float.MAX_VALUE
-                    for (z in selectedRoiZones) {
+                    for (z in ctx.templateRoiZones) {
                         if (z.contains(cx, cy)) {
                             minD = 0f
                             break
