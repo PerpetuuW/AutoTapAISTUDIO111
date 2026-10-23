@@ -746,6 +746,8 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 setColor(Color.parseColor("#1F6FEB"))
                 cornerRadius = 6f * density
             }
+            minHeight = 0; minimumHeight = 0
+            setPadding(0, 0, 0, 0)
             setOnClickListener {
                 overlayWindowManager.removeViewSafe(card)
                 executeRecaptureWithScreenshot(action, null, rawCropBitmap)
@@ -762,6 +764,8 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 setColor(Color.parseColor("#312E81"))
                 cornerRadius = 6f * density
             }
+            minHeight = 0; minimumHeight = 0
+            setPadding(0, 0, 0, 0)
             setOnClickListener {
                 overlayWindowManager.removeViewSafe(card)
                 executeRecaptureWithScreenshot(action, historicalScreenshot, rawCropBitmap)
@@ -778,13 +782,15 @@ class AutoTapOrchestrator private constructor(context: Context) : ControlPanelLi
                 setColor(Color.parseColor("#21262D"))
                 cornerRadius = 6f * density
             }
+            minHeight = 0; minimumHeight = 0
+            setPadding(0, 0, 0, 0)
             setOnClickListener {
                 overlayWindowManager.removeViewSafe(card)
                 controlPanelOverlay.show()
                 targetManager.setOverlaysVisible(true)
             }
         }
-        card.addView(btnCancel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(28)))
+        card.addView(btnCancel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(34)))
 
         val params = overlayWindowManager.createLayoutParams(
             width = dp(280),

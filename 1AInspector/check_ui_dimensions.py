@@ -15,7 +15,7 @@ def run_check(root_dir: str) -> tuple[bool, str]:
         return False, "Обнаружен риск двойного умножения на плотность (Double Density Bug)"
 
     # Проверка эталонного размера кнопок тулбара (36-40 dp)
-    if "38 * density" not in code and "38f * density" not in code and "effectiveSizeDp" not in code:
+    if "38 * density" not in code and "38f * density" not in code and "effectiveSizeDp" not in code and "dp(38)" not in code and "dpF(38" not in code:
         return False, "Размер кнопок пульта не соответствует эталону 38 dp [U-14]"
 
     return True, "Размеры интерфейса оверлея соответствуют эталону Material 3 (38 dp, защита от Double Density)"
