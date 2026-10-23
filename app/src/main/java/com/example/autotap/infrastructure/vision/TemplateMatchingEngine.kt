@@ -923,19 +923,14 @@ object TemplateMatchingEngine {
             }
             if (tier0Found && !findAllMatches) continue
 
-            // TIER 1: Быстрая двухпроходная окрестность UI (в пределах ROI или +-48 px)
+            // TIER 1: Адаптивная двухпроходная окрестность UI (зависит от размера маски)
             var tier1Found = false
             val primaryProbes = ctx.anchorProbes.take(3)
-            val isRoiActive = hasRoi
-            val localRange = if (isRoiActive) {
-                val roiW = (scanLimitX - roiMinX).coerceAtLeast(100)
-                val roiH = (scanLimitY - roiMinY).coerceAtLeast(100)
-                max(roiW, roiH) / 2 + 16
-            } else 48
 
-            val l1Step = if (isRoiActive) {
-                (min(features.tw, features.th) / 3).coerceIn(4, 16)
-            } else 12
+            val localRangeX = (features.tw * 1.5f).toInt().coerceIn(36, 120)
+            val localRangeY = (features.th * 1.5f).toInt().coerceIn(36, 120)
+            val l1StepX = (features.tw / 4).coerceIn(4, 16)
+            val l1StepY = (features.th / 4).coerceIn(4, 16)
 
             for (probe in primaryProbes) {
                 val expLeft = (probe.x - features.centroidX).toInt().coerceIn(roiMinX, scanLimitX)
@@ -945,9 +940,9 @@ object TemplateMatchingEngine {
                 var bestLocalX = expLeft
                 var bestLocalY = expTop
 
-                for (dy in -localRange..localRange step l1Step) {
+                for (dy in -localRangeY..localRangeY step l1StepY) {
                     val qy = (expTop + dy).coerceIn(roiMinY, scanLimitY)
-                    for (dx in -localRange..localRange step l1Step) {
+                    for (dx in -localRangeX..localRangeX step l1StepX) {
                         val qx = (expLeft + dx).coerceIn(roiMinX, scanLimitX)
                         val score = evaluateCandidateScore(sPixels, sw, sh, qx, qy, features, isShapeDriven, useDeltaE = isDeltaEMode, selectedZones = selectedRoiZones, selectedAnchors = selectedAnchors)
                         if (score > bestLocalScore) {
@@ -1071,14 +1066,28 @@ object TemplateMatchingEngine {
 
         for (ctx in contextsForGridScan) {
             if (isCancelled()) break
-            if (isStrictRoi) continue
 
             val tPath = ctx.tPath
             val features = ctx.features
             val templateThreshold = ctx.templateThreshold
             val isShapeDriven = ctx.isShapeDriven
-            val scanLimitX = ctx.scanLimitX
-            val scanLimitY = ctx.scanLimitY
+            
+            var effMinX = roiMinX
+            var effMinY = roiMinY
+            var effMaxX = ctx.scanLimitX
+            var effMaxY = ctx.scanLimitY
+
+            if (isStrictRoi) {
+                // Строгий режим: мы сканируем только ROI
+            } else if (!hasRoi) {
+                // Если нет строгого режима и нет явного ROI - ищем по всему экрану
+                effMinX = 0
+                effMinY = 0
+                effMaxX = sw - features.tw
+                effMaxY = sh - features.th
+            }
+            val scanLimitX = effMaxX
+            val scanLimitY = effMaxY
 
             val isSmall = features.isMicroIcon || features.isThinLine
             val safeCoarseThreshold = if (isSmall) {
@@ -1096,10 +1105,10 @@ object TemplateMatchingEngine {
             val spatialSectors = HashMap<Long, Triple<Int, Int, Float>>()
             val sectorBinSize = if (isSmall) 16 else 32
 
-            val estCount = ((scanLimitY - roiMinY) / gridStepY + 1) * ((scanLimitX - roiMinX) / gridStepX + 1)
+            val estCount = ((effMaxY - effMinY) / gridStepY + 1) * ((effMaxX - effMinX) / gridStepX + 1)
             val scanPoints = ArrayList<Pair<Int, Int>>(maxOf(16, estCount))
-            for (gy in roiMinY..scanLimitY step gridStepY) {
-                for (gx in roiMinX..scanLimitX step gridStepX) {
+            for (gy in effMinY..effMaxY step gridStepY) {
+                for (gx in effMinX..effMaxX step gridStepX) {
                     scanPoints.add(Pair(gx, gy))
                 }
             }

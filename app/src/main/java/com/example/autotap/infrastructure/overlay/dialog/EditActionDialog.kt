@@ -82,7 +82,7 @@ class EditActionDialog(
     private var isDeltaEMode = action.colorDeltaEMode
     private var isShapeOnly = action.isShapeOnlyMode
     private var isNeuralEngine = action.isNeuralEngine
-    private var isStrictRoiOnly = false
+    private var isStrictRoiOnly = action.isStrictRoiOnly
         // Режим формы инкапсулирован в метаданных шаблона
     private var btnToggleEngineRef: Button? = null
 
@@ -1982,6 +1982,7 @@ class EditActionDialog(
                     isShapeOnlyMode = isShapeOnly,
                     isMultiScaleMode = isMultiScale,
                     isNeuralEngine = isNeuralEngine,
+                    isStrictRoiOnly = isStrictRoiOnly,
                     pinchStartDistance = etPinchStart.text.toString().toFloatOrNull() ?: action.pinchStartDistance,
                     pinchEndDistance = etPinchEnd.text.toString().toFloatOrNull() ?: action.pinchEndDistance,
                     delayMs = d,
