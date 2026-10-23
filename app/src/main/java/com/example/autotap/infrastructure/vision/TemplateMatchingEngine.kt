@@ -260,9 +260,9 @@ object TemplateMatchingEngine {
             } else 0L
 
             val stableKey = if (cacheKey.contains("_$metaLastMod")) cacheKey else if (tPath.isNotEmpty()) {
-                "${tPath}_${tw}x${th}_${metaLastMod}_$defaultSim"
+                "${tPath}_${tw}x${th}_$metaLastMod"
             } else {
-                "${cacheKey}_${tw}x${th}_$defaultSim"
+                "${cacheKey}_${tw}x${th}"
             }
 
             val cached = templateFeatureCache[stableKey]
@@ -364,7 +364,8 @@ object TemplateMatchingEngine {
                         rawFile = File(parentDir, "raw_" + maskFile.name)
                     }
                     if (rawFile.exists()) {
-                        val rawBmp = BitmapFactory.decodeFile(rawFile.absolutePath)
+                        val opts = BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.ARGB_8888 }
+                        val rawBmp = BitmapFactory.decodeFile(rawFile.absolutePath, opts)
                         if (rawBmp != null) {
                             val scaledRaw = if (rawBmp.width == tw && rawBmp.height == th) {
                                 rawBmp
