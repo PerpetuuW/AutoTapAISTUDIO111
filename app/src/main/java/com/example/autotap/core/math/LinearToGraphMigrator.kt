@@ -561,6 +561,7 @@ object LinearToGraphMigrator {
                 shapeExpansion = targetAction.shapeExpansion,
                 paddingOffsetPx = targetAction.paddingOffsetPx,
                 isCircleShape = targetAction.isCircleShape,
+                isStrictRoiOnly = targetAction.isStrictRoiOnly,
                 autoClickTarget = false,
                 targetPortId = matchPortId
             )
@@ -715,6 +716,7 @@ object LinearToGraphMigrator {
                     shapeExpansion = trig.shapeExpansion,
                     paddingOffsetPx = trig.paddingOffsetPx,
                     isCircleShape = trig.isCircleShape,
+                    isStrictRoiOnly = trig.isStrictRoiOnly,
                     useCustomClickOffset = if (isColorCheck) false else trig.useCustomClick,
                     clickOffsetX = clickOffsetX,
                     clickOffsetY = clickOffsetY,
