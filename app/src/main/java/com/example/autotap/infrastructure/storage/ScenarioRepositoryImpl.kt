@@ -99,6 +99,7 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                     put("colorDeltaEMode", action.colorDeltaEMode)
                     put("isShapeOnlyMode", action.isShapeOnlyMode)
                     put("isNeuralEngine", action.isNeuralEngine)
+                    put("isStrictRoiOnly", action.isStrictRoiOnly)
                     put("targetOccurrenceIndex", action.targetOccurrenceIndex)
                     put("shapeExpansion", action.shapeExpansion)
                     put("paddingOffsetPx", action.paddingOffsetPx)
@@ -303,6 +304,7 @@ class ScenarioRepositoryImpl(private val context: Context) : IScenarioRepository
                         colorDeltaEMode = obj.optBoolean("colorDeltaEMode", true),
                         isShapeOnlyMode = obj.optBoolean("isShapeOnlyMode", false),
                         isNeuralEngine = obj.optBoolean("isNeuralEngine", false),
+                        isStrictRoiOnly = obj.optBoolean("isStrictRoiOnly", false),
                         shapeExpansion = obj.optInt("shapeExpansion", 45),
                         paddingOffsetPx = obj.optInt("paddingOffsetPx", 2),
                         isCircleShape = obj.optBoolean("isCircleShape", false),

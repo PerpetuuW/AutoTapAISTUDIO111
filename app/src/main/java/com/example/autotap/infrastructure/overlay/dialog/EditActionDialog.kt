@@ -2015,6 +2015,23 @@ class EditActionDialog(
                     roiLeft = currentRoiLeft, roiTop = currentRoiTop, roiRight = currentRoiRight, roiBottom = currentRoiBottom,
                     notifyOnMatch = isNotifyOnMatch
                     )
+                val allStepPaths = (listOf(effectivePrimary) + selectedMultiPaths).filter { it.isNotBlank() && !it.startsWith("ocr:") }.distinct()
+                for (tplPath in allStepPaths) {
+                    try {
+                        val resolved = templateRepository.resolveTemplatePath(tplPath)
+                        val mFile = File(resolved)
+                        val metaFile = File(mFile.parentFile, "${mFile.nameWithoutExtension}.json")
+                        if (metaFile.exists()) {
+                            val metaJson = org.json.JSONObject(metaFile.readText())
+                            if (metaJson.optBoolean("isStrictRoiOnly", false) != isStrictRoiOnly) {
+                                metaJson.put("isStrictRoiOnly", isStrictRoiOnly)
+                                metaFile.writeText(metaJson.toString(4))
+                                com.example.autotap.infrastructure.vision.TemplateMatchingEngine.invalidateTemplate(resolved)
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+
                 if (selectedType == ActionType.OCR) {
                     val original = lastRecognizedOcrText
                     val corrected = etOcrQuery.text.toString().trim()

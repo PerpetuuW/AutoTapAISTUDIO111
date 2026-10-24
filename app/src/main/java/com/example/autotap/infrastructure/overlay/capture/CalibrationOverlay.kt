@@ -2136,7 +2136,7 @@ private val targetStepId: Int? = null,
                     put("isCircleShape", isCircleShape)
                     put("colorDeltaEMode", isSmartColorMode)
                     put("isSmartColorMode", isSmartColorMode)
-                    put("isStrictRoiOnly", false)
+                    put("isStrictRoiOnly", existingAction?.isStrictRoiOnly ?: false)
                     put("isNeuralEngine", isNeuralEngineMode)
                     put("optimalDownscaleFactor", finalDownscale)
                     put("downscaleFactor", finalDownscale)
