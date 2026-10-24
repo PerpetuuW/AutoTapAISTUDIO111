@@ -685,24 +685,7 @@ class TargetOverlayManager(
                                     pathPoints = newPts
                                 )
                                 actionsList[idx] = updatedAction
-
-
-                                endTargetViews[currentId]?.let { etv ->
-                                    val elp = etv.layoutParams as WindowManager.LayoutParams
-                                    elp.x = ((newEndX ?: 0f) - halfSz - safePad).toInt()
-                                    elp.y = ((newEndY ?: 0f) - halfSz - safePad).toInt()
-                                    overlayWindowManager.updateViewSafe(etv, elp)
-                                }
-                                waypointViews[currentId]?.forEachIndexed { i, wpView ->
-                                    val pIdx = i + 1
-                                    if (pIdx < newPts.size) {
-                                        val wlp = wpView.layoutParams as WindowManager.LayoutParams
-                                        wlp.x = (newPts[pIdx].x - dp(14f)).toInt()
-                                        wlp.y = (newPts[pIdx].y - dp(14f)).toInt()
-                                        overlayWindowManager.updateViewSafe(wpView, wlp)
-                                    }
-                                }
-                                updateGraph()
+                                redrawGraphOnly()
                             }
                             // [V33.8] Эластичное слежение быстрого меню за мишенью при перетаскивании
                             if (quickRingOverlay.isShowingFor(currentId)) {
@@ -715,7 +698,30 @@ class TargetOverlayManager(
                         return true
                     }
                     MotionEvent.ACTION_UP -> {
-                        if (!isMoved) {
+                        if (isMoved) {
+                            val idx = actionsList.indexOfFirst { it.id == currentId }
+                            if (idx != -1) {
+                                val curAct = actionsList[idx]
+                                val endSz = dp(38f)
+                                val endHalfSz = endSz / 2f
+                                endTargetViews[currentId]?.let { etv ->
+                                    val elp = etv.layoutParams as WindowManager.LayoutParams
+                                    elp.x = ((curAct.endX ?: 0f) - endHalfSz).toInt()
+                                    elp.y = ((curAct.endY ?: 0f) - endHalfSz).toInt()
+                                    overlayWindowManager.updateViewSafe(etv, elp)
+                                }
+                                waypointViews[currentId]?.forEach { wpView ->
+                                    val pIdx = (wpView.getTag(android.R.id.content) as? Int) ?: -1
+                                    if (pIdx in 1 until curAct.pathPoints.size - 1) {
+                                        val wlp = wpView.layoutParams as WindowManager.LayoutParams
+                                        wlp.x = (curAct.pathPoints[pIdx].x - dp(14f)).toInt()
+                                        wlp.y = (curAct.pathPoints[pIdx].y - dp(14f)).toInt()
+                                        overlayWindowManager.updateViewSafe(wpView, wlp)
+                                    }
+                                }
+                                updateGraph()
+                            }
+                        } else {
                             val currentAct = actionsList.firstOrNull { it.id == currentId } ?: action
                             val pendingId = pendingSwapActionId
                             if (pendingId != null && pendingId != currentAct.id) {
@@ -826,12 +832,17 @@ class TargetOverlayManager(
                                 } else currentAct.pathPoints
                                 val updatedAction = currentAct.copy(endX = newEndX, endY = newEndY, pathPoints = pts)
                                 actionsList[idx] = updatedAction
-                                updateGraph()
+                                redrawGraphOnly()
                             }
                         }
                         return true
                     }
-                    MotionEvent.ACTION_UP -> return true
+                    MotionEvent.ACTION_UP -> {
+                        if (isMoved) {
+                            updateGraph()
+                        }
+                        return true
+                    }
                 }
                 return false
             }
@@ -842,7 +853,7 @@ class TargetOverlayManager(
         overlayWindowManager.addViewSafe(endView, lp)
         }
 
-        private fun spawnWaypointViews(action: MacroAction) {
+    private fun spawnWaypointViews(action: MacroAction) {
         waypointViews[action.id]?.forEach { overlayWindowManager.removeViewSafe(it) }
         waypointViews.remove(action.id)
         if (action.type != ActionType.PATH || action.pathPoints.size <= 2) return
@@ -851,16 +862,28 @@ class TargetOverlayManager(
         val halfSz = sz / 2f
         val list = mutableListOf<View>()
 
-        for (pIdx in 1 until action.pathPoints.size - 1) {
+        val innerCount = action.pathPoints.size - 2
+        val maxInteractiveNodes = 8
+        val indexStep = if (innerCount > maxInteractiveNodes) {
+            (innerCount.toFloat() / maxInteractiveNodes.toFloat()).coerceAtLeast(1f)
+        } else 1f
+        val displayedIndices = LinkedHashSet<Int>()
+        var cursor = 1f
+        while (cursor.toInt() <= action.pathPoints.size - 2 && displayedIndices.size < maxInteractiveNodes) {
+            displayedIndices.add(cursor.toInt())
+            cursor += indexStep
+        }
+
+        for (pIdx in displayedIndices) {
             val pt = action.pathPoints[pIdx]
             val lp = overlayWindowManager.createLayoutParams(sz, sz).apply {
                 x = (pt.x - halfSz).toInt()
                 y = (pt.y - halfSz).toInt()
             }
 
-
             val wpView = android.widget.FrameLayout(context).apply {
                 tag = action.id
+                setTag(android.R.id.content, pIdx)
                 visibility = if (isOverlaysVisibleState && visibilityMode != OverlayVisibilityMode.HIDDEN) View.VISIBLE else View.GONE
                 background = android.graphics.drawable.GradientDrawable().apply {
                     shape = android.graphics.drawable.GradientDrawable.OVAL
@@ -899,26 +922,25 @@ class TargetOverlayManager(
                                         val oldTime = mPts[pIdx].timeOffsetMs
                                         mPts[pIdx] = com.example.autotap.domain.model.Point2D(lp.x + halfSz, lp.y + halfSz, oldTime)
                                         actionsList[aIdx] = cur.copy(pathPoints = mPts)
-                                        updateGraph()
+                                        redrawGraphOnly()
                                     }
                                 }
                                 return true
                             }
                             MotionEvent.ACTION_UP -> {
                                 updateGraph()
-                                val holdTime = System.currentTimeMillis() - touchX.toLong()
                                 return true
                             }
-                            }
-                            return false
-                            }
-                            })
+                        }
+                        return false
+                    }
+                })
 
-                            setOnLongClickListener {
-                            val aIdx = actionsList.indexOfFirst { it.id == action.id }
-                            if (aIdx != -1) {
-                            val cur = actionsList[aIdx]
-                            if (cur.pathPoints.size > 2 && pIdx < cur.pathPoints.size) {
+                setOnLongClickListener {
+                    val aIdx = actionsList.indexOfFirst { it.id == action.id }
+                    if (aIdx != -1) {
+                        val cur = actionsList[aIdx]
+                        if (cur.pathPoints.size > 2 && pIdx < cur.pathPoints.size) {
                             val mPts = cur.pathPoints.toMutableList()
                             mPts.removeAt(pIdx)
                             val updated = cur.copy(pathPoints = mPts)
@@ -926,16 +948,16 @@ class TargetOverlayManager(
                             spawnWaypointViews(updated)
                             updateGraph()
                             android.widget.Toast.makeText(context, "Точка пути удалена", android.widget.Toast.LENGTH_SHORT).show()
-                            }
-                            }
-                            true
-                            }
+                        }
+                    }
+                    true
+                }
             }
             list.add(wpView)
             overlayWindowManager.addViewSafe(wpView, lp)
         }
         waypointViews[action.id] = list
-        }
+    }
 
     private fun syncAllViews() {
         val currentActions = actionsList.toList()
@@ -956,6 +978,13 @@ class TargetOverlayManager(
             }
         }
         setOverlaysVisible(true)
+    }
+
+    private fun redrawGraphOnly() {
+        val list = actionsList.toList()
+        mainHandler.post {
+            graphOverlayView.submitActions(list)
+        }
     }
 
     private fun updateGraph() {

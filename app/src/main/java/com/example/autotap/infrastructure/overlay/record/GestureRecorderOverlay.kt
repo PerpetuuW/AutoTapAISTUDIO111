@@ -417,7 +417,7 @@ class GestureRecorderOverlay(
                     // 3. ТРАЕКТОРИЯ / СВАЙП (PATH)
                     else {
                         lastRecordEventTime = System.currentTimeMillis()
-                        val compressedPoints = PathCompressionEngine.compressRecordedPath(capturedPoints, maxPoints = 80)
+                        val compressedPoints = PathCompressionEngine.compressRecordedPath(capturedPoints, maxPoints = 20, initialEpsilon = 3.5f)
                         val defaultPathDur = com.example.autotap.infrastructure.orchestrator.AutoTapOrchestrator.getInstance(context).globalPathDurationMs
                         val recordedHoldDuration = if (duration > 30L) duration.coerceAtMost(10000L) else defaultPathDur
 
